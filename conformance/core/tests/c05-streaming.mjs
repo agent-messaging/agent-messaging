@@ -4,6 +4,7 @@
 // subject by a third connection must NOT surface in the requester's output.
 import { connect, jwtAuthenticator, nkeys } from "../../peering/lib/mesh.mjs";
 import { sdkModule as sdk } from "../../peering/lib/sdk.mjs";
+import { cleanSlate, seedFor } from "../lib/test-agents.mjs";
 
 const te = new TextEncoder();
 const td = new TextDecoder();
@@ -18,7 +19,12 @@ export default {
     const { AgentMesh } = sdk;
     const seed = () => td.decode(nkeys.createUser().getSeed());
 
-    const responder = await AgentMesh.connect(env.meshWsUrl, { authenticator: auth(), nkeySeed: seed() });
+    // The responder registers, so it has a standing, named key
+    // (lib/test-agents.mjs), cleared of an earlier run's leftovers first. The
+    // requester only sends and stays fresh.
+    const seedR = seedFor(env, "c05-streamer");
+    await cleanSlate(env, "c05-streamer");
+    const responder = await AgentMesh.connect(env.meshWsUrl, { requireNamed: false, authenticator: auth(), nkeySeed: seedR });
     responder.onStreamRequest("count", async (input, _ctx, writer) => {
       for (const w of ["one", "two", "three"]) {
         writer.write(w);
@@ -28,7 +34,7 @@ export default {
     });
     await responder.register({ name: "c05-streamer", visibility: "unlisted", skills: [{ id: "count", name: "count", description: "c05" }] });
 
-    const requester = await AgentMesh.connect(env.meshWsUrl, { authenticator: auth(), nkeySeed: seed() });
+    const requester = await AgentMesh.connect(env.meshWsUrl, { requireNamed: false, authenticator: auth(), nkeySeed: seed() });
     const intruder = await connect({ servers: env.meshWsUrl, authenticator: auth(), timeout: 15_000, maxReconnectAttempts: 0 });
     const fails = [];
     try {
@@ -56,6 +62,7 @@ export default {
       await responder.close().catch(() => {});
       await requester.close().catch(() => {});
       await intruder.close().catch(() => {});
+      await cleanSlate(env, "c05-streamer");
     }
     return fails.length
       ? { status: "fail", detail: fails.join("; ") }

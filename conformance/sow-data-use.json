@@ -1,0 +1,205 @@
+{
+  "comment": "Agent SoW confidentiality and retention (agentsow.com 0.14.0-draft, 5.11): the canonical split clause, graded sub-clause by sub-clause because the grades genuinely differ - transport sealing and retention windows are runtime-checkable ('enforced'), while what a party does with data inside its own walls is checkable by nobody, so the promises are 'recorded' and a clause claiming otherwise is refused as the false enforcement claim. Pins the bytes and the branches where two implementations drift: promises spelled ONLY by presence (a promise is the literal true or absent; false is not a value, it is spelled by omission, because a promise left out is a promise not made and a reader MUST NOT infer it), the processors list that makes the promises honest for the way agents are actually built (no_third_party_sharing quantifies over everything EXCEPT the declared processors; an EMPTY list is itself a statement - content leaves the provider for nowhere - and is VALID, while omitting the member states nothing), the retention ceiling as a positive whole number of days, the exact shortfall sentences the deterministic pre-admission comparison shows (every required promise must be declared and a declared retention window must be no longer than the required ceiling; a ceiling met exactly IS met; processor acceptability is deliberately NOT in this comparison's v1), and a document whose canonical bytes both SDKs must reproduce exactly, because the clause sits INSIDE the signed bytes. THE FIXTURE IS THE AUTHORITY: when a test against it fails, fix the implementation; when the fixture itself is believed wrong, change it only with a spec change alongside.",
+  "version": 1,
+  "spec": "Agent SoW 0.14.0-draft: 5.11 (confidentiality and retention), 4.2 (grades)",
+
+  "promises": {
+    "comment": "5.11: the closed promise vocabulary, and the only spelling a promise has - presence, as the literal true. Absence carries the weak meaning throughout: a promise left out is a promise not made, and a reader MUST NOT infer it. There is no false.",
+    "all": ["no_training", "no_third_party_sharing", "no_human_reading"]
+  },
+
+  "clause": {
+    "comment": "The clause shape. Sub-clauses are graded separately and MUST NOT be merged: transport and retention are runtime-checkable and graded 'enforced'; promises are graded 'recorded', flatly, and 'enforced' on them is refused as the false enforcement claim. `processors` names the services the client's content passes through so the work can happen - service is the one REQUIRED member (the client is owed the name so it can go read that service's terms), domain says which service of that name is meant, purpose is the narrowest true statement of what it is used for. An empty processors list is VALID and meaningful: content leaves the provider for nowhere. Backstops: at most 16 processors, service and domain of at most 120 characters, purpose of at most 300.",
+    "processors_max": 16,
+    "service_chars_max": 120,
+    "domain_chars_max": 120,
+    "purpose_chars_max": 300,
+    "valid": [
+      {
+        "transport": { "sealed": true, "grade": "enforced" },
+        "retention": { "max_days": 30, "grade": "enforced" },
+        "processors": [
+          { "service": "Anthropic API", "domain": "anthropic.com", "purpose": "model inference, zero-retention tier" }
+        ],
+        "promises": { "no_training": true, "no_third_party_sharing": true, "no_human_reading": true, "grade": "recorded" }
+      },
+      { "promises": { "no_training": true, "grade": "recorded" } },
+      { "retention": { "max_days": 7, "grade": "enforced" } },
+      { "processors": [] },
+      { "transport": { "sealed": false, "grade": "enforced" } },
+      { "processors": [{ "service": "Whisper transcription" }] },
+      { "processors": [{ "service": "Postmark", "domain": "postmarkapp.com" }, { "service": "Postmark", "domain": "postmark.example" }] }
+    ],
+    "invalid": [
+      { "case": "not_an_object", "confidentiality": "sealed", "why": "the clause is an object of separately graded sub-clauses, not a word" },
+      { "case": "promise_false", "confidentiality": { "promises": { "no_training": false, "grade": "recorded" } }, "why": "false is not a value here: a promise left out is a promise not made, and false is spelled by omission" },
+      { "case": "promise_non_boolean", "confidentiality": { "promises": { "no_training": "yes", "grade": "recorded" } }, "why": "a promise is the literal true or absent; nothing else reads the same way twice" },
+      { "case": "promises_grade_enforced", "confidentiality": { "promises": { "no_training": true, "no_third_party_sharing": true, "grade": "enforced" } }, "why": "the false enforcement claim: what a party does with data inside its own walls is checkable by nobody, and a conforming renderer MUST NOT present these as enforced" },
+      { "case": "promises_missing_grade", "confidentiality": { "promises": { "no_training": true } }, "why": "every clause object carries a grade (4.2), and for promises it is 'recorded'" },
+      { "case": "retention_zero", "confidentiality": { "retention": { "max_days": 0, "grade": "enforced" } }, "why": "the ceiling is a positive whole number of days" },
+      { "case": "retention_negative", "confidentiality": { "retention": { "max_days": -30, "grade": "enforced" } }, "why": "a window does not run backwards" },
+      { "case": "retention_fractional", "confidentiality": { "retention": { "max_days": 2.5, "grade": "enforced" } }, "why": "whole days only; a fractional ceiling invites two implementations to round differently" },
+      { "case": "retention_grade_recorded", "confidentiality": { "retention": { "max_days": 30, "grade": "recorded" } }, "why": "understates what ships: a retention window is runtime-checkable, and 5.11 grades it 'enforced'" },
+      { "case": "transport_sealed_not_boolean", "confidentiality": { "transport": { "sealed": "yes", "grade": "enforced" } }, "why": "the channel either is sealed or it is not" },
+      { "case": "transport_grade_recorded", "confidentiality": { "transport": { "sealed": true, "grade": "recorded" } }, "why": "understates what ships: whether the channel is sealed is runtime-checkable, and 5.11 grades it 'enforced'" },
+      { "case": "processor_without_service", "confidentiality": { "processors": [{ "domain": "anthropic.com" }] }, "why": "service is the one REQUIRED member: the client is owed the name so it can go read that service's terms" },
+      { "case": "processor_blank_service", "confidentiality": { "processors": [{ "service": "   " }] }, "why": "present and blank is not the same as absent" },
+      { "case": "processor_service_too_long", "confidentiality": { "processors": [{ "service": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" }] }, "why": "121 characters; the backstop is 120" },
+      { "case": "processor_purpose_too_long", "confidentiality": { "processors": [{ "service": "Anthropic API", "purpose": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" }] }, "why": "301 characters; the backstop is 300" },
+      { "case": "processor_duplicate", "confidentiality": { "processors": [{ "service": "Anthropic API", "domain": "anthropic.com" }, { "service": "Anthropic API", "domain": "anthropic.com" }] }, "why": "the same service and domain pair twice states nothing new; a reader cannot tell whether the second entry is a mistake or a different service" },
+      { "case": "processors_not_a_list", "confidentiality": { "processors": "Anthropic API" }, "why": "processors is a list of the services content passes through, even with one entry" },
+      { "case": "too_many_processors", "confidentiality": { "processors": [{ "service": "p1" }, { "service": "p2" }, { "service": "p3" }, { "service": "p4" }, { "service": "p5" }, { "service": "p6" }, { "service": "p7" }, { "service": "p8" }, { "service": "p9" }, { "service": "p10" }, { "service": "p11" }, { "service": "p12" }, { "service": "p13" }, { "service": "p14" }, { "service": "p15" }, { "service": "p16" }, { "service": "p17" }] }, "why": "17 processors; the backstop is 16" }
+    ]
+  },
+
+  "shortfall": {
+    "comment": "The deterministic advisory comparison 5.11's pre-admission shadow rests on: every required promise must be declared, a declared retention window must be no longer than the required ceiling, and a declared jurisdiction set must be stated and a subset of the required one. Null means the requirement is met - including a ceiling met exactly, because the test is a ceiling, and including the same jurisdiction set, because narrowing includes staying put. The sentence is pinned because a client reads it whichever SDK evaluated it. Check order: unreadable or absent clause first, then promises in the REQUIREMENT'S declared order (the first missing one is reported), then retention, then jurisdictions in the DOCUMENT'S declared order (the first offending one is reported). An empty requirement returns null against anything, including an absent clause: a requirement that asks nothing is met by silence, and an empty promises or processed_in list asks nothing. Absence on the DOCUMENT side is counted as not meeting rather than read charitably - silence is not an answer, and an unstated jurisdiction may be any jurisdiction. The jurisdiction test is 5.15's flow-down test applied between a requirement and the document answering it, and like that comparator it reads processed_in as DECLARED STRUCTURE: a list that does not read as non-empty strings has stated nothing, which is why an unreadable list draws the states-none sentence rather than a shape refusal. Processor acceptability is deliberately not in this comparison's v1.",
+    "cases": [
+      { "name": "an empty requirement asks nothing, of nothing", "required": {}, "document": {}, "expected": null },
+      { "name": "an empty requirement is met even by an unreadable clause", "required": {}, "document": { "confidentiality": "sealed" }, "expected": null },
+      { "name": "a requirement of no promises is an empty requirement", "required": { "promises": [] }, "document": {}, "expected": null },
+      {
+        "name": "promises required, nothing declared",
+        "required": { "promises": ["no_training"] },
+        "document": {},
+        "expected": "the requirement states confidentiality terms and this document declares none; silence is not an answer, and it is counted as not meeting rather than read charitably (§5.11)"
+      },
+      {
+        "name": "retention required, clause null",
+        "required": { "retention_max_days": 30 },
+        "document": { "confidentiality": null },
+        "expected": "the requirement states confidentiality terms and this document declares none; silence is not an answer, and it is counted as not meeting rather than read charitably (§5.11)"
+      },
+      {
+        "name": "unreadable clause",
+        "required": { "promises": ["no_training"] },
+        "document": { "confidentiality": { "promises": { "no_training": "yes", "grade": "recorded" } } },
+        "expected": "the requirement states confidentiality terms and this document's confidentiality clause is in a shape that cannot be read, so what it promises cannot be established; it is counted as not meeting rather than passed unread (§5.11)"
+      },
+      {
+        "name": "a required promise not made",
+        "required": { "promises": ["no_training"] },
+        "document": { "confidentiality": { "promises": { "no_third_party_sharing": true, "grade": "recorded" } } },
+        "expected": "the requirement includes the promise no_training and this document does not make it; a promise left out is a promise not made (§5.11)"
+      },
+      {
+        "name": "the first missing promise, in the requirement's order",
+        "required": { "promises": ["no_human_reading", "no_training"] },
+        "document": { "confidentiality": { "retention": { "max_days": 7, "grade": "enforced" } } },
+        "expected": "the requirement includes the promise no_human_reading and this document does not make it; a promise left out is a promise not made (§5.11)"
+      },
+      {
+        "name": "a promise shortfall outranks a retention one",
+        "required": { "promises": ["no_training"], "retention_max_days": 30 },
+        "document": { "confidentiality": { "retention": { "max_days": 60, "grade": "enforced" } } },
+        "expected": "the requirement includes the promise no_training and this document does not make it; a promise left out is a promise not made (§5.11)"
+      },
+      {
+        "name": "met promises",
+        "required": { "promises": ["no_training", "no_third_party_sharing"] },
+        "document": { "confidentiality": { "transport": { "sealed": true, "grade": "enforced" }, "retention": { "max_days": 30, "grade": "enforced" }, "processors": [{ "service": "Anthropic API", "domain": "anthropic.com", "purpose": "model inference, zero-retention tier" }], "promises": { "no_training": true, "no_third_party_sharing": true, "no_human_reading": true, "grade": "recorded" } } },
+        "expected": null
+      },
+      {
+        "name": "retention required, no ceiling declared",
+        "required": { "retention_max_days": 30 },
+        "document": { "confidentiality": { "promises": { "no_training": true, "grade": "recorded" } } },
+        "expected": "the requirement caps retention at 30 days and this document states no retention ceiling; an unstated ceiling does not meet a stated one (§5.11)"
+      },
+      {
+        "name": "retention too long",
+        "required": { "retention_max_days": 30 },
+        "document": { "confidentiality": { "retention": { "max_days": 60, "grade": "enforced" } } },
+        "expected": "the requirement caps retention at 30 days and this document keeps content up to 60 days; the test is a ceiling, and it is not met (§5.11)"
+      },
+      {
+        "name": "a ceiling met exactly is met",
+        "required": { "retention_max_days": 30 },
+        "document": { "confidentiality": { "retention": { "max_days": 30, "grade": "enforced" } } },
+        "expected": null
+      },
+      {
+        "name": "under the ceiling",
+        "required": { "retention_max_days": 30 },
+        "document": { "confidentiality": { "retention": { "max_days": 7, "grade": "enforced" } } },
+        "expected": null
+      },
+      {
+        "name": "a requirement of no jurisdictions is an empty requirement",
+        "required": { "processed_in": [] },
+        "document": {},
+        "expected": null
+      },
+      {
+        "name": "jurisdictions required, nothing declared at all",
+        "required": { "processed_in": ["eu"] },
+        "document": {},
+        "expected": "the requirement states confidentiality terms and this document declares none; silence is not an answer, and it is counted as not meeting rather than read charitably (§5.11)"
+      },
+      {
+        "name": "jurisdictions required, a clause that states none",
+        "required": { "processed_in": ["eu", "ch"] },
+        "document": { "confidentiality": { "retention": { "max_days": 7, "grade": "enforced" } } },
+        "expected": "the requirement confines processing to eu, ch and this document states no jurisdictions; an unstated jurisdiction may be any jurisdiction, and it is counted as not meeting rather than read charitably (§5.11)"
+      },
+      {
+        "name": "a jurisdiction outside the requirement",
+        "required": { "processed_in": ["eu"] },
+        "document": { "confidentiality": { "processed_in": ["eu", "us"] } },
+        "expected": "the requirement confines processing to eu and this document processes in us; a party may touch no jurisdiction the requirement allowed (§5.11)"
+      },
+      {
+        "name": "the first offending jurisdiction, in the document's declared order",
+        "required": { "processed_in": ["eu"] },
+        "document": { "confidentiality": { "processed_in": ["sg", "us"] } },
+        "expected": "the requirement confines processing to eu and this document processes in sg; a party may touch no jurisdiction the requirement allowed (§5.11)"
+      },
+      {
+        "name": "a narrower declaration meets a wider requirement",
+        "required": { "processed_in": ["eu", "ch"] },
+        "document": { "confidentiality": { "processed_in": ["eu"] } },
+        "expected": null
+      },
+      {
+        "name": "the same set is met, because narrowing includes staying put",
+        "required": { "processed_in": ["eu"] },
+        "document": { "confidentiality": { "processed_in": ["eu"] } },
+        "expected": null
+      },
+      {
+        "name": "an unreadable jurisdiction list states no jurisdictions",
+        "required": { "processed_in": ["eu"] },
+        "document": { "confidentiality": { "processed_in": ["eu", 7] } },
+        "expected": "the requirement confines processing to eu and this document states no jurisdictions; an unstated jurisdiction may be any jurisdiction, and it is counted as not meeting rather than read charitably (§5.11)"
+      },
+      {
+        "name": "a promise shortfall outranks a jurisdiction one",
+        "required": { "promises": ["no_training"], "processed_in": ["eu"] },
+        "document": { "confidentiality": { "processed_in": ["us"] } },
+        "expected": "the requirement includes the promise no_training and this document does not make it; a promise left out is a promise not made (§5.11)"
+      },
+      {
+        "name": "a retention shortfall outranks a jurisdiction one",
+        "required": { "retention_max_days": 30, "processed_in": ["eu"] },
+        "document": { "confidentiality": { "retention": { "max_days": 60, "grade": "enforced" }, "processed_in": ["us"] } },
+        "expected": "the requirement caps retention at 30 days and this document keeps content up to 60 days; the test is a ceiling, and it is not met (§5.11)"
+      }
+    ]
+  },
+
+  "signing": {
+    "comment": "The clause sits INSIDE the signed bytes. One byte of canonical drift between the SDKs is a document that verifies in one and is worthless in the other.",
+    "document": {
+      "confidentiality": {
+        "processors": [
+          { "domain": "anthropic.com", "purpose": "model inference, zero-retention tier", "service": "Anthropic API" }
+        ],
+        "promises": { "grade": "recorded", "no_third_party_sharing": true, "no_training": true },
+        "retention": { "grade": "enforced", "max_days": 30 },
+        "transport": { "grade": "enforced", "sealed": true }
+      },
+      "scope": "summarize the quarterly filings"
+    },
+    "canonical": "{\"confidentiality\":{\"processors\":[{\"domain\":\"anthropic.com\",\"purpose\":\"model inference, zero-retention tier\",\"service\":\"Anthropic API\"}],\"promises\":{\"grade\":\"recorded\",\"no_third_party_sharing\":true,\"no_training\":true},\"retention\":{\"grade\":\"enforced\",\"max_days\":30},\"transport\":{\"grade\":\"enforced\",\"sealed\":true}},\"scope\":\"summarize the quarterly filings\"}"
+  }
+}

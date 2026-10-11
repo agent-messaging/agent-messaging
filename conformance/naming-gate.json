@@ -1,0 +1,42 @@
+{
+  "comment": "The naming rule (decided by the owner, 2026-09-25): every agent's handle follows one global standard, the agent's name, a dot and its owner's email, registered with the naming service, and an agent without one sends nothing, whichever door it uses. The sender is told why before anything leaves, in `words`, followed by the handle proposed from the name the agent already has. The adapter (mesh-adapter/test/naming-gate.mjs), the TypeScript SDK (sdk-typescript/__tests__/unit/naming-gate.test.ts) and the Rust SDK (sdk-rust/tests/naming_gate.rs) are all held to this file. `words` is the platform's: NAMING_STANDARD in services/src/shared/naming-words.ts (`naming_standard` here) and the sentence its refusal says next. A naming service that does not answer lets an SDK send through (`outage`), as the platform's guard does; `cache` is how long each answer is kept, the unnamed and the unanswered ones briefly. The reference adapter is stricter since 2026-09-27 (`adapter_outage`): it lets the send through only when it verified a standard handle for this exact key within `trust_ms`, and otherwise refuses with `code` and plain words to try again. The SDKs have not taken that rule; whether they should is the owner's decision (docs/no-anonymous-agents-plan.md item 6).",
+  "naming_standard": "AgentMesh uses one global standard for agent names: the agent's name, a dot, and its owner's email. That way no two agents anywhere have the same name.",
+  "words": "AgentMesh uses one global standard for agent names: the agent's name, a dot, and its owner's email. That way no two agents anywhere have the same name. This agent does not have one yet, so nothing was sent.",
+  "code": "NOT_NAMED",
+  "outage": "send",
+  "adapter_outage": { "rule": "send_if_verified_recently", "trust_ms": 86400000, "code": "NAME_UNCHECKED" },
+  "cache": { "named_ttl_ms": 1800000, "unnamed_ttl_ms": 5000 },
+  "standard": [
+    "genesis.stephen@example.com",
+    "Coder.pat@example.net",
+    "help.system@agentmesh.ai",
+    "claude-code.pat@example.org",
+    "a.b.c@x.co.uk",
+    "mojo_2.stephen+agents@example.com"
+  ],
+  "not_standard": [
+    "",
+    "genesis",
+    "stephen@example.com",
+    "genesis.example.com",
+    ".stephen@example.com",
+    "genesis.@example.com",
+    "genesis stephen.x@example.com",
+    "genesis.stephen@localhost",
+    "genesis.stephen@example.",
+    "genesis.stephen@@example.com",
+    "Ugenesis"
+  ],
+  "proposals": [
+    { "name": "Genesis", "email": "stephen@example.com", "proposed_name": "genesis", "handle": "genesis.stephen@example.com" },
+    { "name": "Genesis", "email": "Stephen@Example.com", "proposed_name": "genesis", "handle": "genesis.stephen@example.com" },
+    { "name": "Kit Bot", "email": null, "proposed_name": "kit-bot", "handle": "kit-bot.<owner's email>" },
+    { "name": "Kit -- Bot", "email": null, "proposed_name": "kit-bot", "handle": "kit-bot.<owner's email>" },
+    { "name": "-_Lead_-", "email": "a@b.co", "proposed_name": "_lead_", "handle": "_lead_.a@b.co" },
+    { "name": "abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij", "email": "a@b.co", "proposed_name": "abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcd", "handle": "abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcd.a@b.co" },
+    { "name": "  mojo  ", "email": "not an email", "proposed_name": "mojo", "handle": "mojo.<owner's email>" },
+    { "name": "Réviewer.v2", "email": "ann@example.org", "proposed_name": "r-viewer-v2", "handle": "r-viewer-v2.ann@example.org" },
+    { "name": null, "email": "ann@example.org", "proposed_name": null, "handle": "<agent name>.ann@example.org" },
+    { "name": "---", "email": null, "proposed_name": null, "handle": "<agent name>.<owner's email>" }
+  ]
+}

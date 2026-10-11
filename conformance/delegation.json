@@ -1,0 +1,141 @@
+{
+  "comment": "SPEC.md 4.11 fixture: one agent, many places. The delegation and the approval are signed by the AGENT key over their prefix + the canonical JSON of the object minus `sig` (base64url). The place request is signed by the PLACE key over its prefix + the canonical JSON of the request. The direct envelope is `from` the agent, carries the delegation in meta.delegation, and is signed by the PLACE key over the ordinary envelope signed bytes (SPEC.md 5.3); a receiver that does not implement 4.11 refuses it as IDENTITY_MISMATCH. THE FIXTURE IS THE AUTHORITY.",
+  "version": 1,
+  "spec": "SPEC.md 4.11",
+  "identities": {
+    "agent_seed": "SUAEGDPNTWXACIF45CA23BUY36RIMWZXW5LEHSEOK2ONS5JWJ7PBC2EWBA",
+    "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+    "place_seed": "SUAKUHTBUGFZ3NORTJZZBQUZCETUDR5SUPVOUVYRSO7ZU5JJNZNH2POCWE",
+    "place": "UCISCNLAWSCQSEUAFFY4JQVULSJ3DLZ4I332KU4IB4M3AMKSAKY6E4FM",
+    "comment": "Published test seeds. The agent is the sender of signature-tags.json."
+  },
+  "delegation": {
+    "signed_bytes_prefix": "agentmesh-delegation-v1\n",
+    "canonical": "{\"agent\":\"UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP\",\"always_on\":true,\"expires_at\":\"2026-12-26T10:00:00.000Z\",\"id\":\"dlg_vector_1\",\"issued_at\":\"2026-09-27T10:00:00.000Z\",\"place\":{\"id\":\"machine-vector\",\"key\":\"UCISCNLAWSCQSEUAFFY4JQVULSJ3DLZ4I332KU4IB4M3AMKSAKY6E4FM\",\"kind\":\"machine\",\"label\":\"JEFF-LAPTOP\"},\"scopes\":[\"read\",\"everyday\"]}",
+    "signed": {
+      "id": "dlg_vector_1",
+      "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+      "place": {
+        "id": "machine-vector",
+        "key": "UCISCNLAWSCQSEUAFFY4JQVULSJ3DLZ4I332KU4IB4M3AMKSAKY6E4FM",
+        "kind": "machine",
+        "label": "JEFF-LAPTOP"
+      },
+      "scopes": [
+        "read",
+        "everyday"
+      ],
+      "always_on": true,
+      "issued_at": "2026-09-27T10:00:00.000Z",
+      "expires_at": "2026-12-26T10:00:00.000Z",
+      "sig": "FtjbgMFjfMk-x8E45su8HC1MQ3pOssfJSRWTXDS2IWBRJ9GdgEXusmHwGdu_i87DLp8RoA6g7pMQ8QtatrrNDg"
+    }
+  },
+  "approval": {
+    "signed_bytes_prefix": "agentmesh-approval-v1\n",
+    "act": {
+      "kind": "accept_quote",
+      "job": "42",
+      "price": {
+        "amount": 1200,
+        "currency": "USD"
+      }
+    },
+    "canonical": "{\"act\":{\"digest\":\"76d50e9836ec95e0db6bc3540c301fadf459b4444a082f8e892cc79bb2cb1429\",\"kind\":\"accept_quote\",\"summary\":\"Accept the quote on job 42 for 12.00 USD\"},\"agent\":\"UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP\",\"approved_at\":\"2026-09-27T10:42:00.000Z\",\"delegation\":\"dlg_vector_1\",\"expires_at\":\"2026-09-27T10:52:00.000Z\",\"method\":\"passkey\"}",
+    "signed": {
+      "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+      "delegation": "dlg_vector_1",
+      "act": {
+        "kind": "accept_quote",
+        "digest": "76d50e9836ec95e0db6bc3540c301fadf459b4444a082f8e892cc79bb2cb1429",
+        "summary": "Accept the quote on job 42 for 12.00 USD"
+      },
+      "method": "passkey",
+      "approved_at": "2026-09-27T10:42:00.000Z",
+      "expires_at": "2026-09-27T10:52:00.000Z",
+      "sig": "YTi19nASDjoEmBshytrFTDtfHOdCCDiod0zWSi6mDYDB2Yw4aks5bpuTneubPZ21NIk3q6wRqKGm_C3gMvi6Dw"
+    }
+  },
+  "place_request": {
+    "signed_bytes_prefix": "agentmesh-place-request-v1\n",
+    "request": {
+      "delegation": "dlg_vector_1",
+      "ts": "2026-09-27T10:41:00.000Z",
+      "nonce": "n-vector-1",
+      "act": {
+        "tool": "reply",
+        "arguments": {
+          "message": "m1",
+          "text": "Yes, Thursday works."
+        }
+      }
+    },
+    "canonical": "{\"act\":{\"arguments\":{\"message\":\"m1\",\"text\":\"Yes, Thursday works.\"},\"tool\":\"reply\"},\"delegation\":\"dlg_vector_1\",\"nonce\":\"n-vector-1\",\"ts\":\"2026-09-27T10:41:00.000Z\"}",
+    "sig": "kYrbOnnEtDpbzhftVFZbmCqmNw-tjYqT-BQE3CEgndJhl22wWQZDkjyblIjvnkFZUjEIf5o1V5YI_NbPQEQdBw"
+  },
+  "direct_envelope": {
+    "act": "send",
+    "now": "2026-09-27T10:41:30.000Z",
+    "envelope": {
+      "v": "0.3.0",
+      "id": "0192f0aa-0000-7000-8000-000000000001",
+      "type": "request",
+      "ts": "2026-09-27T10:41:30.000Z",
+      "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+      "trace": {
+        "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+        "span_id": "00f067aa0ba902b7",
+        "parent_span_id": null
+      },
+      "to": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+      "payload": {
+        "offering": "chat",
+        "input": {
+          "text": "hello from the laptop"
+        }
+      },
+      "meta": {
+        "delegation": {
+          "id": "dlg_vector_1",
+          "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "place": {
+            "id": "machine-vector",
+            "key": "UCISCNLAWSCQSEUAFFY4JQVULSJ3DLZ4I332KU4IB4M3AMKSAKY6E4FM",
+            "kind": "machine",
+            "label": "JEFF-LAPTOP"
+          },
+          "scopes": [
+            "read",
+            "everyday"
+          ],
+          "always_on": true,
+          "issued_at": "2026-09-27T10:00:00.000Z",
+          "expires_at": "2026-12-26T10:00:00.000Z",
+          "sig": "FtjbgMFjfMk-x8E45su8HC1MQ3pOssfJSRWTXDS2IWBRJ9GdgEXusmHwGdu_i87DLp8RoA6g7pMQ8QtatrrNDg"
+        }
+      },
+      "sig": "gwLFGa45AdIi5ZDJSDPGD715iUpVJ8G4HNF4dXeQic606DsjPrp8a1LjOCcTJLjW2gUSJgQ7JYAGNcM7GkNeDw"
+    }
+  },
+  "refusals": {
+    "comment": "Each case is the direct envelope above changed as described; the verdict is the §4.11 reason.",
+    "cases": [
+      {
+        "change": "the place signed out (its key revoked)",
+        "reason": "delegation_revoked"
+      },
+      {
+        "change": "checked at 2026-12-27T00:00:00Z",
+        "reason": "delegation_expired"
+      },
+      {
+        "change": "act accept_quote with no approval",
+        "reason": "approval_required"
+      },
+      {
+        "change": "delegation.scopes set to [read] (signature no longer verifies)",
+        "reason": "delegation_invalid"
+      }
+    ]
+  }
+}

@@ -11,6 +11,7 @@
 // callers can filter on it; and it is absent (not invented) when undeclared.
 import { jwtAuthenticator, nkeys } from "../../peering/lib/mesh.mjs";
 import { sdkModule as sdk } from "../../peering/lib/sdk.mjs";
+import { cleanSlate, seedFor } from "../lib/test-agents.mjs";
 
 const te = new TextEncoder();
 const td = new TextDecoder();
@@ -26,12 +27,20 @@ export default {
     const { AgentMesh } = sdk;
     const fresh = () => td.decode(nkeys.createUser().getSeed());
 
+    // Each of the three has a standing, named key (lib/test-agents.mjs), one
+    // per interaction value, so a key always registers the same value. Each
+    // starts deregistered (cleanSlate): the "undeclared stays absent" check
+    // must read a manifest this run wrote. The observer only reads and stays
+    // fresh.
+    const NAMES = ["c14-service", "c14-interactive", "c14-undeclared"];
     const agents = [];
     const mk = async (interaction) => {
-      const a = await AgentMesh.connect(env.meshWsUrl, { authenticator: auth(), nkeySeed: fresh() });
+      const name = `c14-${interaction ?? "undeclared"}`;
+      await cleanSlate(env, name);
+      const a = await AgentMesh.connect(env.meshWsUrl, { requireNamed: false, authenticator: auth(), nkeySeed: seedFor(env, name) });
       a.onRequest("echo", async (i) => ({ ok: i }));
       const opts = {
-        name: `c14-${interaction ?? "undeclared"}`,
+        name,
         visibility: "public",
         skills: [{ id: "echo", name: "echo", description: "c14" }],
       };
@@ -48,9 +57,16 @@ export default {
       const undeclared = await mk(undefined);
       await sleep(2000);
 
-      const observer = await AgentMesh.connect(env.meshWsUrl, { authenticator: auth(), nkeySeed: fresh() });
+      const observer = await AgentMesh.connect(env.meshWsUrl, { requireNamed: false, authenticator: auth(), nkeySeed: fresh() });
       agents.push(observer);
-      const found = await observer.discover({});
+      // Discovery by id (§9.3 `agent_ids`), not an open listing: the three are
+      // named Mesh Internal Test Agents, which open discovery never lists
+      // (services/src/registry/unlisted.ts). The records come back from the
+      // same stored manifests through the same discover path, so the round
+      // trip of `interaction` is what is tested, and the caller's filter
+      // below runs over what discover returned. A registry that ignores
+      // `agent_ids` returns the open listing, which the lookups read the same.
+      const found = await observer.discover({ agent_ids: [svc.agentId, live.agentId, undeclared.agentId] });
       const list = found?.agents ?? found ?? [];
       const byId = new Map(list.map((m) => [m.id, m]));
 
@@ -77,6 +93,7 @@ export default {
         await a.deregister().catch(() => {});
         await a.close().catch(() => {});
       }
+      for (const name of NAMES) await cleanSlate(env, name);
     }
     return fails.length
       ? { status: "fail", detail: fails.join("; ") }

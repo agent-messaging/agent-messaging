@@ -1,0 +1,168 @@
+{
+  "comment": "Agent SoW reporting (agentsow.com 0.13.0-draft, 5.12): what arrives while there is still time to act. Pins the bytes and the branches where two implementations drift: the three ORDINAL levels and their ranks, the meets-or-exceeds comparison (never equals - offering more than was asked is not a violation), the absent-clause default of records_only, the clause shape (check_ins is the level with a calendar and the only level that carries `every`; the grade is 'evidence', flatly, because no runtime can make a provider look honestly at its own work and detecting the missed report is a MUST either way), the restricted ISO 8601 cadence grammar (weeks, days, hours, minutes, seconds - a calendar month is not a fixed span of time and is refused by name), the exact shortfall sentences an advisory mandate shows (marked non-conforming rather than refused: determinism is only needed where money and refusal are, but the sentence both SDKs produce is pinned so a buyer reads one message whichever runtime evaluated it), the cadence-follows-the-money advisory (SHOULD be shorter than the time in which the rest of the cap could be spent; a runtime MAY warn and MUST NOT refuse; the comparison is exact integer cross-multiplication so two implementations cannot disagree at the boundary), and a document whose canonical bytes both SDKs must reproduce exactly, because the clause sits INSIDE the signed bytes. THE FIXTURE IS THE AUTHORITY: when a test against it fails, fix the implementation; when the fixture itself is believed wrong, change it only with a spec change alongside.",
+  "version": 1,
+  "spec": "Agent SoW 0.13.0-draft: 5.12 (reporting), 4.2 (grades), 5.4 (the miss machinery a missed report rides), 5.5.3 (the cap the cadence is derived against)",
+
+  "levels": {
+    "comment": "5.12: three levels, ordered, and the order is the point. Ordinal so that two parties compare as integers rather than as an argument. Rank is DERIVED from the level string - a document never declares a number, or the two could drift.",
+    "all": ["records_only", "on_change", "check_ins"],
+    "rank": { "records_only": 0, "on_change": 1, "check_ins": 2 },
+    "default": "records_only",
+    "default_why": "the honest default for short or cheap work: a document declaring no reporting clause owes the mechanical record - task states, deliveries, spend - and nothing else. Absent is NOT unknown.",
+    "grade": "evidence",
+    "grade_why": "5.12 grades this clause flatly. Not 'enforced': no runtime can make a provider look honestly at its own work, and a report's content is a claim like any other. Not 'recorded': both runtimes MUST detect and record a report that did not arrive, which is more than 'recorded' claims. What is mechanical is whether it arrived."
+  },
+
+  "meets": {
+    "comment": "The test is MEETS OR EXCEEDS, never equals. A provider offering check_ins against a requirement of on_change has exceeded it, not violated it. All nine pairs, so the boundary rows cannot quietly invert.",
+    "cases": [
+      { "offered": "records_only", "required": "records_only", "meets": true },
+      { "offered": "records_only", "required": "on_change", "meets": false },
+      { "offered": "records_only", "required": "check_ins", "meets": false },
+      { "offered": "on_change", "required": "records_only", "meets": true },
+      { "offered": "on_change", "required": "on_change", "meets": true },
+      { "offered": "on_change", "required": "check_ins", "meets": false },
+      { "offered": "check_ins", "required": "records_only", "meets": true },
+      { "offered": "check_ins", "required": "on_change", "meets": true },
+      { "offered": "check_ins", "required": "check_ins", "meets": true }
+    ]
+  },
+
+  "clause": {
+    "comment": "The clause shape. `every` is REQUIRED at check_ins (without a cadence, the report that did not arrive cannot be detected and 5.12's miss machinery has nothing to measure against) and REFUSED below it (on_change is change-triggered with no calendar; records_only owes nothing beyond the mechanical record). `additions` is what arrives beyond the level's floor, in words, on any level. Backstops mirror 12.1's: at most 10 additions of at most 300 characters.",
+    "additions_max": 10,
+    "addition_chars_max": 300,
+    "valid": [
+      { "level": "records_only", "grade": "evidence" },
+      { "level": "on_change", "grade": "evidence" },
+      { "level": "check_ins", "every": "P1W", "grade": "evidence" },
+      { "level": "check_ins", "every": "P3D", "additions": ["a named contact for anything blocking"], "grade": "evidence" },
+      { "level": "on_change", "additions": ["notify on any change of subcontractor"], "grade": "evidence" }
+    ],
+    "invalid": [
+      { "case": "not_an_object", "reporting": "check_ins", "why": "the clause is an object carrying level and grade, not a bare level string" },
+      { "case": "missing_level", "reporting": { "grade": "evidence" }, "why": "the level is the clause; there is no default INSIDE a declared clause (only an absent clause reads as records_only)" },
+      { "case": "unknown_level", "reporting": { "level": "weekly", "grade": "evidence" }, "why": "the vocabulary is closed: records_only, on_change, check_ins" },
+      { "case": "level_as_rank", "reporting": { "level": 2, "grade": "evidence" }, "why": "rank is derived from the level string, never declared; a document declaring a number lets the two drift" },
+      { "case": "missing_grade", "reporting": { "level": "records_only" }, "why": "every clause object carries a grade (4.2)" },
+      { "case": "grade_enforced", "reporting": { "level": "check_ins", "every": "P1W", "grade": "enforced" }, "why": "the false enforcement claim: no runtime can make a provider look honestly at its own work" },
+      { "case": "grade_recorded", "reporting": { "level": "check_ins", "every": "P1W", "grade": "recorded" }, "why": "understates what ships: detecting the report that did not arrive is a MUST of both runtimes, which is evidence, not merely a record of the clause" },
+      { "case": "check_ins_without_every", "reporting": { "level": "check_ins", "grade": "evidence" }, "why": "check_ins is the level with a calendar; without every, a missed report is undetectable" },
+      { "case": "on_change_with_every", "reporting": { "level": "on_change", "every": "P1W", "grade": "evidence" }, "why": "on_change has no calendar; a change-triggered level carrying a cadence is check_ins wearing the wrong name" },
+      { "case": "records_only_with_every", "reporting": { "level": "records_only", "every": "P1W", "grade": "evidence" }, "why": "records_only owes nothing beyond the mechanical record" },
+      { "case": "every_not_a_string", "reporting": { "level": "check_ins", "every": 7, "grade": "evidence" }, "why": "every is an ISO 8601 duration string" },
+      { "case": "every_malformed", "reporting": { "level": "check_ins", "every": "weekly", "grade": "evidence" }, "why": "every follows the restricted ISO 8601 grammar below" },
+      { "case": "additions_not_a_list", "reporting": { "level": "on_change", "additions": "notify on subcontractor change", "grade": "evidence" }, "why": "additions is a list, even with one entry" },
+      { "case": "additions_empty", "reporting": { "level": "on_change", "additions": [], "grade": "evidence" }, "why": "an empty list declares nothing, which OMITTING the member already means; two spellings of one state is how implementations come to disagree about which is which" },
+      { "case": "addition_not_a_string", "reporting": { "level": "on_change", "additions": [7], "grade": "evidence" }, "why": "each addition is a sentence a person reads" },
+      { "case": "addition_blank", "reporting": { "level": "on_change", "additions": ["   "], "grade": "evidence" }, "why": "present and blank is not the same as absent" },
+      { "case": "addition_too_long", "reporting": { "level": "on_change", "additions": ["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"], "grade": "evidence" }, "why": "301 characters; the backstop is 300" },
+      { "case": "too_many_additions", "reporting": { "level": "on_change", "additions": ["a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9", "a10", "a11"], "grade": "evidence" }, "why": "11 additions; a clause stating dozens is a reporting regime wearing a clause's clothes" }
+    ]
+  },
+
+  "every": {
+    "comment": "The cadence grammar: ISO 8601 durations restricted to spans of fixed length - weeks, days, hours, minutes, seconds, in whole units of at most six digits per component. A week term stands alone (ISO's own rule). Months and years are refused BY NAME because a calendar month is not a fixed span of time, and a cadence that two runtimes measure differently is a missed-report detector that disagrees with itself. The millisecond values are pinned so both SDKs derive the same deadline from the same document.",
+    "valid": [
+      { "value": "P1W", "ms": 604800000 },
+      { "value": "P2W", "ms": 1209600000 },
+      { "value": "P1D", "ms": 86400000 },
+      { "value": "P3D", "ms": 259200000 },
+      { "value": "PT12H", "ms": 43200000 },
+      { "value": "PT30M", "ms": 1800000 },
+      { "value": "PT45S", "ms": 45000 },
+      { "value": "P1DT12H", "ms": 129600000 },
+      { "value": "P5DT6H30M", "ms": 455400000 },
+      { "value": "P999999W", "ms": 604799395200000 }
+    ],
+    "invalid": [
+      { "value": "P1M", "why": "a calendar month is not a fixed span of time; refused by name, with minutes still available as PT1M" },
+      { "value": "P1Y", "why": "a calendar year is not a fixed span of time" },
+      { "value": "P0D", "why": "a cadence of zero is no cadence at all" },
+      { "value": "PT0S", "why": "zero, spelled differently" },
+      { "value": "P", "why": "names no span" },
+      { "value": "PT", "why": "a T that introduces nothing" },
+      { "value": "P1DT", "why": "a T that introduces nothing, after a valid day term" },
+      { "value": "1W", "why": "no P designator" },
+      { "value": "P1W2D", "why": "an ISO 8601 week term stands alone" },
+      { "value": "P1.5D", "why": "whole units only; a fractional cadence invites two implementations to round differently" },
+      { "value": "p1w", "why": "the designators are uppercase and comparison is exact" },
+      { "value": "P1D ", "why": "trailing space; the string is inside the signed bytes" },
+      { "value": "-P1D", "why": "a cadence does not run backwards" },
+      { "value": "PT1M2H", "why": "components come in ISO order: hours, then minutes, then seconds" },
+      { "value": "P10000000W", "why": "more than six digits in a component; no engagement reports on a cadence of centuries" },
+      { "value": "", "why": "empty" }
+    ]
+  },
+
+  "shortfall": {
+    "comment": "The advisory comparison a mandate uses: does what this document offers meet the required level? Null means it meets. The sentence is pinned because a responder reads it whichever SDK evaluated it. Three facts get three different sentences - declared lower, declared nothing, and declared something unreadable - because 'you offered less' and 'what you offered cannot be established' are different statements, and only one of them is about the responder's choice. A requirement of records_only is the floor every document meets, INCLUDING one whose clause is malformed: whether the clause validates is validateSowReporting's question, answered at document validation, not smuggled into a comparison that was asked something else.",
+    "cases": [
+      { "name": "floor required, nothing declared", "required": "records_only", "document": {}, "expected": null },
+      { "name": "floor required, clause unreadable", "required": "records_only", "document": { "reporting": "check_ins" }, "expected": null },
+      {
+        "name": "calendar required, nothing declared",
+        "required": "check_ins",
+        "document": {},
+        "expected": "the required reporting level is check_ins and this document declares no reporting clause, which offers records_only, the mechanical record only; the test is meets or exceeds, and it does not meet (§5.12)"
+      },
+      {
+        "name": "exceeding is not a violation",
+        "required": "on_change",
+        "document": { "reporting": { "level": "check_ins", "every": "P1W", "grade": "evidence" } },
+        "expected": null
+      },
+      {
+        "name": "equal meets",
+        "required": "check_ins",
+        "document": { "reporting": { "level": "check_ins", "every": "P1W", "grade": "evidence" } },
+        "expected": null
+      },
+      {
+        "name": "declared lower",
+        "required": "check_ins",
+        "document": { "reporting": { "level": "on_change", "grade": "evidence" } },
+        "expected": "the required reporting level is check_ins and this document offers on_change; the test is meets or exceeds, and it does not meet (§5.12)"
+      },
+      {
+        "name": "declared the bottom against the middle",
+        "required": "on_change",
+        "document": { "reporting": { "level": "records_only", "grade": "evidence" } },
+        "expected": "the required reporting level is on_change and this document offers records_only; the test is meets or exceeds, and it does not meet (§5.12)"
+      },
+      {
+        "name": "unreadable clause",
+        "required": "on_change",
+        "document": { "reporting": { "level": "weekly" } },
+        "expected": "the required reporting level is on_change and this document's reporting clause is in a shape that cannot be read, so what it offers cannot be established; it is counted as not meeting rather than passed unread (§5.12)"
+      }
+    ]
+  },
+
+  "cadence_warning": {
+    "comment": "5.12: where the engagement has a cap, `every` SHOULD be shorter than the time in which the provider could spend what remains of it. A runtime MAY warn when a declared cadence fails the test and MUST NOT refuse the engagement over it - the derivation rests on a spend rate neither party knows exactly in advance, so the rate here is whatever the caller measured, and money is floored on the way in, the one way this codebase computes money. The boundary is pinned exactly: warn when every_ms * spend_per_day >= cap_remaining * ms_per_day, computed in wide integers so two implementations cannot disagree by one at the boundary. 'Not shorter' includes 'equal': an interval that exactly covers the burn still lets the money be gone when the report arrives. Only the boolean is pinned; the sentence is advisory prose, not protocol.",
+    "cases": [
+      { "name": "burns in half the interval", "reporting": { "level": "check_ins", "every": "P1W", "grade": "evidence" }, "cap_remaining": 7000000, "spend_per_day": 2000000, "warns": true },
+      { "name": "outlasts the interval", "reporting": { "level": "check_ins", "every": "P1W", "grade": "evidence" }, "cap_remaining": 20000000, "spend_per_day": 2000000, "warns": false },
+      { "name": "exactly the interval is not shorter", "reporting": { "level": "check_ins", "every": "P1W", "grade": "evidence" }, "cap_remaining": 14000000, "spend_per_day": 2000000, "warns": true },
+      { "name": "one under the boundary", "reporting": { "level": "check_ins", "every": "P1W", "grade": "evidence" }, "cap_remaining": 14000001, "spend_per_day": 2000000, "warns": false },
+      { "name": "no calendar, no warning", "reporting": { "level": "on_change", "grade": "evidence" }, "cap_remaining": 7000000, "spend_per_day": 2000000, "warns": false },
+      { "name": "no burn, no derivation", "reporting": { "level": "check_ins", "every": "P1W", "grade": "evidence" }, "cap_remaining": 7000000, "spend_per_day": 0, "warns": false },
+      { "name": "no cap left, exhaustion machinery owns it", "reporting": { "level": "check_ins", "every": "P1W", "grade": "evidence" }, "cap_remaining": 0, "spend_per_day": 2000000, "warns": false }
+    ]
+  },
+
+  "signing": {
+    "comment": "The clause sits INSIDE the signed bytes. One byte of canonical drift between the SDKs is a document that verifies in one and is worthless in the other.",
+    "document": {
+      "reporting": {
+        "additions": ["a named contact for anything blocking"],
+        "every": "P1W",
+        "grade": "evidence",
+        "level": "check_ins"
+      },
+      "scope": "keep the books current"
+    },
+    "canonical": "{\"reporting\":{\"additions\":[\"a named contact for anything blocking\"],\"every\":\"P1W\",\"grade\":\"evidence\",\"level\":\"check_ins\"},\"scope\":\"keep the books current\"}"
+  }
+}

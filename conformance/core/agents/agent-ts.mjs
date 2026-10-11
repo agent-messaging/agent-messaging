@@ -25,6 +25,9 @@ const { AgentMesh } = sdk;
 const agent = await AgentMesh.connect(need("MESH_URL"), {
   authenticator: jwtAuthenticator(need("MESH_CREDS_JWT"), te.encode(need("MESH_CREDS_SEED"))),
   nkeySeed: need("MESH_AGENT_SEED"),
+  // A conformance throwaway identity: exempt from the naming rule (CLAUDE.md,
+  // "Whose an agent is"), so the SDK default (on since 2026-09-27) is turned off.
+  requireNamed: false,
 });
 
 let version = "unknown";

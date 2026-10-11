@@ -19,6 +19,7 @@ import { mkdtempSync, writeFileSync, readFileSync, existsSync, chmodSync } from 
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { plantAdapterIdentity } from "../lib/test-agents.mjs";
 
 const te = new TextEncoder();
 const td = new TextDecoder();
@@ -35,6 +36,10 @@ export default {
     if (!existsSync(ADAPTER)) throw new Error("env-skip: mesh-adapter.mjs not found (set RESOLVER_MJS)");
 
     const state = mkdtempSync(join(tmpdir(), "c12-pipe-"));
+    // The adapter starts as the standing test agent c12-pipe.test@agentmesh.ai
+    // (lib/test-agents.mjs) instead of minting a key; without the file it
+    // mints one, as before.
+    plantAdapterIdentity(state, env, "c12-pipe");
     // The piped "agent": echoes what it read, and appends its own PID so the
     // test can prove a distinct process handled each message.
     // Reads ALL of stdin (pipe mode frames the message with a provenance
@@ -91,13 +96,29 @@ export default {
         cli.stderr.on("data", (d) => { out += d; });
         cli.on("close", () => { log += `\n[contacts allow] ${out.trim()}`; resolve(); });
       });
+      // The 0.3 reply path (§6.5): the substantive answer arrives at the
+      // SENDER's own inbox, correlated by in_reply_to; the §6.4a accept
+      // travels the same inbox first and carries no output, so correlation
+      // alone is not enough. The adapter itself is rebuilt for 0.3 in the same
+      // release wave as this suite change; until that build ships, this test
+      // reads red against an old adapter, which is the cutover telling the
+      // truth, not a rig defect.
+      const senderId = kpS.getPublicKey();
+      const replies = [];
+      const subS = nc.subscribe(`mesh.agent.${senderId}.inbox`);
+      (async () => { for await (const m of subS) { try { replies.push(JSON.parse(td.decode(m.data))); } catch { /* skip */ } } })();
       const ask = async (text) => {
         const e = signEnvelope(createEnvelope({
-          type: "request", from: kpS.getPublicKey(), to: agentId,
+          type: "request", from: senderId, to: agentId,
           payload: { skill: "chat", input: { text } },
         }), kpS);
-        const m = await nc.request(`mesh.agent.${agentId}.inbox`, te.encode(JSON.stringify(e)), { timeout: 30_000 });
-        return JSON.parse(td.decode(m.data));
+        nc.publish(`mesh.agent.${agentId}.inbox`, te.encode(JSON.stringify(e)));
+        for (let i = 0; i * 250 < 30_000; i++) {
+          const r = replies.find((x) => x?.in_reply_to === e.id && x?.payload?.status !== "accepted");
+          if (r) return r;
+          await sleep(250);
+        }
+        return null;
       };
 
       // 1. The message reaches the command's stdin and its stdout is the reply.

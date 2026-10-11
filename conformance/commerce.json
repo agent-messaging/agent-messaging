@@ -1,0 +1,651 @@
+{
+  "comment": "Commerce conformance fixture (SPEC.md 19.1, 19.4-19.6, 12.2). Pins the SKU and price shapes, the tagged SKU digest, the agreement document with a really-signed vector, the AGREEMENT_REQUIRED refusal details, and the rating arithmetic - the places two implementations would drift by a micro-unit. THE FIXTURE IS THE AUTHORITY: when a test against it fails, fix the implementation; when the fixture itself is believed wrong, change it only with a spec change alongside.",
+  "version": 1,
+  "spec": "SPEC.md 19.1 (SKU, price, digest), 19.4 (provider), 19.5 (agreement, enforcement), 19.6 (rating), 12.2 (AGREEMENT_REQUIRED)",
+  "identities": {
+    "sender_seed": "SUAEGDPNTWXACIF45CA23BUY36RIMWZXW5LEHSEOK2ONS5JWJ7PBC2EWBA",
+    "sender": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+    "recipient": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+    "comment": "The same published test vectors budget.json, allowance.json and signature-tags.json use, deliberately: they are not real identities and control nothing, and reusing them keeps any new private-key-shaped string out of the repository. In commerce.json the sender key plays the CONSUMER OWNER (the agreement's signer); the recipient key plays the SELLING AGENT. In metering.json the sender key plays the RESPONDER (the usage receipt's signer)."
+  },
+  "sku": {
+    "comment": "19.1: sku id [a-z0-9-]{1,64} unique in the manifest; covers is {agent:true} XOR {offerings:[...]}; an offering covered by no SKU is FREE (paid is the declared exception); most specific covers wins.",
+    "valid": [
+      {
+        "sku": "caselaw-metered",
+        "covers": {
+          "offerings": [
+            "caselaw-summary",
+            "caselaw-cite-check"
+          ]
+        },
+        "price": {
+          "model": "per_unit",
+          "currency": "USD",
+          "meter": "tokens_out",
+          "per": 1000,
+          "amount_micro": 1500,
+          "included": {
+            "quantity": 10000,
+            "period": "day"
+          }
+        },
+        "provider": {
+          "id": "internal",
+          "terms_url": "https://example.com/agent-terms/v3"
+        }
+      },
+      {
+        "sku": "everything-flat",
+        "covers": {
+          "agent": true
+        },
+        "price": {
+          "model": "flat",
+          "currency": "USD",
+          "amount_micro": 20000
+        },
+        "provider": {
+          "id": "internal"
+        }
+      },
+      {
+        "sku": "free-with-terms",
+        "covers": {
+          "agent": true
+        },
+        "price": {
+          "model": "free"
+        },
+        "provider": {
+          "id": "internal",
+          "terms_url": "https://example.com/terms"
+        }
+      }
+    ],
+    "invalid": [
+      {
+        "case": "uppercase_id",
+        "sku": {
+          "sku": "Caselaw",
+          "covers": {
+            "agent": true
+          },
+          "price": {
+            "model": "free"
+          },
+          "provider": {
+            "id": "internal"
+          }
+        },
+        "why": "sku must match [a-z0-9-]{1,64}"
+      },
+      {
+        "case": "covers_both",
+        "sku": {
+          "sku": "x",
+          "covers": {
+            "agent": true,
+            "offerings": [
+              "a"
+            ]
+          },
+          "price": {
+            "model": "free"
+          },
+          "provider": {
+            "id": "internal"
+          }
+        },
+        "why": "covers is agent XOR offerings"
+      },
+      {
+        "case": "covers_empty_offerings",
+        "sku": {
+          "sku": "x",
+          "covers": {
+            "offerings": []
+          },
+          "price": {
+            "model": "free"
+          },
+          "provider": {
+            "id": "internal"
+          }
+        },
+        "why": "an empty offerings list covers nothing"
+      },
+      {
+        "case": "missing_provider",
+        "sku": {
+          "sku": "x",
+          "covers": {
+            "agent": true
+          },
+          "price": {
+            "model": "free"
+          }
+        },
+        "why": "every SKU names who bills for it (19.4)"
+      }
+    ]
+  },
+  "price": {
+    "comment": "19.1: model is a closed five; money fields follow 19.3 (integer micro-units, ISO 4217 currency, private-use X-codes legal); per defaults to 1; package and tiered REQUIRE period; tiers are graduated, ordered, last tier unbounded (no up_to); included requires quantity and period.",
+    "valid": [
+      {
+        "model": "free"
+      },
+      {
+        "model": "flat",
+        "currency": "USD",
+        "amount_micro": 20000
+      },
+      {
+        "model": "per_unit",
+        "currency": "USD",
+        "meter": "tokens_out",
+        "amount_micro": 2
+      },
+      {
+        "model": "per_unit",
+        "currency": "XCR",
+        "meter": "tokens_out",
+        "per": 1000,
+        "amount_micro": 1500,
+        "included": {
+          "quantity": 10000,
+          "period": "day"
+        }
+      },
+      {
+        "model": "package",
+        "currency": "USD",
+        "meter": "requests",
+        "size": 100,
+        "amount_micro": 250000,
+        "period": "month"
+      },
+      {
+        "model": "tiered",
+        "currency": "USD",
+        "meter": "tokens_out",
+        "per": 1000,
+        "period": "month",
+        "tiers": [
+          {
+            "up_to": 100000,
+            "amount_micro": 2000
+          },
+          {
+            "up_to": 1000000,
+            "amount_micro": 1500
+          },
+          {
+            "amount_micro": 1000
+          }
+        ]
+      }
+    ],
+    "invalid": [
+      {
+        "case": "unknown_model",
+        "price": {
+          "model": "subscription",
+          "currency": "USD",
+          "amount_micro": 1
+        },
+        "why": "model is a closed five: free, flat, per_unit, package, tiered"
+      },
+      {
+        "case": "free_with_amount",
+        "price": {
+          "model": "free",
+          "amount_micro": 1,
+          "currency": "USD"
+        },
+        "why": "free names no money fields"
+      },
+      {
+        "case": "flat_with_meter",
+        "price": {
+          "model": "flat",
+          "currency": "USD",
+          "amount_micro": 20000,
+          "meter": "tokens_out"
+        },
+        "why": "flat rates the requests observed meter by definition; naming another is a shape error"
+      },
+      {
+        "case": "per_unit_missing_meter",
+        "price": {
+          "model": "per_unit",
+          "currency": "USD",
+          "amount_micro": 1500
+        },
+        "why": "per_unit requires the meter it rates"
+      },
+      {
+        "case": "float_money",
+        "price": {
+          "model": "per_unit",
+          "currency": "USD",
+          "meter": "tokens_out",
+          "amount_micro": 1500.5
+        },
+        "why": "amount_micro must be an integer (19.3)"
+      },
+      {
+        "case": "package_without_period",
+        "price": {
+          "model": "package",
+          "currency": "USD",
+          "meter": "requests",
+          "size": 100,
+          "amount_micro": 250000
+        },
+        "why": "package aggregates over a period; without one 'partial package' has no meaning"
+      },
+      {
+        "case": "tiered_without_period",
+        "price": {
+          "model": "tiered",
+          "currency": "USD",
+          "meter": "tokens_out",
+          "per": 1000,
+          "tiers": [
+            {
+              "amount_micro": 1000
+            }
+          ]
+        },
+        "why": "tiers aggregate over a period"
+      },
+      {
+        "case": "tiers_bounded_tail",
+        "price": {
+          "model": "tiered",
+          "currency": "USD",
+          "meter": "tokens_out",
+          "per": 1000,
+          "period": "month",
+          "tiers": [
+            {
+              "up_to": 100000,
+              "amount_micro": 2000
+            }
+          ]
+        },
+        "why": "the last tier must be unbounded - a price with a quantity ceiling is not a price, it is a refusal waiting to be discovered"
+      },
+      {
+        "case": "tiers_non_monotonic",
+        "price": {
+          "model": "tiered",
+          "currency": "USD",
+          "meter": "tokens_out",
+          "per": 1000,
+          "period": "month",
+          "tiers": [
+            {
+              "up_to": 100000,
+              "amount_micro": 2000
+            },
+            {
+              "up_to": 50000,
+              "amount_micro": 1500
+            },
+            {
+              "amount_micro": 1000
+            }
+          ]
+        },
+        "why": "up_to must strictly increase"
+      },
+      {
+        "case": "included_without_period",
+        "price": {
+          "model": "per_unit",
+          "currency": "USD",
+          "meter": "tokens_out",
+          "per": 1000,
+          "amount_micro": 1500,
+          "included": {
+            "quantity": 10000
+          }
+        },
+        "why": "an allowance without a period never resets"
+      }
+    ]
+  },
+  "digest": {
+    "comment": "19.1: sku_digest = base64url (unpadded) of SHA-256 over the tagged bytes: 'agentmesh-sku-v1' + LF + the canonical JSON (5.3) of the SKU object. The digest IS the identity of the commercial terms: one moved micro-unit moves it, and every standing agreement goes stale at once.",
+    "digest_bytes_prefix": "agentmesh-sku-v1\n",
+    "sku": {
+      "sku": "caselaw-metered",
+      "covers": {
+        "offerings": [
+          "caselaw-summary",
+          "caselaw-cite-check"
+        ]
+      },
+      "price": {
+        "model": "per_unit",
+        "currency": "USD",
+        "meter": "tokens_out",
+        "per": 1000,
+        "amount_micro": 1500,
+        "included": {
+          "quantity": 10000,
+          "period": "day"
+        }
+      },
+      "provider": {
+        "id": "internal",
+        "terms_url": "https://example.com/agent-terms/v3"
+      }
+    },
+    "canonical": "{\"covers\":{\"offerings\":[\"caselaw-summary\",\"caselaw-cite-check\"]},\"price\":{\"amount_micro\":1500,\"currency\":\"USD\",\"included\":{\"period\":\"day\",\"quantity\":10000},\"meter\":\"tokens_out\",\"model\":\"per_unit\",\"per\":1000},\"provider\":{\"id\":\"internal\",\"terms_url\":\"https://example.com/agent-terms/v3\"},\"sku\":\"caselaw-metered\"}",
+    "sku_digest": "LQGAJJ9tQ7U185dmHGSztJzvPN55p_V_j-XcauUNDKk",
+    "one_micro_unit_moved": {
+      "change": "price.amount_micro 1500 -> 1501",
+      "sku_digest": "VW6g3eB7qGHnu6zH3w5Jy10YdjR09p37r5P9Dku6e1E",
+      "why": "a digest that survives any change to the terms would let a seller re-price under standing agreements"
+    }
+  },
+  "agreement": {
+    "comment": "19.5: signed by the CONSUMER'S OWNER KEY (8.6), never an agent key - account-level, one approval covers every agent under the owner. sig covers 'agentmesh-agreement-v1' + LF + the canonical JSON excluding sig. A digest mismatch is a missing agreement; revocation is prospective only.",
+    "signed_bytes_prefix": "agentmesh-agreement-v1\n",
+    "canonical": "{\"agreed_at\":\"2026-08-02T15:00:00Z\",\"consumer_owner\":\"UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP\",\"evidence\":{\"provider\":\"internal\",\"ref\":\"console-approval-8f3d\"},\"seller_agent\":\"UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A\",\"sku\":\"caselaw-metered\",\"sku_digest\":\"LQGAJJ9tQ7U185dmHGSztJzvPN55p_V_j-XcauUNDKk\",\"v\":1}",
+    "signed": {
+      "v": 1,
+      "consumer_owner": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+      "seller_agent": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+      "sku": "caselaw-metered",
+      "sku_digest": "LQGAJJ9tQ7U185dmHGSztJzvPN55p_V_j-XcauUNDKk",
+      "agreed_at": "2026-08-02T15:00:00Z",
+      "evidence": {
+        "provider": "internal",
+        "ref": "console-approval-8f3d"
+      },
+      "sig": "jm0sARWINIux_frCmtkVMGvfs9Plj-MBNJFNt-WzSHQC8B9N51sfufZhui-K9rbICdoxZ-iSk9_rQXe41IX_BA"
+    },
+    "invalid": [
+      {
+        "case": "missing_digest",
+        "document": {
+          "v": 1,
+          "consumer_owner": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "seller_agent": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+          "sku": "caselaw-metered",
+          "agreed_at": "2026-08-02T15:00:00Z",
+          "sig": "x"
+        },
+        "why": "an agreement without a digest agrees to nothing"
+      },
+      {
+        "case": "wrong_version",
+        "document": {
+          "v": 2,
+          "consumer_owner": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "seller_agent": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+          "sku": "caselaw-metered",
+          "sku_digest": "mLQwyaTjkQ7Z-fKXXg_5YUcHl-mZKxCo7Mtm-W3CByE",
+          "agreed_at": "2026-08-02T15:00:00Z",
+          "evidence": {
+            "provider": "internal",
+            "ref": "console-approval-8f3d"
+          },
+          "sig": "r9DufaVt8tTkLAKriiItNI-7NLilOldGX07vErFEQXcs11gO8y7oRLT6DaRUymhrQKwACeDM7FoL-o3svgkgAQ"
+        },
+        "why": "v is the integer 1"
+      },
+      {
+        "case": "agent_signed",
+        "document": null,
+        "why": "SEMANTIC: a signature verifying against any key other than consumer_owner fails - the signer IS the account. Pinned as prose because constructing a really-signed wrong-key vector would put a second seed in the repository."
+      },
+      {
+        "case": "tampered_terms",
+        "document": null,
+        "why": "SEMANTIC: re-sign nothing - flip one byte of sku_digest in the signed vector above and verification MUST fail."
+      }
+    ],
+    "stale_digest_case": {
+      "holds_agreement_for": "LQGAJJ9tQ7U185dmHGSztJzvPN55p_V_j-XcauUNDKk",
+      "sku_current_digest": "VW6g3eB7qGHnu6zH3w5Jy10YdjR09p37r5P9Dku6e1E",
+      "expect": "AGREEMENT_REQUIRED",
+      "why": "the seller moved the price; every standing agreement went stale at once; re-approval is the rule - there is no grandfathering arithmetic to disagree about"
+    }
+  },
+  "enforcement": {
+    "comment": "19.5 / 12.2: refused at admission, before any work, when a paid SKU covers the requested offering and the consumer's owner holds no unexpired agreement for the CURRENT digest. details field names are the protocol between implementations, pinned here.",
+    "refusal": {
+      "error_code": "AGREEMENT_REQUIRED",
+      "details": {
+        "sku": "caselaw-metered",
+        "sku_digest": "LQGAJJ9tQ7U185dmHGSztJzvPN55p_V_j-XcauUNDKk",
+        "approval_url": "https://console.example.com/agreements/approve?sku=caselaw-metered"
+      },
+      "note": "approval_url is the provider's checkout_url, or the deployment's own approval surface for provider 'internal'. The refusal SHOULD also be recorded as a quantity-0 requests meter event (13.5)."
+    },
+    "free_offering_case": {
+      "offering": "not-covered-by-any-sku",
+      "expect": "no AGREEMENT_REQUIRED - an offering covered by no SKU is free (19.1)"
+    }
+  },
+  "rating": {
+    "comment": "19.6: deterministic, replayable, integer-only. per_unit: charge = floor(quantity * amount_micro / per). package: ceil(quantity / size) * amount_micro over the period aggregate. tiered: each tier rates its own span, floor per tier. included deducts before rating. Refusals and unagreed events rate to zero. The budget ceiling clamps. Aggregation grain: consumer OWNER per UTC period.",
+    "cases": [
+      {
+        "case": "flat",
+        "price": {
+          "model": "flat",
+          "currency": "USD",
+          "amount_micro": 20000
+        },
+        "events": [
+          {
+            "meter": "requests",
+            "quantity": 1
+          },
+          {
+            "meter": "requests",
+            "quantity": 1
+          },
+          {
+            "meter": "requests",
+            "quantity": 1
+          },
+          {
+            "meter": "requests",
+            "quantity": 0,
+            "refused": true
+          }
+        ],
+        "expect_charge_micro": 60000,
+        "why": "three delivered requests; the refusal rates to zero"
+      },
+      {
+        "case": "per_unit_floor",
+        "price": {
+          "model": "per_unit",
+          "currency": "USD",
+          "meter": "tokens_out",
+          "per": 1000,
+          "amount_micro": 1500
+        },
+        "events": [
+          {
+            "meter": "tokens_out",
+            "quantity": 4210
+          }
+        ],
+        "expect_charge_micro": 6315,
+        "why": "floor(4210 * 1500 / 1000) = 6315"
+      },
+      {
+        "case": "per_unit_floor_partial",
+        "price": {
+          "model": "per_unit",
+          "currency": "USD",
+          "meter": "tokens_out",
+          "per": 1000,
+          "amount_micro": 1500
+        },
+        "events": [
+          {
+            "meter": "tokens_out",
+            "quantity": 999
+          }
+        ],
+        "expect_charge_micro": 1498,
+        "why": "floor(999 * 1500 / 1000) = floor(1498.5) = 1498 - floor, EXT-8's convention, so no partial micro-unit is ever charged"
+      },
+      {
+        "case": "package_ceil",
+        "price": {
+          "model": "package",
+          "currency": "USD",
+          "meter": "requests",
+          "size": 100,
+          "amount_micro": 250000,
+          "period": "day"
+        },
+        "events": [
+          {
+            "meter": "requests",
+            "quantity": 400
+          },
+          {
+            "meter": "requests",
+            "quantity": 330
+          }
+        ],
+        "expect_charge_micro": 2000000,
+        "why": "day aggregate 730; ceil(730/100) = 8 packages; 8 * 250000 = 2000000 - packages round UP, the one place rounding favours the seller, which is what buying by the package means"
+      },
+      {
+        "case": "tiered_graduated",
+        "price": {
+          "model": "tiered",
+          "currency": "USD",
+          "meter": "tokens_out",
+          "per": 1000,
+          "period": "month",
+          "tiers": [
+            {
+              "up_to": 100000,
+              "amount_micro": 2000
+            },
+            {
+              "up_to": 1000000,
+              "amount_micro": 1500
+            },
+            {
+              "amount_micro": 1000
+            }
+          ]
+        },
+        "events": [
+          {
+            "meter": "tokens_out",
+            "quantity": 1250000
+          }
+        ],
+        "expect_charge_micro": 1800000,
+        "why": "tier1 100000 units -> floor(100000*2000/1000)=200000; tier2 900000 -> 1350000; tier3 250000 -> 250000; graduated, never volume"
+      },
+      {
+        "case": "included_allowance_covers",
+        "price": {
+          "model": "per_unit",
+          "currency": "USD",
+          "meter": "tokens_out",
+          "per": 1000,
+          "amount_micro": 1500,
+          "included": {
+            "quantity": 10000,
+            "period": "day"
+          }
+        },
+        "events": [
+          {
+            "meter": "tokens_out",
+            "quantity": 4210
+          }
+        ],
+        "expect_charge_micro": 0,
+        "why": "4210 within the day's 10000 included"
+      },
+      {
+        "case": "included_allowance_exceeded",
+        "price": {
+          "model": "per_unit",
+          "currency": "USD",
+          "meter": "tokens_out",
+          "per": 1000,
+          "amount_micro": 1500,
+          "included": {
+            "quantity": 10000,
+            "period": "day"
+          }
+        },
+        "events": [
+          {
+            "meter": "tokens_out",
+            "quantity": 12000
+          }
+        ],
+        "expect_charge_micro": 3000,
+        "why": "billable 2000 after the allowance; floor(2000*1500/1000)=3000"
+      },
+      {
+        "case": "ceiling_clamps",
+        "price": {
+          "model": "per_unit",
+          "currency": "USD",
+          "meter": "tokens_out",
+          "per": 1000,
+          "amount_micro": 1500
+        },
+        "budget_cost_ceiling_micro": 5000,
+        "events": [
+          {
+            "meter": "tokens_out",
+            "quantity": 4210
+          }
+        ],
+        "expect_charge_micro": 5000,
+        "why": "computed 6315 exceeds the ceiling; rated 5000; the excess is the responder's own account (7.7 given mechanical teeth) - the ceiling composed with an agreed unit price is the consumer's hard bound on declared meters"
+      },
+      {
+        "case": "no_agreement_no_charge",
+        "price": {
+          "model": "per_unit",
+          "currency": "USD",
+          "meter": "tokens_out",
+          "per": 1000,
+          "amount_micro": 1500
+        },
+        "agreement": null,
+        "events": [
+          {
+            "meter": "tokens_out",
+            "quantity": 4210
+          }
+        ],
+        "expect_charge_micro": 0,
+        "why": "no agreement matching the digest current at the event's ts: a recorded fact, never a retroactive bill - enforcement should have refused, rating not charging is the second wall"
+      }
+    ]
+  },
+  "not_covered": {
+    "comment": "Boundaries, written down so nobody mistakes them for gaps.",
+    "items": [
+      "Settlement, checkout, card data, mandates, tax: the provider's rail (19.4, 1.3). The mesh records the fact and digest of agreement, never the legal content.",
+      "Forwarding meter events to an external provider's ingestion API is an operator service; its mapping is not protocol surface.",
+      "Whether the terms DOCUMENT behind terms_url changed is outside the digest (the URL is inside it): providers version terms URLs (19.1)."
+    ]
+  }
+}

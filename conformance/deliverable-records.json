@@ -1,0 +1,114 @@
+{
+  "comment": "EXT-9 deliverable records: recognition, and the input/interim/output roles derived from them. A cross-surface contract like conformance/rooms-entry.json, and for the same reason - TWO implementations already compute these roles from the same record and must not disagree. services/src/rooms/dossier.ts (roleOf) decides which files a dossier keeps the BYTES of; app/src/files.ts (classify) decides what a room's files panel shows under Accepted. A file the panel calls Accepted and the dossier calls interim would mean the thing on screen is not the thing that was kept. THE FIXTURE IS THE AUTHORITY: when a test against it fails, fix the implementation; when the fixture is believed wrong, change it deliberately and update both sides together.",
+  "version": 1,
+  "spec": "EXT-9-deliverables.md (2. the records, 3. roles derived, 4. recognition)",
+
+  "recognition": {
+    "comment": "Matching is against the FIRST LINE only, and everything else is prose with no effect. That is normative, not an implementation shortcut: a record is mostly conversation, and a reader that inferred job state from prose would be guessing - a guess that silently satisfies a requirement is worse than having no requirement.",
+    "cases": [
+      {
+        "name": "claim with a ref",
+        "body": "DELIVERABLE · draft · @ v1 · ref: mesh:rooms:r1/drive/d1",
+        "expected": { "record": "DELIVERABLE", "name": "draft", "version": "v1", "ref": "mesh:rooms:r1/drive/d1", "against": null }
+      },
+      {
+        "name": "claim with a dependency edge",
+        "comment": "`against:` is the job's edge, recorded after the fact rather than declared in advance.",
+        "body": "DELIVERABLE · revision · @ v2 · ref: mesh:rooms:r1/drive/d2\nagainst: review @ r1\n\nRewritten to answer the review.",
+        "expected": { "record": "DELIVERABLE", "name": "revision", "version": "v2", "ref": "mesh:rooms:r1/drive/d2", "against": "review @ r1" }
+      },
+      {
+        "name": "claim with no ref",
+        "comment": "Legal, and weaker. A claim naming no bytes cannot be checked against a digest; it parses so that a record made before a drive was reachable is still readable.",
+        "body": "DELIVERABLE · outline · @ v0",
+        "expected": { "record": "DELIVERABLE", "name": "outline", "version": "v0", "ref": null, "against": null }
+      },
+      {
+        "name": "acceptance",
+        "body": "ACCEPTED · deliverable: revision @ v2\nGood to ship.",
+        "expected": { "record": "ACCEPTED", "name": "revision", "version": "v2" }
+      },
+      {
+        "name": "rejection carries its reason",
+        "body": "REJECTED · deliverable: draft @ v1\nreason: no skip condition, so it will be run out of habit",
+        "expected": { "record": "REJECTED", "name": "draft", "version": "v1", "reason": "no skip condition, so it will be run out of habit" }
+      },
+      {
+        "name": "prose is not a record",
+        "body": "I'll post the DELIVERABLE · draft · @ v1 line once the file is up.",
+        "expected": { "record": null }
+      },
+      {
+        "name": "a record buried below the first line is not a record",
+        "comment": "First-line-only is what makes quoting a record safe. Without it, an agent repeating someone else's claim back to them would post it a second time under its own signature.",
+        "body": "Quoting you:\nDELIVERABLE · draft · @ v1 · ref: mesh:rooms:r1/drive/d1",
+        "expected": { "record": null }
+      },
+      {
+        "name": "ordinary conversation",
+        "body": "Reading it now. Give me a few minutes.",
+        "expected": { "record": null }
+      }
+    ]
+  },
+
+  "roles": {
+    "comment": "Given a drive listing and a record, every file gets exactly one role. Nothing is stored and nobody files anything; a file's role can change later because the record said something new about it.",
+    "cases": [
+      {
+        "name": "a full job: brought in, superseded, accepted",
+        "record": [
+          "Here is the brief I already had.",
+          "DELIVERABLE · draft · @ v1 · ref: r/d1",
+          "DELIVERABLE · review · @ r1 · ref: r/rev\nagainst: draft @ v1",
+          "DELIVERABLE · revision · @ v2 · ref: r/d2\nagainst: review @ r1",
+          "ACCEPTED · deliverable: revision @ v2"
+        ],
+        "files": [
+          { "ref": "r/brief", "name": "brief.md", "version": "1" },
+          { "ref": "r/d1", "name": "debrief.md", "version": "v1" },
+          { "ref": "r/rev", "name": "review.md", "version": "r1" },
+          { "ref": "r/d2", "name": "debrief.md", "version": "v2" }
+        ],
+        "expected": { "r/brief": "input", "r/d1": "interim", "r/rev": "interim", "r/d2": "output" }
+      },
+      {
+        "name": "a rejected version is interim, not an output",
+        "comment": "REJECTED does not make a file an input either: it WAS claimed as a deliverable, and demoting it to 'somebody brought this' would file a refused draft next to a contributed reference.",
+        "record": [
+          "DELIVERABLE · draft · @ v1 · ref: r/d1",
+          "REJECTED · deliverable: draft @ v1\nreason: missing the skip condition"
+        ],
+        "files": [{ "ref": "r/d1", "name": "draft.md", "version": "v1" }],
+        "expected": { "r/d1": "interim" }
+      },
+      {
+        "name": "a claim without a ref matches on name and version",
+        "record": ["DELIVERABLE · draft · @ v1", "ACCEPTED · deliverable: draft @ v1"],
+        "files": [{ "ref": "r/x", "name": "draft.md", "version": "v1" }],
+        "expected": { "r/x": "output" }
+      },
+      {
+        "name": "an exact ref beats a name that also matches",
+        "comment": "A ref names one object; a name and version is a description two files can answer to. Resolving a precise claim by a guess is worse than not resolving it.",
+        "record": [
+          "DELIVERABLE · outline · @ v1 · ref: r/exact",
+          "DELIVERABLE · draft · @ v1 · ref: r/elsewhere"
+        ],
+        "files": [{ "ref": "r/exact", "name": "draft.md", "version": "v1" }],
+        "expected": { "r/exact": "interim" },
+        "expected_claimed_as": { "r/exact": "outline @ v1" }
+      },
+      {
+        "name": "a room that claims nothing has only inputs",
+        "comment": "The truthful answer for an ordinary conversation with files in it, and the reason a room needs no folders to be legible.",
+        "record": ["hello", "hi"],
+        "files": [
+          { "ref": "r/a", "name": "a.md", "version": "1" },
+          { "ref": "r/b", "name": "b.md", "version": "1" }
+        ],
+        "expected": { "r/a": "input", "r/b": "input" }
+      }
+    ]
+  }
+}

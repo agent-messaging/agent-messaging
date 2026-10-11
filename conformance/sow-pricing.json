@@ -1,0 +1,3742 @@
+{
+  "comment": "Agent SoW pricing arrangements and the directed standing proposal (agentsow.com 0.11.0-draft). Pins the bytes where two independent implementations drift: the three arrangement strings, the fixed-fee, time-and-materials and no-charge price clauses, the MANDATORY not-to-exceed cap and the MANDATORY reservation window and the refusals around both, the rule that a no_charge clause carries the arrangement and its grade and NOTHING ELSE, the machine-readable `per` divisor that turns raw meter counts into billable units, rating against the cap (including what the provider absorbs past it and, since 0.9.0-draft, the operator fee the cap also has to cover), pass-through settlement lines and their upstream receipt, the reservation window arithmetic, the 7.1 document states including `exhausted`, the 6.2 organization/mandate fields, the 12.1.1 named counterparty (who may form, when the offer ends, and why no public listing is derived from it), the 12.1 qualifications a counterparty must meet before its countersign is accepted (the closed kind vocabulary, the grade each kind can honestly carry, and the refusal that names the unmet condition), and really-signed documents whose canonical bytes both SDKs must reproduce exactly. MONEY IS COMPUTED ONE WAY THROUGHOUT: by flooring. 5.5.2 floors a rated line and 5.5.8 floors an operator fee, so two implementations doing integer arithmetic cannot disagree by one. THE FIXTURE IS THE AUTHORITY: when a test against it fails, fix the implementation; when the fixture itself is believed wrong, change it only with a spec change alongside.",
+  "version": 2,
+  "spec": "Agent SoW 0.11.0-draft: 2 (terminology), 5.5 (arrangement), 5.5.1 (fixed fee), 5.5.2 (time and materials), 5.5.3 (the cap, which bounds what the client pays), 5.5.4 (reservation and the window), 5.5.5 (reaching the cap), 5.5.6 (pass-through lines), 5.5.7 (no charge), 5.5.8 (operator fees, floored and exactly checked), 6 (signatures), 6.1 (approval authority), 6.2 (organizational authority), 7.1 (document states), 12.1 (qualifications), 12.1.1 (the named counterparty)",
+  "identities": {
+    "sender_seed": "SUAEGDPNTWXACIF45CA23BUY36RIMWZXW5LEHSEOK2ONS5JWJ7PBC2EWBA",
+    "sender": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+    "recipient": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+    "comment": "The same published test vectors budget.json, commerce.json and signature-tags.json use, deliberately: they are not real identities and control nothing, and reusing them keeps any new private-key-shaped string out of the repository. Here the sender key plays the SIGNING OWNER and the recipient key plays the counterparty's agent. Only one seed is published, so only one of the two 6 signatures can be really signed; the both-roles case is pinned as prose in `not_covered` rather than by adding a second seed."
+  },
+  "arrangement": {
+    "comment": "5.5: every engagement MUST declare exactly one pricing arrangement, in the price clause's `arrangement` field. There is NO undeclared default - a price clause naming no arrangement is a validation error and a runtime MUST refuse an engagement proposal that carries one. That refusal is the load-bearing one for the 0.3.0 -> 0.4.0 break: documents written against 0.3.0 name no arrangement and MUST NOT be silently read as fixed_fee. 0.6.0 added the third value, `no_charge`, so work a provider chooses not to charge for has an arrangement it can declare honestly rather than a fixed fee of zero, which encodes the decision in a magic value.",
+    "values": [
+      "fixed_fee",
+      "time_and_materials",
+      "no_charge"
+    ]
+  },
+  "price": {
+    "comment": "5.5.1 and 5.5.2. Money is an integer in the smallest unit of `currency` - the spec's own field names (`per_task`, `per_unit`, `cap.amount`, `ceiling.amount`), not the mesh's `amount_micro`. Every clause object carries a `grade` (4.2).",
+    "valid": [
+      {
+        "arrangement": "fixed_fee",
+        "currency": "XCR",
+        "rates": [
+          {
+            "offering": "reconcile-statement",
+            "per_task": 2500000
+          },
+          {
+            "offering": "flag-exceptions",
+            "per_task": 400000
+          }
+        ],
+        "ceiling": {
+          "amount": 40000000,
+          "period": "month"
+        },
+        "grade": "enforced"
+      },
+      {
+        "arrangement": "time_and_materials",
+        "currency": "XCR",
+        "schedule": [
+          {
+            "meter": "tokens_out",
+            "unit": "1000 tokens",
+            "per": 1000,
+            "per_unit": 1500
+          },
+          {
+            "meter": "tool_calls",
+            "unit": "call",
+            "per": 1,
+            "per_unit": 2000
+          },
+          {
+            "meter": "items",
+            "unit": "invoice",
+            "per": 1,
+            "per_unit": 40000
+          },
+          {
+            "meter": "elapsed",
+            "unit": "minute",
+            "per": 60,
+            "per_unit": 12000
+          }
+        ],
+        "cap": {
+          "amount": 40000000
+        },
+        "reservation": {
+          "window_days": 30
+        },
+        "grade": "enforced"
+      },
+      {
+        "arrangement": "time_and_materials",
+        "currency": "XCR",
+        "schedule": [
+          {
+            "meter": "items",
+            "unit": "invoice",
+            "per_unit": 40000
+          },
+          {
+            "meter": "vendor_lookups",
+            "unit": "lookup",
+            "per_unit": 9000,
+            "pass_through": true
+          }
+        ],
+        "cap": {
+          "amount": 1000000
+        },
+        "reservation": {
+          "window_days": 14
+        },
+        "grade": "enforced"
+      },
+      {
+        "arrangement": "no_charge",
+        "grade": "enforced"
+      }
+    ],
+    "invalid": [
+      {
+        "case": "no_arrangement",
+        "price": {
+          "currency": "XCR",
+          "rates": [
+            {
+              "offering": "reconcile-statement",
+              "per_task": 2500000
+            }
+          ],
+          "grade": "enforced"
+        },
+        "why": "5.5: there is no undeclared default. A 0.3.0 price clause is not a fixed_fee clause with a field missing"
+      },
+      {
+        "case": "unknown_arrangement",
+        "price": {
+          "arrangement": "retainer",
+          "currency": "XCR",
+          "rates": [],
+          "grade": "enforced"
+        },
+        "why": "the arrangement set is closed: fixed_fee, time_and_materials"
+      },
+      {
+        "case": "time_and_materials_without_a_cap",
+        "price": {
+          "arrangement": "time_and_materials",
+          "currency": "XCR",
+          "schedule": [
+            {
+              "meter": "tokens_out",
+              "unit": "1000 tokens",
+              "per_unit": 1500
+            }
+          ],
+          "reservation": {
+            "window_days": 30
+          },
+          "grade": "enforced"
+        },
+        "why": "5.5.3: a time and materials engagement MUST carry a not-to-exceed cap. There is no uncapped time and materials engagement, and a runtime MUST refuse a proposal that omits the cap"
+      },
+      {
+        "case": "zero_cap",
+        "price": {
+          "arrangement": "time_and_materials",
+          "currency": "XCR",
+          "schedule": [
+            {
+              "meter": "tokens_out",
+              "unit": "1000 tokens",
+              "per_unit": 1500
+            }
+          ],
+          "cap": {
+            "amount": 0
+          },
+          "grade": "enforced"
+        },
+        "why": "a cap of zero admits no work at all - it is a refusal written as a price"
+      },
+      {
+        "case": "cap_without_an_amount",
+        "price": {
+          "arrangement": "time_and_materials",
+          "currency": "XCR",
+          "schedule": [
+            {
+              "meter": "tokens_out",
+              "unit": "1000 tokens",
+              "per_unit": 1500
+            }
+          ],
+          "cap": {},
+          "grade": "enforced"
+        },
+        "why": "5.5.3: the cap is the single number an authority check tests. An empty cap object is not a cap"
+      },
+      {
+        "case": "empty_schedule",
+        "price": {
+          "arrangement": "time_and_materials",
+          "currency": "XCR",
+          "schedule": [],
+          "cap": {
+            "amount": 40000000
+          },
+          "grade": "enforced"
+        },
+        "why": "5.5.2: time and materials IS the rate schedule. An empty one prices nothing"
+      },
+      {
+        "case": "duplicate_meter",
+        "price": {
+          "arrangement": "time_and_materials",
+          "currency": "XCR",
+          "schedule": [
+            {
+              "meter": "tokens_out",
+              "unit": "1000 tokens",
+              "per_unit": 1500
+            },
+            {
+              "meter": "tokens_out",
+              "unit": "token",
+              "per_unit": 2
+            }
+          ],
+          "cap": {
+            "amount": 40000000
+          },
+          "grade": "enforced"
+        },
+        "why": "two prices for one meter is two answers to the same question"
+      },
+      {
+        "case": "schedule_line_without_a_unit",
+        "price": {
+          "arrangement": "time_and_materials",
+          "currency": "XCR",
+          "schedule": [
+            {
+              "meter": "tokens_out",
+              "per_unit": 1500
+            }
+          ],
+          "cap": {
+            "amount": 40000000
+          },
+          "grade": "enforced"
+        },
+        "why": "5.5.2: each line names a meter, THE UNIT THAT METER COUNTS, and the price of one unit"
+      },
+      {
+        "case": "pass_through_false",
+        "price": {
+          "arrangement": "time_and_materials",
+          "currency": "XCR",
+          "schedule": [
+            {
+              "meter": "vendor_lookups",
+              "unit": "lookup",
+              "per_unit": 9000,
+              "pass_through": false
+            }
+          ],
+          "cap": {
+            "amount": 40000000
+          },
+          "grade": "enforced"
+        },
+        "why": "5.5.6 marks a line `\"pass_through\": true`. Absence is how a line says it is not pass-through; `false` is a third spelling of the same thing and the wire has room for exactly two"
+      },
+      {
+        "case": "time_and_materials_with_a_ceiling",
+        "price": {
+          "arrangement": "time_and_materials",
+          "currency": "XCR",
+          "schedule": [
+            {
+              "meter": "tokens_out",
+              "unit": "1000 tokens",
+              "per": 1000,
+              "per_unit": 1500
+            }
+          ],
+          "cap": {
+            "amount": 40000000
+          },
+          "reservation": {
+            "window_days": 30
+          },
+          "ceiling": {
+            "amount": 40000000,
+            "period": "month"
+          },
+          "grade": "enforced"
+        },
+        "why": "the per-period ceiling is the fixed-fee instrument (5.5.1); time and materials bounds itself with the cap (5.5.3). Carrying both leaves two numbers competing to be the committed price"
+      },
+      {
+        "case": "time_and_materials_without_a_reservation",
+        "price": {
+          "arrangement": "time_and_materials",
+          "currency": "XCR",
+          "schedule": [
+            {
+              "meter": "tokens_out",
+              "unit": "1000 tokens",
+              "per": 1000,
+              "per_unit": 1500
+            }
+          ],
+          "cap": {
+            "amount": 40000000
+          },
+          "grade": "enforced"
+        },
+        "why": "5.5.4: a time and materials engagement MUST carry a reservation with a stated window, and a runtime MUST refuse a proposal that omits it. The arrangement is a purchase order; one that commits no funds and names no period has no defined settlement behaviour - nothing says when billing stops, and nothing says when the buyer's money comes back"
+      },
+      {
+        "case": "zero_window",
+        "price": {
+          "arrangement": "time_and_materials",
+          "currency": "XCR",
+          "schedule": [
+            {
+              "meter": "tokens_out",
+              "unit": "1000 tokens",
+              "per": 1000,
+              "per_unit": 1500
+            }
+          ],
+          "cap": {
+            "amount": 40000000
+          },
+          "reservation": {
+            "window_days": 0
+          },
+          "grade": "enforced"
+        },
+        "why": "a window of zero days releases the reservation the instant it is taken, so no work can run inside it"
+      },
+      {
+        "case": "zero_divisor",
+        "price": {
+          "arrangement": "time_and_materials",
+          "currency": "XCR",
+          "schedule": [
+            {
+              "meter": "tokens_out",
+              "unit": "1000 tokens",
+              "per": 0,
+              "per_unit": 1500
+            }
+          ],
+          "cap": {
+            "amount": 40000000
+          },
+          "reservation": {
+            "window_days": 30
+          },
+          "grade": "enforced"
+        },
+        "why": "5.5.2: per is a positive integer. Zero raw counts cannot make one billable unit, and the division has no answer"
+      },
+      {
+        "case": "fractional_divisor",
+        "price": {
+          "arrangement": "time_and_materials",
+          "currency": "XCR",
+          "schedule": [
+            {
+              "meter": "tokens_out",
+              "unit": "1000 tokens",
+              "per": 1000.5,
+              "per_unit": 1500
+            }
+          ],
+          "cap": {
+            "amount": 40000000
+          },
+          "reservation": {
+            "window_days": 30
+          },
+          "grade": "enforced"
+        },
+        "why": "the divisor is an integer, like everything else the arithmetic touches - a fractional one reintroduces exactly the float the integer rule exists to keep out of money"
+      },
+      {
+        "case": "fixed_fee_with_a_schedule",
+        "price": {
+          "arrangement": "fixed_fee",
+          "currency": "XCR",
+          "rates": [
+            {
+              "offering": "reconcile-statement",
+              "per_task": 2500000
+            }
+          ],
+          "schedule": [
+            {
+              "meter": "tokens_out",
+              "unit": "1000 tokens",
+              "per": 1000,
+              "per_unit": 1500
+            }
+          ],
+          "grade": "enforced"
+        },
+        "why": "a fixed fee is known before the task runs (5.5.1); a schedule is the other arrangement"
+      },
+      {
+        "case": "fixed_fee_with_no_rates",
+        "price": {
+          "arrangement": "fixed_fee",
+          "currency": "XCR",
+          "rates": [],
+          "grade": "enforced"
+        },
+        "why": "5.5.1 prices work per offering - a fixed_fee clause with no rates prices nothing"
+      },
+      {
+        "case": "no_grade",
+        "price": {
+          "arrangement": "fixed_fee",
+          "currency": "XCR",
+          "rates": [
+            {
+              "offering": "reconcile-statement",
+              "per_task": 2500000
+            }
+          ]
+        },
+        "why": "4.2: all clause objects carry a grade field"
+      },
+      {
+        "case": "fractional_money",
+        "price": {
+          "arrangement": "time_and_materials",
+          "currency": "XCR",
+          "schedule": [
+            {
+              "meter": "tokens_out",
+              "unit": "1000 tokens",
+              "per_unit": 1500.5
+            }
+          ],
+          "cap": {
+            "amount": 40000000
+          },
+          "grade": "enforced"
+        },
+        "why": "money is an integer in the smallest unit of the currency, never a float"
+      },
+      {
+        "case": "bad_currency",
+        "price": {
+          "arrangement": "fixed_fee",
+          "currency": "xcr",
+          "rates": [
+            {
+              "offering": "reconcile-statement",
+              "per_task": 2500000
+            }
+          ],
+          "grade": "enforced"
+        },
+        "why": "a three-letter uppercase code; private-use X-codes are legal, lowercase is not"
+      },
+      {
+        "case": "no_charge_with_a_currency",
+        "price": {
+          "arrangement": "no_charge",
+          "currency": "XCR",
+          "grade": "enforced"
+        },
+        "why": "5.5.7: the clause carries the arrangement and its grade and nothing else. Nothing settles, so there is no currency to settle in"
+      },
+      {
+        "case": "no_charge_with_rates",
+        "price": {
+          "arrangement": "no_charge",
+          "rates": [
+            {
+              "offering": "summarize-filing",
+              "per_task": 0
+            }
+          ],
+          "grade": "enforced"
+        },
+        "why": "5.5.7: a rate of zero is exactly the magic value the arrangement exists to replace. A clause that declares no_charge and states a rate says two things"
+      },
+      {
+        "case": "no_charge_with_a_schedule",
+        "price": {
+          "arrangement": "no_charge",
+          "schedule": [
+            {
+              "meter": "tokens_out",
+              "unit": "1000 tokens",
+              "per": 1000,
+              "per_unit": 0
+            }
+          ],
+          "grade": "enforced"
+        },
+        "why": "5.5.7: there is nothing to meter, because a runtime MUST NOT rate work under a no_charge engagement"
+      },
+      {
+        "case": "no_charge_with_a_cap",
+        "price": {
+          "arrangement": "no_charge",
+          "cap": {
+            "amount": 40000000
+          },
+          "grade": "enforced"
+        },
+        "why": "5.5.7: there is no cap to reserve against. A cap on an engagement that bills nothing holds the client's money for no reason"
+      },
+      {
+        "case": "no_charge_with_a_reservation",
+        "price": {
+          "arrangement": "no_charge",
+          "reservation": {
+            "window_days": 30
+          },
+          "grade": "enforced"
+        },
+        "why": "5.5.7: nothing is drawn, so nothing is reserved and no window has anything to release"
+      },
+      {
+        "case": "no_charge_with_a_ceiling",
+        "price": {
+          "arrangement": "no_charge",
+          "ceiling": {
+            "amount": 40000000,
+            "period": "month"
+          },
+          "grade": "enforced"
+        },
+        "why": "5.5.7: there is no ceiling to test, because there is no spend for a ceiling to bound"
+      },
+      {
+        "case": "no_charge_with_any_other_price_field",
+        "price": {
+          "arrangement": "no_charge",
+          "minimum": {
+            "amount": 1
+          },
+          "grade": "enforced"
+        },
+        "why": "5.5.7 names six fields and then says `or any other price field`, so the rule is a membership check on the clause's members rather than six field checks. A member the section does not define is refused for the same reason the six are"
+      },
+      {
+        "case": "no_charge_without_a_grade",
+        "price": {
+          "arrangement": "no_charge"
+        },
+        "why": "4.2: all clause objects carry a grade field, and 5.5.7's is `enforced` - a charge under a no_charge engagement is refused mechanically by the client's node"
+      }
+    ]
+  },
+  "rating": {
+    "comment": "5.5.2 rating, 5.5.3 the cap, and 5.5.8's fee inside it. Rating is over RAW meter counts, in each meter's own natural grain. The schedule line's `per` is the divisor that turns those counts into billable units and a line rates as floor(count * per_unit / per); `unit` is a label for people and a runtime MUST NOT parse it. The floor favours the buyer, and it is why the settlement record carries count, per and per_unit: the buyer recomputes the charge from the token count it reads off its own records, which under an arrangement with no deliverable to accept is the only protection it has. Three MUSTs are executed here. A meter the schedule does not price is REFUSED rather than billed. Metered usage is not billed past the cap - the total clamps, `unbilled` is what the provider absorbed, and `exhausted` says the work is concluded. And since 0.9.0-draft THE CAP BOUNDS WHAT THE CLIENT PAYS, FEE INCLUDED: where `operator_fee_basis` is present the provider's rated work runs to the cap LESS the fee taken on it, `client_total` is what the client pays, `cap_remaining` is the client's REMAINING EXPOSURE rather than the provider's remaining budget, and `already_billed` is what the client has been billed INCLUDING earlier fees. Where no basis is present every number means exactly what it meant before, which is why the five original cases below are unchanged apart from `client_total` being written out.",
+    "cases": [
+      {
+        "case": "under_the_cap",
+        "price": {
+          "arrangement": "time_and_materials",
+          "currency": "XCR",
+          "schedule": [
+            {
+              "meter": "tokens_out",
+              "unit": "1000 tokens",
+              "per": 1000,
+              "per_unit": 1500
+            },
+            {
+              "meter": "tool_calls",
+              "unit": "call",
+              "per": 1,
+              "per_unit": 2000
+            },
+            {
+              "meter": "items",
+              "unit": "invoice",
+              "per": 1,
+              "per_unit": 40000
+            },
+            {
+              "meter": "elapsed",
+              "unit": "minute",
+              "per": 60,
+              "per_unit": 12000
+            }
+          ],
+          "cap": {
+            "amount": 40000000
+          },
+          "reservation": {
+            "window_days": 30
+          },
+          "grade": "enforced"
+        },
+        "already_billed": 0,
+        "usage": [
+          {
+            "meter": "tokens_out",
+            "count": 125501
+          },
+          {
+            "meter": "tool_calls",
+            "count": 40
+          }
+        ],
+        "expect": {
+          "total": 268251,
+          "client_total": 268251,
+          "cap_remaining": 39731749,
+          "exhausted": false,
+          "unbilled": 0,
+          "lines": [
+            {
+              "meter": "tokens_out",
+              "unit": "1000 tokens",
+              "count": 125501,
+              "per": 1000,
+              "per_unit": 1500,
+              "amount": 188251
+            },
+            {
+              "meter": "tool_calls",
+              "unit": "call",
+              "count": 40,
+              "per": 1,
+              "per_unit": 2000,
+              "amount": 80000
+            }
+          ]
+        },
+        "why": "tokens_out is priced per 1000, so 125501 raw tokens rate as floor(125501*1500/1000) = floor(188251.5) = 188251: the half unit is NOT charged, and the floor favours the buyer. Plus 40 calls at per 1 = 80000. Well inside a 40000000 cap, and the buyer recomputes both lines from counts it holds itself"
+      },
+      {
+        "case": "reaches_the_cap_exactly",
+        "price": {
+          "arrangement": "time_and_materials",
+          "currency": "XCR",
+          "schedule": [
+            {
+              "meter": "tool_calls",
+              "unit": "call",
+              "per_unit": 1000
+            }
+          ],
+          "cap": {
+            "amount": 5000
+          },
+          "reservation": {
+            "window_days": 7
+          },
+          "grade": "enforced"
+        },
+        "already_billed": 0,
+        "usage": [
+          {
+            "meter": "tool_calls",
+            "count": 5
+          }
+        ],
+        "expect": {
+          "total": 5000,
+          "client_total": 5000,
+          "cap_remaining": 0,
+          "exhausted": true,
+          "unbilled": 0,
+          "lines": [
+            {
+              "meter": "tool_calls",
+              "unit": "call",
+              "count": 5,
+              "per": 1,
+              "per_unit": 1000,
+              "amount": 5000
+            }
+          ]
+        },
+        "why": "5*1000 = 5000 = the cap. cap_remaining 0 and exhausted true: reaching the cap concludes the work (5.5.5), and nothing was absorbed"
+      },
+      {
+        "case": "clamps_at_the_cap_and_the_rest_is_the_providers",
+        "price": {
+          "arrangement": "time_and_materials",
+          "currency": "XCR",
+          "schedule": [
+            {
+              "meter": "tool_calls",
+              "unit": "call",
+              "per_unit": 1000
+            }
+          ],
+          "cap": {
+            "amount": 5000
+          },
+          "reservation": {
+            "window_days": 7
+          },
+          "grade": "enforced"
+        },
+        "already_billed": 0,
+        "usage": [
+          {
+            "meter": "tool_calls",
+            "count": 8
+          }
+        ],
+        "expect": {
+          "total": 5000,
+          "client_total": 5000,
+          "cap_remaining": 0,
+          "exhausted": true,
+          "unbilled": 3000,
+          "lines": [
+            {
+              "meter": "tool_calls",
+              "unit": "call",
+              "count": 8,
+              "per": 1,
+              "per_unit": 1000,
+              "amount": 5000
+            }
+          ]
+        },
+        "why": "5.5.3: metered usage MUST NOT be billed past the cap. 8*1000 = 8000 gross, 5000 billed, 3000 unbilled - units the provider incurred after the cap was reached are the provider's to bear"
+      },
+      {
+        "case": "already_billed_counts_against_the_same_cap",
+        "price": {
+          "arrangement": "time_and_materials",
+          "currency": "XCR",
+          "schedule": [
+            {
+              "meter": "tool_calls",
+              "unit": "call",
+              "per_unit": 1000
+            }
+          ],
+          "cap": {
+            "amount": 5000
+          },
+          "reservation": {
+            "window_days": 7
+          },
+          "grade": "enforced"
+        },
+        "already_billed": 4000,
+        "usage": [
+          {
+            "meter": "tool_calls",
+            "count": 4
+          }
+        ],
+        "expect": {
+          "total": 1000,
+          "client_total": 1000,
+          "cap_remaining": 0,
+          "exhausted": true,
+          "unbilled": 3000,
+          "lines": [
+            {
+              "meter": "tool_calls",
+              "unit": "call",
+              "count": 4,
+              "per": 1,
+              "per_unit": 1000,
+              "amount": 1000
+            }
+          ]
+        },
+        "why": "the cap is measured over the ENGAGEMENT, not over one batch: 4000 already settled leaves 1000, so 4000 gross bills 1000 and absorbs 3000"
+      },
+      {
+        "case": "a_pass_through_line_carries_its_upstream_receipt",
+        "price": {
+          "arrangement": "time_and_materials",
+          "currency": "XCR",
+          "schedule": [
+            {
+              "meter": "items",
+              "unit": "invoice",
+              "per_unit": 40000
+            },
+            {
+              "meter": "vendor_lookups",
+              "unit": "lookup",
+              "per_unit": 9000,
+              "pass_through": true
+            }
+          ],
+          "cap": {
+            "amount": 1000000
+          },
+          "reservation": {
+            "window_days": 14
+          },
+          "grade": "enforced"
+        },
+        "already_billed": 0,
+        "usage": [
+          {
+            "meter": "items",
+            "count": 3
+          },
+          {
+            "meter": "vendor_lookups",
+            "count": 2
+          }
+        ],
+        "receipts": {
+          "vendor_lookups": "rcpt_upstream_8f3d"
+        },
+        "expect": {
+          "total": 138000,
+          "client_total": 138000,
+          "cap_remaining": 862000,
+          "exhausted": false,
+          "unbilled": 0,
+          "lines": [
+            {
+              "meter": "items",
+              "unit": "invoice",
+              "count": 3,
+              "per": 1,
+              "per_unit": 40000,
+              "amount": 120000
+            },
+            {
+              "meter": "vendor_lookups",
+              "unit": "lookup",
+              "count": 2,
+              "per": 1,
+              "per_unit": 9000,
+              "amount": 18000,
+              "pass_through": true,
+              "upstream_receipt": "rcpt_upstream_8f3d"
+            }
+          ]
+        },
+        "why": "5.5.6: every settlement record for a pass-through line references the upstream receipt that evidences the cost"
+      },
+      {
+        "case": "the_cap_bounds_the_client_not_the_provider",
+        "price": {
+          "arrangement": "time_and_materials",
+          "currency": "XCR",
+          "schedule": [
+            {
+              "meter": "tool_calls",
+              "unit": "call",
+              "per_unit": 1
+            }
+          ],
+          "cap": {
+            "amount": 100
+          },
+          "reservation": {
+            "window_days": 7
+          },
+          "grade": "enforced"
+        },
+        "already_billed": 0,
+        "operator_fee_basis": {
+          "kind": "percent",
+          "percent": 10
+        },
+        "operator": "acme-mesh.example",
+        "usage": [
+          {
+            "meter": "tool_calls",
+            "count": 200
+          }
+        ],
+        "expect": {
+          "total": 91,
+          "client_total": 100,
+          "cap_remaining": 0,
+          "exhausted": true,
+          "unbilled": 109,
+          "operator_fee": {
+            "operator": "acme-mesh.example",
+            "basis": {
+              "kind": "percent",
+              "percent": 10
+            },
+            "base": 91,
+            "amount": 9
+          },
+          "lines": [
+            {
+              "meter": "tool_calls",
+              "unit": "call",
+              "count": 200,
+              "per": 1,
+              "per_unit": 1,
+              "amount": 91
+            }
+          ]
+        },
+        "why": "THE boundary case, executed through rating rather than stated as arithmetic. A cap of 100 with a ten percent operator fee admits 91 units of rated work, not 90 and not 100: 91 + floor(91 * 10 / 100) = 91 + 9 = 100 exactly, and 92 would put the client at 101. The client pays 100, which is the cap. The other 109 units the provider incurred are the provider's to bear (5.5.3), and the engagement concludes `exhausted` (5.5.5) with no new state or field"
+      },
+      {
+        "case": "a_fee_well_inside_the_cap_clamps_nothing",
+        "price": {
+          "arrangement": "time_and_materials",
+          "currency": "XCR",
+          "schedule": [
+            {
+              "meter": "items",
+              "unit": "invoice",
+              "per": 1,
+              "per_unit": 2500000
+            }
+          ],
+          "cap": {
+            "amount": 40000000
+          },
+          "reservation": {
+            "window_days": 30
+          },
+          "grade": "enforced"
+        },
+        "already_billed": 0,
+        "operator_fee_basis": {
+          "kind": "percent",
+          "percent": 10
+        },
+        "usage": [
+          {
+            "meter": "items",
+            "count": 1
+          }
+        ],
+        "expect": {
+          "total": 2500000,
+          "client_total": 2750000,
+          "cap_remaining": 37250000,
+          "exhausted": false,
+          "unbilled": 0,
+          "operator_fee": {
+            "basis": {
+              "kind": "percent",
+              "percent": 10
+            },
+            "base": 2500000,
+            "amount": 250000
+          },
+          "lines": [
+            {
+              "meter": "items",
+              "unit": "invoice",
+              "count": 1,
+              "per": 1,
+              "per_unit": 2500000,
+              "amount": 2500000
+            }
+          ]
+        },
+        "why": "5.5.8's own worked example sitting inside a rating. The provider is paid its line and the client pays that line plus the fee, so the client's exposure falls by 2750000 and not by 2500000. Nothing is clamped, because nothing is near the cap"
+      },
+      {
+        "case": "already_billed_includes_the_fees_already_taken",
+        "price": {
+          "arrangement": "time_and_materials",
+          "currency": "XCR",
+          "schedule": [
+            {
+              "meter": "tool_calls",
+              "unit": "call",
+              "per_unit": 1
+            }
+          ],
+          "cap": {
+            "amount": 100
+          },
+          "reservation": {
+            "window_days": 7
+          },
+          "grade": "enforced"
+        },
+        "already_billed": 55,
+        "operator_fee_basis": {
+          "kind": "percent",
+          "percent": 10
+        },
+        "usage": [
+          {
+            "meter": "tool_calls",
+            "count": 100
+          }
+        ],
+        "expect": {
+          "total": 41,
+          "client_total": 45,
+          "cap_remaining": 0,
+          "exhausted": true,
+          "unbilled": 59,
+          "operator_fee": {
+            "basis": {
+              "kind": "percent",
+              "percent": 10
+            },
+            "base": 41,
+            "amount": 4
+          },
+          "lines": [
+            {
+              "meter": "tool_calls",
+              "unit": "call",
+              "count": 100,
+              "per": 1,
+              "per_unit": 1,
+              "amount": 41
+            }
+          ]
+        },
+        "why": "`already_billed` is what the CLIENT has been billed, fees included: 55 here is 50 of rated work plus the 5 the operator took on it. 45 of exposure is left, which admits 41 units of work (41 + 4 = 45) and not 45. This is the field whose meaning changed in 0.9.0-draft, and a runtime that passes the provider's earnings here instead of the client's charges overbills by the fees it has already taken"
+      },
+      {
+        "case": "a_fixed_fee_comes_off_the_top_of_the_cap",
+        "price": {
+          "arrangement": "time_and_materials",
+          "currency": "XCR",
+          "schedule": [
+            {
+              "meter": "tool_calls",
+              "unit": "call",
+              "per_unit": 1
+            }
+          ],
+          "cap": {
+            "amount": 100
+          },
+          "reservation": {
+            "window_days": 7
+          },
+          "grade": "enforced"
+        },
+        "already_billed": 0,
+        "operator_fee_basis": {
+          "kind": "fixed",
+          "fixed": 9
+        },
+        "usage": [
+          {
+            "meter": "tool_calls",
+            "count": 200
+          }
+        ],
+        "expect": {
+          "total": 91,
+          "client_total": 100,
+          "cap_remaining": 0,
+          "exhausted": true,
+          "unbilled": 109,
+          "operator_fee": {
+            "basis": {
+              "kind": "fixed",
+              "fixed": 9
+            },
+            "base": 91,
+            "amount": 9
+          },
+          "lines": [
+            {
+              "meter": "tool_calls",
+              "unit": "call",
+              "count": 200,
+              "per": 1,
+              "per_unit": 1,
+              "amount": 91
+            }
+          ]
+        },
+        "why": "A fixed charge is basis.fixed whatever the base (5.5.8), so it is subtracted from the client's exposure and the remainder is what the provider's work runs to. Same answer as the ten percent case here, arrived at without a percentage"
+      },
+      {
+        "case": "a_fee_larger_than_what_is_left_rates_nothing_and_takes_nothing",
+        "price": {
+          "arrangement": "time_and_materials",
+          "currency": "XCR",
+          "schedule": [
+            {
+              "meter": "tool_calls",
+              "unit": "call",
+              "per_unit": 1
+            }
+          ],
+          "cap": {
+            "amount": 5
+          },
+          "reservation": {
+            "window_days": 7
+          },
+          "grade": "enforced"
+        },
+        "already_billed": 0,
+        "operator_fee_basis": {
+          "kind": "fixed",
+          "fixed": 9
+        },
+        "usage": [
+          {
+            "meter": "tool_calls",
+            "count": 200
+          }
+        ],
+        "expect": {
+          "total": 0,
+          "client_total": 0,
+          "cap_remaining": 5,
+          "exhausted": true,
+          "unbilled": 200,
+          "lines": [
+            {
+              "meter": "tool_calls",
+              "unit": "call",
+              "count": 200,
+              "per": 1,
+              "per_unit": 1,
+              "amount": 0
+            }
+          ]
+        },
+        "why": "The fixed charge alone exceeds what the client has left, so no rated work fits under the cap and NO FEE LINE IS WRITTEN: a fee is a cut out of what the client pays, and the client pays nothing. Note that `cap_remaining` is 5 and `exhausted` is still true - reaching the cap means no further rated work fits, not that the remainder is exactly zero, and the two are the same number only when no operator stands in the path"
+      }
+    ],
+    "refuses": [
+      {
+        "case": "unpriced_meter",
+        "price": {
+          "arrangement": "time_and_materials",
+          "currency": "XCR",
+          "schedule": [
+            {
+              "meter": "tokens_out",
+              "unit": "1000 tokens",
+              "per": 1000,
+              "per_unit": 1500
+            },
+            {
+              "meter": "tool_calls",
+              "unit": "call",
+              "per": 1,
+              "per_unit": 2000
+            },
+            {
+              "meter": "items",
+              "unit": "invoice",
+              "per": 1,
+              "per_unit": 40000
+            },
+            {
+              "meter": "elapsed",
+              "unit": "minute",
+              "per": 60,
+              "per_unit": 12000
+            }
+          ],
+          "cap": {
+            "amount": 40000000
+          },
+          "reservation": {
+            "window_days": 30
+          },
+          "grade": "enforced"
+        },
+        "usage": [
+          {
+            "meter": "vendor_lookups",
+            "count": 1
+          }
+        ],
+        "why": "5.5.2: a runtime MUST NOT bill a meter the schedule does not price. Refused, not silently dropped"
+      },
+      {
+        "case": "pass_through_without_a_receipt",
+        "price": {
+          "arrangement": "time_and_materials",
+          "currency": "XCR",
+          "schedule": [
+            {
+              "meter": "items",
+              "unit": "invoice",
+              "per_unit": 40000
+            },
+            {
+              "meter": "vendor_lookups",
+              "unit": "lookup",
+              "per_unit": 9000,
+              "pass_through": true
+            }
+          ],
+          "cap": {
+            "amount": 1000000
+          },
+          "reservation": {
+            "window_days": 14
+          },
+          "grade": "enforced"
+        },
+        "usage": [
+          {
+            "meter": "vendor_lookups",
+            "count": 1
+          }
+        ],
+        "why": "5.5.6: a pass-through line with no receipt is a bare assertion that a cost was incurred, which is what 'at cost, with proof' rules out"
+      }
+    ]
+  },
+  "settlement_line": {
+    "comment": "5.5.6 plus the 5.5.2 record shape: a settlement line carries the raw count, the divisor actually applied (written out even when it is 1) and the unit price, so a buyer can recompute the amount without holding the engagement. When a provider bills for something it bought elsewhere, including from another agent on the mesh, that line MUST be marked pass_through and EVERY settlement record for the line MUST reference the upstream receipt. A pass-through line MUST NOT be priced above the upstream cost - a provider that wants a margin on resold work prices that work as its own metered line instead.",
+    "valid": [
+      {
+        "meter": "items",
+        "unit": "invoice",
+        "count": 3,
+        "per": 1,
+        "per_unit": 40000,
+        "amount": 120000
+      },
+      {
+        "meter": "tokens_out",
+        "unit": "1000 tokens",
+        "count": 125500,
+        "per": 1000,
+        "per_unit": 1500,
+        "amount": 188250
+      },
+      {
+        "meter": "vendor_lookups",
+        "unit": "lookup",
+        "count": 2,
+        "per": 1,
+        "per_unit": 9000,
+        "amount": 18000,
+        "pass_through": true,
+        "upstream_receipt": "rcpt_upstream_8f3d"
+      },
+      {
+        "meter": "vendor_lookups",
+        "unit": "lookup",
+        "count": 2,
+        "per": 1,
+        "per_unit": 9000,
+        "amount": 18000,
+        "pass_through": true,
+        "upstream_receipt": "rcpt_upstream_8f3d",
+        "upstream_amount": 18000
+      }
+    ],
+    "invalid": [
+      {
+        "case": "pass_through_without_receipt",
+        "line": {
+          "meter": "vendor_lookups",
+          "unit": "lookup",
+          "count": 2,
+          "per": 1,
+          "per_unit": 9000,
+          "amount": 18000,
+          "pass_through": true
+        },
+        "why": "the proof is usually free - the upstream engagement settled and issued its own record. The receipt the buyer is owed is one the provider already holds"
+      },
+      {
+        "case": "priced_above_the_upstream_cost",
+        "line": {
+          "meter": "vendor_lookups",
+          "unit": "lookup",
+          "count": 2,
+          "per": 1,
+          "per_unit": 9000,
+          "amount": 18000,
+          "pass_through": true,
+          "upstream_receipt": "rcpt_upstream_8f3d",
+          "upstream_amount": 12000
+        },
+        "why": "5.5.6: this is the honest meaning of 'materials' - at cost, with proof"
+      },
+      {
+        "case": "no_divisor_on_the_record",
+        "line": {
+          "meter": "items",
+          "unit": "invoice",
+          "count": 3,
+          "per_unit": 40000,
+          "amount": 120000
+        },
+        "why": "the settlement record carries the divisor actually applied, written out even when it is 1, so a buyer can recompute the amount from its own counts without holding the engagement"
+      },
+      {
+        "case": "receipt_on_a_line_that_is_not_pass_through",
+        "line": {
+          "meter": "items",
+          "unit": "invoice",
+          "count": 3,
+          "per": 1,
+          "per_unit": 40000,
+          "amount": 120000,
+          "upstream_receipt": "rcpt_upstream_8f3d"
+        },
+        "why": "an upstream receipt on work the provider performed itself claims a cost basis the line does not have"
+      }
+    ]
+  },
+  "no_charge": {
+    "comment": "5.5.7. `no_charge` declares that the provider charges nothing. Nothing settles: a runtime MUST NOT rate the work, MUST NOT draw from the client's balance, MUST NOT produce a settlement record, and MUST NOT call clearing, and a client node MUST refuse a settlement record that cites a no_charge engagement. That is written as a prohibition rather than left to implementations because the alternative design writes a zero-valued settlement record for every task into both accounts' books, where it carries no information while sitting beside the records that do. Everything else about the engagement is ordinary: it forms, amends, terminates, lapses, produces the same task and evidence records, and may be reviewed under 15, so an agent that works for nothing still earns a reputation from the work. For an Agent Mandate ceiling check the committed price is zero and any ceiling covers it.",
+    "clause": {
+      "arrangement": "no_charge",
+      "grade": "enforced"
+    },
+    "settles": false,
+    "committed_price": 0,
+    "grade": "enforced",
+    "refuses_rating": {
+      "usage": [
+        {
+          "meter": "tokens_out",
+          "count": 125501
+        }
+      ],
+      "why": "5.5.7: a runtime MUST NOT rate work under a no_charge engagement. Counts arriving against one are refused, not rated to zero"
+    },
+    "refuses_settlement_record": {
+      "record": {
+        "engagement": "sow_3n8p5r2t7v4w9x1y",
+        "at": "2026-08-05T11:20:00Z",
+        "total": 0,
+        "lines": [
+          {
+            "meter": "tokens_out",
+            "unit": "1000 tokens",
+            "count": 125501,
+            "per": 1000,
+            "per_unit": 0,
+            "amount": 0
+          }
+        ]
+      },
+      "why": "5.5.7: a client node MUST refuse a settlement record that cites a no_charge engagement. A total of zero does not make the record admissible - it is the record this rule exists to keep out of the books"
+    },
+    "comment_settles": "`settles` is false here and true for the other two arrangements: under fixed_fee and time_and_materials every billable unit of work MUST be rated at the engagement's price and produce a settlement record both parties hold (5.5). A no_charge engagement has no billable units.",
+    "document": {
+      "sow": "v1",
+      "id": "sow_3n8p5r2t7v4w9x1y",
+      "version": 1,
+      "starts_at": "2026-08-04T00:00:00Z",
+      "ends_at": "2027-02-01T00:00:00Z",
+      "language": {
+        "id": "agent-sow-standard-language",
+        "version": 4,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "parties": {
+        "provider": {
+          "agent": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+          "handle": "Granite.books@stonework.example",
+          "owner": "Stonework Analytics"
+        },
+        "client": {
+          "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "handle": "Petrel.mari@harborandline.example",
+          "owner": "Harbor & Line Outfitters"
+        },
+        "grade": "evidence"
+      },
+      "scope": {
+        "offerings": [
+          "summarize-filing"
+        ],
+        "examples": {
+          "in_scope": [
+            "summarize the quarterly filing"
+          ],
+          "out_of_scope": [
+            "give an opinion on the numbers"
+          ]
+        },
+        "grade": "enforced"
+      },
+      "price": {
+        "arrangement": "no_charge",
+        "grade": "enforced"
+      },
+      "volume": {
+        "per_hour": 5,
+        "per_day": 20,
+        "grade": "enforced"
+      },
+      "change_control": {
+        "review_window_days": 7,
+        "approval": {
+          "formation": "agent",
+          "amendment": "person"
+        },
+        "grade": "enforced"
+      },
+      "termination": {
+        "convenience_notice_hours": 24,
+        "grade": "enforced"
+      },
+      "disputes": {
+        "posture": "refund_on_failed_task",
+        "grade": "evidence"
+      },
+      "confidentiality": {
+        "transport": {
+          "sealed": true,
+          "grade": "enforced"
+        },
+        "retention": {
+          "max_days": 30,
+          "grade": "enforced"
+        },
+        "promises": {
+          "no_training": true,
+          "grade": "recorded"
+        }
+      }
+    },
+    "canonical": "{\"change_control\":{\"approval\":{\"amendment\":\"person\",\"formation\":\"agent\"},\"grade\":\"enforced\",\"review_window_days\":7},\"confidentiality\":{\"promises\":{\"grade\":\"recorded\",\"no_training\":true},\"retention\":{\"grade\":\"enforced\",\"max_days\":30},\"transport\":{\"grade\":\"enforced\",\"sealed\":true}},\"disputes\":{\"grade\":\"evidence\",\"posture\":\"refund_on_failed_task\"},\"ends_at\":\"2027-02-01T00:00:00Z\",\"id\":\"sow_3n8p5r2t7v4w9x1y\",\"language\":{\"id\":\"agent-sow-standard-language\",\"sha256\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"version\":4},\"parties\":{\"client\":{\"agent\":\"UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP\",\"handle\":\"Petrel.mari@harborandline.example\",\"owner\":\"Harbor & Line Outfitters\"},\"grade\":\"evidence\",\"provider\":{\"agent\":\"UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A\",\"handle\":\"Granite.books@stonework.example\",\"owner\":\"Stonework Analytics\"}},\"price\":{\"arrangement\":\"no_charge\",\"grade\":\"enforced\"},\"scope\":{\"examples\":{\"in_scope\":[\"summarize the quarterly filing\"],\"out_of_scope\":[\"give an opinion on the numbers\"]},\"grade\":\"enforced\",\"offerings\":[\"summarize-filing\"]},\"sow\":\"v1\",\"starts_at\":\"2026-08-04T00:00:00Z\",\"termination\":{\"convenience_notice_hours\":24,\"grade\":\"enforced\"},\"version\":1,\"volume\":{\"grade\":\"enforced\",\"per_day\":20,\"per_hour\":5}}",
+    "signed": {
+      "sow": "v1",
+      "id": "sow_3n8p5r2t7v4w9x1y",
+      "version": 1,
+      "starts_at": "2026-08-04T00:00:00Z",
+      "ends_at": "2027-02-01T00:00:00Z",
+      "language": {
+        "id": "agent-sow-standard-language",
+        "version": 4,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "parties": {
+        "provider": {
+          "agent": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+          "handle": "Granite.books@stonework.example",
+          "owner": "Stonework Analytics"
+        },
+        "client": {
+          "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "handle": "Petrel.mari@harborandline.example",
+          "owner": "Harbor & Line Outfitters"
+        },
+        "grade": "evidence"
+      },
+      "scope": {
+        "offerings": [
+          "summarize-filing"
+        ],
+        "examples": {
+          "in_scope": [
+            "summarize the quarterly filing"
+          ],
+          "out_of_scope": [
+            "give an opinion on the numbers"
+          ]
+        },
+        "grade": "enforced"
+      },
+      "price": {
+        "arrangement": "no_charge",
+        "grade": "enforced"
+      },
+      "volume": {
+        "per_hour": 5,
+        "per_day": 20,
+        "grade": "enforced"
+      },
+      "change_control": {
+        "review_window_days": 7,
+        "approval": {
+          "formation": "agent",
+          "amendment": "person"
+        },
+        "grade": "enforced"
+      },
+      "termination": {
+        "convenience_notice_hours": 24,
+        "grade": "enforced"
+      },
+      "disputes": {
+        "posture": "refund_on_failed_task",
+        "grade": "evidence"
+      },
+      "confidentiality": {
+        "transport": {
+          "sealed": true,
+          "grade": "enforced"
+        },
+        "retention": {
+          "max_days": 30,
+          "grade": "enforced"
+        },
+        "promises": {
+          "no_training": true,
+          "grade": "recorded"
+        }
+      },
+      "signatures": [
+        {
+          "role": "client",
+          "key": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "signed_at": "2026-08-04T16:47:36Z",
+          "sig": "jOKgGQPmpEwB8u3Pkb1SNCg3MRJdy9AZHYnSTkHEuJLf5GUpzpf2q94Hu4mg0ghjLiMwTGqIKuWSvqYVY8otAg"
+        }
+      ]
+    },
+    "comment_signing": "The same cross-SDK byte test the `signing` section runs, over a document priced no_charge: `canonical` is what the TypeScript SDK produced and Rust must reproduce it exactly. The price clause sits INSIDE the signed bytes, so an SDK that writes a currency or a rate into a no_charge clause, or drops the arrangement, produces a document the other SDK will not verify. Signed by the CLIENT seat, because only one seed is published and that seed plays the signing owner; the provider seat's signature is left off for the reason `not_covered` gives."
+  },
+  "reservation": {
+    "comment": "5.5.4: a time and materials engagement MUST carry a reservation and a runtime MUST refuse a proposal that omits it. Funds are reserved for the cap amount when the engagement forms and carry a stated window. Billing occurs inside the window against actual metered usage; at the end of the window the unused remainder is RELEASED back to the client. Reserved funds are not available for other work while held - a cap set far above expected usage is not free. The window MUST NOT extend beyond ends_at.",
+    "cases": [
+      {
+        "window_days": 30,
+        "starts_at": "2026-08-04T00:00:00Z",
+        "ends_at": "2027-02-01T00:00:00Z",
+        "release_at": "2026-09-03T00:00:00Z",
+        "within_term": true
+      },
+      {
+        "window_days": 14,
+        "starts_at": "2026-08-04T12:30:00Z",
+        "ends_at": "2026-08-18T12:30:00Z",
+        "release_at": "2026-08-18T12:30:00Z",
+        "within_term": true
+      },
+      {
+        "window_days": 30,
+        "starts_at": "2026-08-04T00:00:00Z",
+        "ends_at": "2026-08-20T00:00:00Z",
+        "release_at": "2026-09-03T00:00:00Z",
+        "within_term": false
+      }
+    ]
+  },
+  "document_states": {
+    "comment": "7.1. `exhausted` sits beside `lapsed` and `terminated` as a way an engagement ends, and it is NOT a failure: `lapsed` means the term ran out, `exhausted` means the cap ran out (5.5.5). A runtime MUST NOT record an exhausted engagement or task as failed, and MUST treat lapse, exhaustion and termination identically at the gate - the counterparty reverts to general admission policy.",
+    "all": [
+      "template",
+      "standing_proposal",
+      "agreed",
+      "active",
+      "amendment_proposed",
+      "amended",
+      "exhausted",
+      "lapsed",
+      "terminated"
+    ],
+    "end_states": [
+      "exhausted",
+      "lapsed",
+      "terminated"
+    ],
+    "admits_work": [
+      "active"
+    ],
+    "unscored": [
+      "exhausted",
+      "terminated"
+    ]
+  },
+  "task_state": {
+    "comment": "5.5.5: a task in flight when the cap is reached also ends `exhausted`, with whatever artifacts exist attached, billed no further than the cap. In the mesh SDKs that makes `exhausted` a ninth Task state (SPEC.md 7.3), terminal and NOT cancelable - conformance/cancel.json's `not_cancelable_from` carries it for that reason.",
+    "state": "exhausted",
+    "terminal": true,
+    "is_failure": false,
+    "reachable_from": [
+      "submitted",
+      "working",
+      "input_required",
+      "auth_required"
+    ]
+  },
+  "party": {
+    "comment": "5.1 plus the 6.2 addition: a party MAY carry an `organization` reference beside its `owner`, naming the organization on whose behalf that seat engages. Additive - a document that omits it is conformant.",
+    "valid": [
+      {
+        "agent": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+        "handle": "Granite.books@stonework.example",
+        "owner": "Stonework Analytics"
+      },
+      {
+        "agent": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+        "owner": "Stonework Analytics",
+        "organization": "org_stonework"
+      }
+    ],
+    "invalid": [
+      {
+        "case": "bad_organization_ref",
+        "party": {
+          "agent": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+          "owner": "Stonework Analytics",
+          "organization": "stonework"
+        },
+        "why": "6.2 names the Agent Mandate form: org_..."
+      },
+      {
+        "case": "no_owner",
+        "party": {
+          "agent": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A"
+        },
+        "why": "owners sign, agents work (6) - a seat with no owner binds nobody"
+      }
+    ]
+  },
+  "directed": {
+    "comment": "12.1.1 (0.11.0-draft): a standing proposal MAY name the ONE party entitled to countersign it, in a `parties.offered_to` sub-clause beside the seats. Four rules, and each of them is a place two implementations drift. (a) The clause is INSIDE THE SIGNED BYTES - the signed bytes are the canonical document less `signatures` (6) - so the restriction is a term of the offer the selling owner signed and cannot be added, removed or altered afterwards without breaking that signature. A platform that lays the restriction over a document that does not carry it has produced a document whose signature does not verify. (b) Exactly one party. A list of permitted signers is an access control list rather than an offer, and it admits a race formation has no rule for: two named parties countersign the same bytes and only one can form. (c) A lapse is MANDATORY. An offer to one party with no end is an open account of a different kind - the named party holds it and countersigns, months later, a price the provider set for a market that has moved - and a runtime that cannot tell when a directed offer lapses MUST refuse formation rather than read the offer as unbounded. (d) A directed proposal yields NO public listing. Naming a counterparty does NOT fill the client seat: the seat stays blank, `starts_at` stays null, and formation remains 12.1's two-step gate, so a countersign is a request to form and not formation.",
+    "clause": {
+      "comment": "12.1.1 plus 5.1: offered_to is a party, so it validates as one - a seat with no owner binds nobody - and it carries two fields a seat does not. `expires_at` is the lapse. `grade` is its own, because 4.2 requires a clause that splits across grades from the seats beside it to be singly graded: `enforced` only where one platform both puts the clause inside the bytes it signs AND checks the countersigning party at formation, `evidence` peer to peer.",
+      "valid": [
+        {
+          "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "handle": "Petrel.mari@harborandline.example",
+          "owner": "Harbor & Line Outfitters",
+          "expires_at": "2026-09-20T00:00:00Z",
+          "grade": "enforced"
+        },
+        {
+          "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "owner": "Harbor & Line Outfitters",
+          "expires_at": "2026-09-20T00:00:00Z"
+        },
+        {
+          "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "owner": "Harbor & Line Outfitters",
+          "organization": "org_harborandline",
+          "expires_at": "2026-09-20T00:00:00Z",
+          "grade": "evidence"
+        }
+      ],
+      "invalid": [
+        {
+          "case": "two_named_parties",
+          "offered_to": [
+            {
+              "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+              "owner": "Harbor & Line Outfitters",
+              "expires_at": "2026-09-20T00:00:00Z"
+            },
+            {
+              "agent": "UDXKPB5B7TQLXMQFXZ4GZ3IYQ3HFTNVKO7YAQ5DGNPMTGHZQZ7WY6TZK",
+              "owner": "Kettle Row Freight",
+              "expires_at": "2026-09-20T00:00:00Z"
+            }
+          ],
+          "why": "12.1.1 names exactly one - a list of permitted signers is an access control list rather than an offer, and two named parties countersigning the same bytes is a race formation has no rule for"
+        },
+        {
+          "case": "a_list_of_one",
+          "offered_to": [
+            {
+              "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+              "owner": "Harbor & Line Outfitters",
+              "expires_at": "2026-09-20T00:00:00Z"
+            }
+          ],
+          "why": "the one party is named directly. A one-entry list is the ACL shape with one entry in it, and the next edit adds the second"
+        },
+        {
+          "case": "no_owner",
+          "offered_to": {
+            "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+            "expires_at": "2026-09-20T00:00:00Z"
+          },
+          "why": "offered_to is a party (5.1), and owners sign while agents work (6) - a name with no owner names nobody"
+        },
+        {
+          "case": "no_agent",
+          "offered_to": {
+            "owner": "Harbor & Line Outfitters",
+            "expires_at": "2026-09-20T00:00:00Z"
+          },
+          "why": "the match at formation is on the AGENT KEY. handle and owner are labels for people, and a handle pointed at a new key names a different party (5.1)"
+        },
+        {
+          "case": "expires_at_is_not_an_instant",
+          "offered_to": {
+            "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+            "owner": "Harbor & Line Outfitters",
+            "expires_at": "20 September"
+          },
+          "why": "the lapse is an RFC-3339 instant, because two runtimes have to agree on the moment the offer ends"
+        },
+        {
+          "case": "unknown_grade",
+          "offered_to": {
+            "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+            "owner": "Harbor & Line Outfitters",
+            "expires_at": "2026-09-20T00:00:00Z",
+            "grade": "exclusive"
+          },
+          "why": "4.2's gradient is closed: enforced, evidence, recorded. A renderer MUST NOT present a directed proposal as exclusive where no runtime checks the counterparty (3 rule 2), and inventing a grade is how that overclaim gets made"
+        }
+      ]
+    },
+    "listing": {
+      "comment": "12.1.1: a catalog, marketplace, directory or board MUST NOT derive a public listing from a directed standing proposal, and MUST NOT contribute its scope examples to a public index - 12.2 makes those examples the listing's representative queries, and a document only one party may form has no business answering the market's searches. Directedness is a FACT ABOUT THE OFFER rather than a qualification about a counterparty, exactly so that a surface deciding whether it may list a document reads it without interpreting prose. What a surface MAY do: show the document in full to the party it names and to the provider that signed it, and disclose that it exists (and count it in aggregate figures) without disclosing its terms. Suppression is about LISTING, not confidentiality - 12.1.1 grades who sees the document `recorded`, nothing in it prevents a holder passing it on, and a lapsed directed offer stays readable.",
+      "cases": [
+        {
+          "case": "offered_to_the_market",
+          "parties": {
+            "provider": {
+              "agent": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+              "owner": "Stonework Analytics"
+            },
+            "client": null,
+            "grade": "evidence"
+          },
+          "directed": false,
+          "public_listing": true
+        },
+        {
+          "case": "directed_at_one_party",
+          "parties": {
+            "provider": {
+              "agent": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+              "owner": "Stonework Analytics"
+            },
+            "client": null,
+            "offered_to": {
+              "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+              "handle": "Petrel.mari@harborandline.example",
+              "owner": "Harbor & Line Outfitters",
+              "expires_at": "2026-09-20T00:00:00Z",
+              "grade": "enforced"
+            },
+            "grade": "evidence"
+          },
+          "directed": true,
+          "public_listing": false
+        },
+        {
+          "case": "directed_and_lapsed_is_still_not_listed",
+          "parties": {
+            "provider": {
+              "agent": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+              "owner": "Stonework Analytics"
+            },
+            "client": null,
+            "offered_to": {
+              "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+              "handle": "Petrel.mari@harborandline.example",
+              "owner": "Harbor & Line Outfitters",
+              "expires_at": "2026-01-01T00:00:00Z",
+              "grade": "enforced"
+            },
+            "grade": "evidence"
+          },
+          "directed": true,
+          "public_listing": false
+        }
+      ]
+    },
+    "formation": {
+      "comment": "12.1.1's gate, tested against the FILLED SEAT: a runtime completing formation MUST refuse unless the completed instance's `parties.client.agent` equals `offered_to.agent`, and the refusal MUST be typed and MUST name the restriction. The match is on the agent key. Two of the four lapses live in the document and are pinned here - the stated expiry, and the party named; the other two are runtime facts no document carries (withdrawal by the provider, and being spent by the formation it completes, since a directed proposal is one offer to one party and a second formation under the same document MUST be refused). An offer stating no expiry is REFUSED rather than read as unbounded: 12.1.1 allows the lapse to be the close of a named occasion defined outside the specification and says in the same breath that a runtime which does not understand the occasion MUST refuse formation, so a reader with no occasion vocabulary is exactly that case.",
+      "cases": [
+        {
+          "case": "no_offered_to_clause_so_the_market_may_form",
+          "offered_to": null,
+          "client_agent": "UDXKPB5B7TQLXMQFXZ4GZ3IYQ3HFTNVKO7YAQ5DGNPMTGHZQZ7WY6TZK",
+          "now": "2026-09-01T00:00:00Z",
+          "forms": true,
+          "why": "an open standing proposal is not consumed by being countersigned, and one document forms as many engagements as it draws counterparties"
+        },
+        {
+          "case": "the_named_party_before_the_lapse",
+          "offered_to": {
+            "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+            "handle": "Petrel.mari@harborandline.example",
+            "owner": "Harbor & Line Outfitters",
+            "expires_at": "2026-09-20T00:00:00Z",
+            "grade": "enforced"
+          },
+          "client_agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "now": "2026-09-01T00:00:00Z",
+          "forms": true,
+          "why": "the client seat names the agent key the offer names"
+        },
+        {
+          "case": "another_party",
+          "offered_to": {
+            "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+            "handle": "Petrel.mari@harborandline.example",
+            "owner": "Harbor & Line Outfitters",
+            "expires_at": "2026-09-20T00:00:00Z",
+            "grade": "enforced"
+          },
+          "client_agent": "UDXKPB5B7TQLXMQFXZ4GZ3IYQ3HFTNVKO7YAQ5DGNPMTGHZQZ7WY6TZK",
+          "now": "2026-09-01T00:00:00Z",
+          "forms": false,
+          "why": "only the named party may form under a directed standing proposal, and the refusal names the restriction rather than reporting a byte difference"
+        },
+        {
+          "case": "the_named_party_after_the_lapse",
+          "offered_to": {
+            "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+            "handle": "Petrel.mari@harborandline.example",
+            "owner": "Harbor & Line Outfitters",
+            "expires_at": "2026-09-20T00:00:00Z",
+            "grade": "enforced"
+          },
+          "client_agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "now": "2026-09-21T00:00:00Z",
+          "forms": false,
+          "why": "a directed offer does not outlive its occasion. It stays readable - it is the record of an offer that was made - but a surface MUST NOT present it as open and nothing forms under it"
+        },
+        {
+          "case": "the_named_party_at_the_lapse_instant",
+          "offered_to": {
+            "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+            "handle": "Petrel.mari@harborandline.example",
+            "owner": "Harbor & Line Outfitters",
+            "expires_at": "2026-09-20T00:00:00Z",
+            "grade": "enforced"
+          },
+          "client_agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "now": "2026-09-20T00:00:00Z",
+          "forms": false,
+          "why": "the offer ends AT expires_at, so the instant itself is closed - two runtimes disagreeing by one boundary is one forming an engagement the other refuses"
+        },
+        {
+          "case": "no_lapse_the_runtime_can_read",
+          "offered_to": {
+            "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+            "handle": "Petrel.mari@harborandline.example",
+            "owner": "Harbor & Line Outfitters"
+          },
+          "client_agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "now": "2026-09-01T00:00:00Z",
+          "forms": false,
+          "why": "a runtime that cannot tell when a directed offer lapses refuses formation rather than reading the offer as unbounded"
+        },
+        {
+          "case": "two_named_parties_form_for_neither",
+          "offered_to": [
+            {
+              "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+              "owner": "Harbor & Line Outfitters",
+              "expires_at": "2026-09-20T00:00:00Z"
+            },
+            {
+              "agent": "UDXKPB5B7TQLXMQFXZ4GZ3IYQ3HFTNVKO7YAQ5DGNPMTGHZQZ7WY6TZK",
+              "owner": "Kettle Row Freight",
+              "expires_at": "2026-09-20T00:00:00Z"
+            }
+          ],
+          "client_agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "now": "2026-09-01T00:00:00Z",
+          "forms": false,
+          "why": "a malformed restriction is not an absent one. Reading it as absent is how an ACL nobody meant to write becomes an offer to the market"
+        }
+      ]
+    },
+    "signing": {
+      "comment": "THE CROSS-SDK BYTE TEST for 12.1.1. `offered_to` sits INSIDE the signed bytes, so a byte of canonical drift in this sub-clause is a directed document that verifies in one SDK and is worthless in the other - and, worse, one whose restriction the other cannot read. Note what the canonical form shows: the client seat is still `null` and `starts_at` is still `null`, because naming a counterparty does not fill the seat.",
+      "document": {
+        "sow": "v1",
+        "id": "sow_w4t8h2c6n9k3m5p7",
+        "version": 1,
+        "language": {
+          "id": "agent-sow-standard-language",
+          "version": 4,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "starts_at": null,
+        "ends_at": null,
+        "term_months": 6,
+        "parties": {
+          "provider": {
+            "agent": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+            "handle": "Granite.books@stonework.example",
+            "owner": "Stonework Analytics"
+          },
+          "client": null,
+          "offered_to": {
+            "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+            "handle": "Petrel.mari@harborandline.example",
+            "owner": "Harbor & Line Outfitters",
+            "expires_at": "2026-09-20T00:00:00Z",
+            "grade": "enforced"
+          },
+          "grade": "evidence"
+        },
+        "scope": {
+          "offerings": [
+            "reconcile-statement"
+          ],
+          "examples": {
+            "in_scope": [
+              "reconcile the August statement"
+            ],
+            "out_of_scope": [
+              "file the return"
+            ]
+          },
+          "grade": "enforced"
+        },
+        "price": {
+          "arrangement": "fixed_fee",
+          "currency": "XCR",
+          "rates": [
+            {
+              "offering": "reconcile-statement",
+              "per_task": 2500000
+            }
+          ],
+          "grade": "enforced"
+        },
+        "volume": {
+          "per_hour": 5,
+          "per_day": 20,
+          "grade": "enforced"
+        },
+        "change_control": {
+          "review_window_days": 7,
+          "approval": {
+            "formation": "agent",
+            "amendment": "person"
+          },
+          "grade": "enforced"
+        },
+        "termination": {
+          "convenience_notice_hours": 24,
+          "grade": "enforced"
+        },
+        "disputes": {
+          "posture": "refund_on_failed_task",
+          "grade": "evidence"
+        },
+        "confidentiality": {
+          "transport": {
+            "sealed": true,
+            "grade": "enforced"
+          },
+          "retention": {
+            "max_days": 30,
+            "grade": "enforced"
+          },
+          "promises": {
+            "no_training": true,
+            "grade": "recorded"
+          }
+        }
+      },
+      "canonical": "{\"change_control\":{\"approval\":{\"amendment\":\"person\",\"formation\":\"agent\"},\"grade\":\"enforced\",\"review_window_days\":7},\"confidentiality\":{\"promises\":{\"grade\":\"recorded\",\"no_training\":true},\"retention\":{\"grade\":\"enforced\",\"max_days\":30},\"transport\":{\"grade\":\"enforced\",\"sealed\":true}},\"disputes\":{\"grade\":\"evidence\",\"posture\":\"refund_on_failed_task\"},\"ends_at\":null,\"id\":\"sow_w4t8h2c6n9k3m5p7\",\"language\":{\"id\":\"agent-sow-standard-language\",\"sha256\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"version\":4},\"parties\":{\"client\":null,\"grade\":\"evidence\",\"offered_to\":{\"agent\":\"UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP\",\"expires_at\":\"2026-09-20T00:00:00Z\",\"grade\":\"enforced\",\"handle\":\"Petrel.mari@harborandline.example\",\"owner\":\"Harbor & Line Outfitters\"},\"provider\":{\"agent\":\"UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A\",\"handle\":\"Granite.books@stonework.example\",\"owner\":\"Stonework Analytics\"}},\"price\":{\"arrangement\":\"fixed_fee\",\"currency\":\"XCR\",\"grade\":\"enforced\",\"rates\":[{\"offering\":\"reconcile-statement\",\"per_task\":2500000}]},\"scope\":{\"examples\":{\"in_scope\":[\"reconcile the August statement\"],\"out_of_scope\":[\"file the return\"]},\"grade\":\"enforced\",\"offerings\":[\"reconcile-statement\"]},\"sow\":\"v1\",\"starts_at\":null,\"term_months\":6,\"termination\":{\"convenience_notice_hours\":24,\"grade\":\"enforced\"},\"version\":1,\"volume\":{\"grade\":\"enforced\",\"per_day\":20,\"per_hour\":5}}"
+    }
+  },
+  "qualifications": {
+    "comment": "12.1 rule 1: a standing proposal MAY state QUALIFICATIONS - conditions a counterparty must meet for its countersign to be accepted - and they live in the SIGNED DOCUMENT, where a prospective client reads them before spending anything. This section pins the whole mechanism, because it is the place a runtime is most tempted to lie. Four rules. (a) The conditions are inside the signed bytes and inside the 4.1 identifier derived from them, so a seller cannot add a condition after a buyer has read the offer and a buyer cannot be held to one that was never published. (b) The provider's runtime MUST complete formation for a counterparty that meets the stated conditions and MUST refuse one that does not, NAMING THE UNMET CONDITION in the refusal. (c) The kind vocabulary is CLOSED, and it is closed for the enforcement gradient's sake (3): a condition written as prose can be graded anything a seller likes, while a condition written as a kind is graded by what the kind can be tested against. (d) Rule 4: a condition the counterparty asserts about itself, and that no runtime can check, is EVIDENCE and MUST NOT be graded or rendered as enforced. What a runtime does with one is refuse a countersign that omits the assertion and hold the signed assertion afterwards; the record is evidence that the party asserted the thing, not proof that the thing is true. Meeting a qualification is never a screen: where an operator is merchant of record (5.5.8), sanctions screening, customer identification and tax status are that operator's obligations at account admission and at settlement, and 12.1 forbids writing a proposal as though a qualification performed them.",
+    "kinds": {
+      "comment": "The closed vocabulary and the split that IS the gradient. The three checkable kinds are facts a runtime holds about a counterparty: a current registration in the registry it reads, an offering that registration publishes (12.1's capability requirement), and an account on the platform completing formation (the weakest true reading of 12.1's account standing - it says an account exists and says nothing about that account's conduct, funding or screening, which is why it is not named `account_standing`). The fourth is `asserted`, the honest name for everything a runtime cannot check. There is deliberately NO probe kind: 13's qualification is checkable because the probe left a signed outcome, and a runtime holding no probe records would either invent one (13 forbids it) or publish a condition nothing can satisfy (12.1 rule 2 makes that an offer refusing every counterparty).",
+      "all": [
+        "asserted",
+        "mesh_registration",
+        "platform_account",
+        "publishes_offering"
+      ],
+      "checkable": [
+        "mesh_registration",
+        "platform_account",
+        "publishes_offering"
+      ],
+      "grade_ceiling": {
+        "asserted": "evidence",
+        "mesh_registration": "enforced",
+        "platform_account": "enforced",
+        "publishes_offering": "enforced"
+      }
+    },
+    "clause": {
+      "comment": "One condition. Every kind carries the sentence a person reads, because a buyer is owed the condition in words rather than a vocabulary term, and every condition is singly graded as 4.2 requires of a clause that splits across grades by construction. The refusal that matters most is `asserted_graded_enforced`: a seller who grades an unverifiable licence condition `enforced` has made exactly the false enforcement claim 3 rule 1 forbids, and no runtime may accept the document that carries it.",
+      "valid": [
+        {
+          "id": "mesh-registered",
+          "kind": "mesh_registration",
+          "statement": "Your agent holds a current registration on this mesh.",
+          "grade": "enforced"
+        },
+        {
+          "id": "reads-statements",
+          "kind": "publishes_offering",
+          "offering": "read-statement",
+          "statement": "Your agent publishes the read-statement offering, because this work hands its results back to it.",
+          "grade": "enforced"
+        },
+        {
+          "id": "has-account",
+          "kind": "platform_account",
+          "statement": "Your agent is attached to an account on this platform.",
+          "grade": "enforced"
+        },
+        {
+          "id": "salesforce-licence",
+          "kind": "asserted",
+          "statement": "You hold a current Salesforce licence covering the org this work touches.",
+          "grade": "evidence"
+        },
+        {
+          "id": "signed-nda",
+          "kind": "asserted",
+          "statement": "You have signed our mutual non-disclosure agreement.",
+          "grade": "recorded"
+        }
+      ],
+      "invalid": [
+        {
+          "case": "no_id",
+          "qualification": {
+            "kind": "mesh_registration",
+            "statement": "Your agent is registered.",
+            "grade": "enforced"
+          },
+          "why": "a refusal has to name the condition it refused on, and the id is the name"
+        },
+        {
+          "case": "id_is_not_a_slug",
+          "qualification": {
+            "id": "Mesh Registered!",
+            "kind": "mesh_registration",
+            "statement": "Your agent is registered.",
+            "grade": "enforced"
+          },
+          "why": "the id travels in refusals, in the countersign's assertion list and in the signed bytes; free text there is a second thing to canonicalize"
+        },
+        {
+          "case": "unknown_kind",
+          "qualification": {
+            "id": "holds-licence",
+            "kind": "holds_licence",
+            "statement": "You hold a licence.",
+            "grade": "enforced"
+          },
+          "why": "the vocabulary is closed. An open one lets a seller invent a kind, grade it enforced, and leave every runtime that does not know the kind to decide for itself what to do about it"
+        },
+        {
+          "case": "no_statement",
+          "qualification": {
+            "id": "mesh-registered",
+            "kind": "mesh_registration",
+            "grade": "enforced"
+          },
+          "why": "the buyer reads the condition before committing, and a vocabulary term is not a sentence"
+        },
+        {
+          "case": "statement_too_long",
+          "qualification": {
+            "id": "mesh-registered",
+            "kind": "mesh_registration",
+            "statement": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "grade": "enforced"
+          },
+          "why": "a condition is a sentence, not a contract annex; the prose clauses are where longer terms belong"
+        },
+        {
+          "case": "unknown_grade",
+          "qualification": {
+            "id": "mesh-registered",
+            "kind": "mesh_registration",
+            "statement": "Your agent is registered.",
+            "grade": "verified"
+          },
+          "why": "4.2's gradient is closed: enforced, evidence, recorded. Inventing a grade is how an overclaim gets made in a word nobody defined"
+        },
+        {
+          "case": "asserted_graded_enforced",
+          "qualification": {
+            "id": "salesforce-licence",
+            "kind": "asserted",
+            "statement": "You hold a current Salesforce licence.",
+            "grade": "enforced"
+          },
+          "why": "12.1 rule 4 in as many words. Nothing here can verify a third-party licence, the record is evidence that the party asserted it, and grading it enforced is the false enforcement claim 3 rule 1 forbids"
+        },
+        {
+          "case": "publishes_offering_names_no_offering",
+          "qualification": {
+            "id": "reads-statements",
+            "kind": "publishes_offering",
+            "statement": "Your agent publishes the offering.",
+            "grade": "enforced"
+          },
+          "why": "the check is against the counterparty's published manifest, and there is nothing to check it against"
+        },
+        {
+          "case": "offering_on_a_kind_that_has_no_use_for_it",
+          "qualification": {
+            "id": "mesh-registered",
+            "kind": "mesh_registration",
+            "statement": "Your agent is registered.",
+            "grade": "enforced",
+            "offering": "read-statement"
+          },
+          "why": "a field the check never reads is a term the buyer reads and the runtime ignores"
+        }
+      ]
+    },
+    "list": {
+      "comment": "The clause as a whole: a list of singly-graded conditions with distinct ids.",
+      "valid": [
+        [],
+        [
+          {
+            "id": "mesh-registered",
+            "kind": "mesh_registration",
+            "statement": "Your agent holds a current registration on this mesh.",
+            "grade": "enforced"
+          },
+          {
+            "id": "salesforce-licence",
+            "kind": "asserted",
+            "statement": "You hold a current Salesforce licence covering the org this work touches.",
+            "grade": "evidence"
+          }
+        ]
+      ],
+      "invalid": [
+        {
+          "case": "not_a_list",
+          "qualifications": {
+            "mesh-registered": {
+              "id": "mesh-registered",
+              "kind": "mesh_registration",
+              "statement": "Your agent holds a current registration on this mesh.",
+              "grade": "enforced"
+            }
+          },
+          "why": "the order conditions are stated in is inside the signed bytes, and an object's is not"
+        },
+        {
+          "case": "duplicate_ids",
+          "qualifications": [
+            {
+              "id": "mesh-registered",
+              "kind": "mesh_registration",
+              "statement": "Your agent holds a current registration on this mesh.",
+              "grade": "enforced"
+            },
+            {
+              "id": "mesh-registered",
+              "kind": "mesh_registration",
+              "statement": "Something else entirely.",
+              "grade": "enforced"
+            }
+          ],
+          "why": "a refusal names an id, and two conditions under one id make the refusal ambiguous"
+        },
+        {
+          "case": "eleven_conditions",
+          "qualifications": [
+            {
+              "id": "c0",
+              "kind": "mesh_registration",
+              "statement": "Your agent holds a current registration on this mesh.",
+              "grade": "enforced"
+            },
+            {
+              "id": "c1",
+              "kind": "mesh_registration",
+              "statement": "Your agent holds a current registration on this mesh.",
+              "grade": "enforced"
+            },
+            {
+              "id": "c2",
+              "kind": "mesh_registration",
+              "statement": "Your agent holds a current registration on this mesh.",
+              "grade": "enforced"
+            },
+            {
+              "id": "c3",
+              "kind": "mesh_registration",
+              "statement": "Your agent holds a current registration on this mesh.",
+              "grade": "enforced"
+            },
+            {
+              "id": "c4",
+              "kind": "mesh_registration",
+              "statement": "Your agent holds a current registration on this mesh.",
+              "grade": "enforced"
+            },
+            {
+              "id": "c5",
+              "kind": "mesh_registration",
+              "statement": "Your agent holds a current registration on this mesh.",
+              "grade": "enforced"
+            },
+            {
+              "id": "c6",
+              "kind": "mesh_registration",
+              "statement": "Your agent holds a current registration on this mesh.",
+              "grade": "enforced"
+            },
+            {
+              "id": "c7",
+              "kind": "mesh_registration",
+              "statement": "Your agent holds a current registration on this mesh.",
+              "grade": "enforced"
+            },
+            {
+              "id": "c8",
+              "kind": "mesh_registration",
+              "statement": "Your agent holds a current registration on this mesh.",
+              "grade": "enforced"
+            },
+            {
+              "id": "c9",
+              "kind": "mesh_registration",
+              "statement": "Your agent holds a current registration on this mesh.",
+              "grade": "enforced"
+            },
+            {
+              "id": "c10",
+              "kind": "mesh_registration",
+              "statement": "Your agent holds a current registration on this mesh.",
+              "grade": "enforced"
+            }
+          ],
+          "why": "a document stating dozens of conditions is an admission process wearing an offer's clothes"
+        }
+      ]
+    },
+    "formation": {
+      "comment": "12.1 rule 2 at the gate: complete formation for a counterparty that MEETS the stated conditions, refuse one that does not, and name the unmet condition. A fact the runtime did not establish is NOT a fact it established as false, and both refuse - an unchecked condition passing silently is how a gate becomes decoration during a registry outage. `facts` null means the runtime gathered nothing; a field absent from `facts` means that fact was not established. The assertion half is checked from the document alone: a countersign omitting a required assertion is refused, one asserting a condition the offer does not state is refused (the two sides are reading different documents), and one asserting a condition the RUNTIME checks is refused too, because that is not a thing a party gets to say about itself.",
+      "cases": [
+        {
+          "case": "no_conditions_so_the_market_may_form",
+          "qualifications": null,
+          "client_agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "asserted": [],
+          "facts": null,
+          "forms": true,
+          "why": "an offer stating no conditions forms for every well-formed countersign, which is the case this whole section is the exception to"
+        },
+        {
+          "case": "an_empty_list_states_no_conditions",
+          "qualifications": [],
+          "client_agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "asserted": [],
+          "facts": null,
+          "forms": true,
+          "why": "stating no conditions and stating an empty list of them are the same offer"
+        },
+        {
+          "case": "registration_met",
+          "qualifications": [
+            {
+              "id": "mesh-registered",
+              "kind": "mesh_registration",
+              "statement": "Your agent holds a current registration on this mesh.",
+              "grade": "enforced"
+            }
+          ],
+          "client_agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "asserted": [],
+          "facts": {
+            "subject": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+            "registered": true
+          },
+          "forms": true,
+          "why": "the counterparty meets the stated condition, and rule 2 says a runtime MUST complete formation for one that does"
+        },
+        {
+          "case": "registration_unmet",
+          "qualifications": [
+            {
+              "id": "mesh-registered",
+              "kind": "mesh_registration",
+              "statement": "Your agent holds a current registration on this mesh.",
+              "grade": "enforced"
+            }
+          ],
+          "client_agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "asserted": [],
+          "facts": {
+            "subject": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+            "registered": false
+          },
+          "forms": false,
+          "why": "refused on a published ground, naming the condition"
+        },
+        {
+          "case": "registration_not_established",
+          "qualifications": [
+            {
+              "id": "mesh-registered",
+              "kind": "mesh_registration",
+              "statement": "Your agent holds a current registration on this mesh.",
+              "grade": "enforced"
+            }
+          ],
+          "client_agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "asserted": [],
+          "facts": {
+            "subject": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP"
+          },
+          "forms": false,
+          "why": "the registry could not be read, so nothing was checked; an unchecked condition refuses rather than passes"
+        },
+        {
+          "case": "no_facts_gathered_at_all",
+          "qualifications": [
+            {
+              "id": "mesh-registered",
+              "kind": "mesh_registration",
+              "statement": "Your agent holds a current registration on this mesh.",
+              "grade": "enforced"
+            }
+          ],
+          "client_agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "asserted": [],
+          "facts": null,
+          "forms": false,
+          "why": "a runtime that skipped the checks entirely MUST NOT complete formation under a document that states them"
+        },
+        {
+          "case": "facts_about_a_different_party",
+          "qualifications": [
+            {
+              "id": "mesh-registered",
+              "kind": "mesh_registration",
+              "statement": "Your agent holds a current registration on this mesh.",
+              "grade": "enforced"
+            }
+          ],
+          "client_agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "asserted": [],
+          "facts": {
+            "subject": "UDXKPB5B7TQLXMQFXZ4GZ3IYQ3HFTNVKO7YAQ5DGNPMTGHZQZ7WY6TZK",
+            "registered": true
+          },
+          "forms": false,
+          "why": "gathering facts about one agent and admitting another is the shape of the bug this field exists to catch"
+        },
+        {
+          "case": "capability_met",
+          "qualifications": [
+            {
+              "id": "reads-statements",
+              "kind": "publishes_offering",
+              "offering": "read-statement",
+              "statement": "Your agent publishes the read-statement offering, because this work hands its results back to it.",
+              "grade": "enforced"
+            }
+          ],
+          "client_agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "asserted": [],
+          "facts": {
+            "subject": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+            "offerings": [
+              "read-statement",
+              "summarize"
+            ]
+          },
+          "forms": true,
+          "why": "12.1's capability requirement, read off the counterparty's published manifest"
+        },
+        {
+          "case": "capability_unmet",
+          "qualifications": [
+            {
+              "id": "reads-statements",
+              "kind": "publishes_offering",
+              "offering": "read-statement",
+              "statement": "Your agent publishes the read-statement offering, because this work hands its results back to it.",
+              "grade": "enforced"
+            }
+          ],
+          "client_agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "asserted": [],
+          "facts": {
+            "subject": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+            "offerings": [
+              "summarize"
+            ]
+          },
+          "forms": false,
+          "why": "the manifest does not publish what the offer requires, and the refusal names the offering"
+        },
+        {
+          "case": "account_met",
+          "qualifications": [
+            {
+              "id": "has-account",
+              "kind": "platform_account",
+              "statement": "Your agent is attached to an account on this platform.",
+              "grade": "enforced"
+            }
+          ],
+          "client_agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "asserted": [],
+          "facts": {
+            "subject": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+            "account": true
+          },
+          "forms": true,
+          "why": "an account exists on the platform completing formation. It says nothing more than that, and the statement says nothing more either"
+        },
+        {
+          "case": "account_unmet",
+          "qualifications": [
+            {
+              "id": "has-account",
+              "kind": "platform_account",
+              "statement": "Your agent is attached to an account on this platform.",
+              "grade": "enforced"
+            }
+          ],
+          "client_agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "asserted": [],
+          "facts": {
+            "subject": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+            "account": false
+          },
+          "forms": false,
+          "why": "refused on the stated ground"
+        },
+        {
+          "case": "an_assertion_the_offer_asked_for",
+          "qualifications": [
+            {
+              "id": "salesforce-licence",
+              "kind": "asserted",
+              "statement": "You hold a current Salesforce licence covering the org this work touches.",
+              "grade": "evidence"
+            }
+          ],
+          "client_agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "asserted": [
+            "salesforce-licence"
+          ],
+          "facts": null,
+          "forms": true,
+          "why": "the runtime holds the signed assertion and verifies nothing. No facts are needed because no condition here is checkable, and pretending otherwise is what rule 4 forbids"
+        },
+        {
+          "case": "the_assertion_is_missing",
+          "qualifications": [
+            {
+              "id": "salesforce-licence",
+              "kind": "asserted",
+              "statement": "You hold a current Salesforce licence covering the org this work touches.",
+              "grade": "evidence"
+            }
+          ],
+          "client_agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "asserted": [],
+          "facts": null,
+          "forms": false,
+          "why": "what a runtime CAN do with an unverifiable condition is refuse a countersign that omits the assertion (rule 4)"
+        },
+        {
+          "case": "asserting_something_the_offer_never_stated",
+          "qualifications": [
+            {
+              "id": "salesforce-licence",
+              "kind": "asserted",
+              "statement": "You hold a current Salesforce licence covering the org this work touches.",
+              "grade": "evidence"
+            }
+          ],
+          "client_agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "asserted": [
+            "licence-for-something-else",
+            "salesforce-licence"
+          ],
+          "facts": null,
+          "forms": false,
+          "why": "an unknown id means the two sides are reading different documents, and that is worth saying rather than ignoring"
+        },
+        {
+          "case": "asserting_a_condition_the_runtime_checks",
+          "qualifications": [
+            {
+              "id": "mesh-registered",
+              "kind": "mesh_registration",
+              "statement": "Your agent holds a current registration on this mesh.",
+              "grade": "enforced"
+            },
+            {
+              "id": "salesforce-licence",
+              "kind": "asserted",
+              "statement": "You hold a current Salesforce licence covering the org this work touches.",
+              "grade": "evidence"
+            }
+          ],
+          "client_agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "asserted": [
+            "mesh-registered",
+            "salesforce-licence"
+          ],
+          "facts": {
+            "subject": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+            "registered": true
+          },
+          "forms": false,
+          "why": "whether an agent is registered is a fact the runtime reads, not a claim the party gets to make about itself"
+        },
+        {
+          "case": "assertions_out_of_order",
+          "qualifications": [
+            {
+              "id": "salesforce-licence",
+              "kind": "asserted",
+              "statement": "You hold a current Salesforce licence covering the org this work touches.",
+              "grade": "evidence"
+            },
+            {
+              "id": "signed-nda",
+              "kind": "asserted",
+              "statement": "You have signed our mutual non-disclosure agreement.",
+              "grade": "evidence"
+            }
+          ],
+          "client_agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "asserted": [
+            "signed-nda",
+            "salesforce-licence"
+          ],
+          "facts": null,
+          "forms": false,
+          "why": "the list rides inside the bytes both parties sign, so two clients accepting the same offer produce the same bytes"
+        },
+        {
+          "case": "the_same_assertion_twice",
+          "qualifications": [
+            {
+              "id": "salesforce-licence",
+              "kind": "asserted",
+              "statement": "You hold a current Salesforce licence covering the org this work touches.",
+              "grade": "evidence"
+            }
+          ],
+          "client_agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "asserted": [
+            "salesforce-licence",
+            "salesforce-licence"
+          ],
+          "facts": null,
+          "forms": false,
+          "why": "same reason: one list, one entry per condition"
+        },
+        {
+          "case": "both_halves_together",
+          "qualifications": [
+            {
+              "id": "mesh-registered",
+              "kind": "mesh_registration",
+              "statement": "Your agent holds a current registration on this mesh.",
+              "grade": "enforced"
+            },
+            {
+              "id": "salesforce-licence",
+              "kind": "asserted",
+              "statement": "You hold a current Salesforce licence covering the org this work touches.",
+              "grade": "evidence"
+            }
+          ],
+          "client_agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "asserted": [
+            "salesforce-licence"
+          ],
+          "facts": {
+            "subject": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+            "registered": true
+          },
+          "forms": true,
+          "why": "the checkable condition is checked, the unverifiable one is asserted and held, and the buyer read both before signing"
+        },
+        {
+          "case": "a_condition_of_a_kind_that_cannot_be_read",
+          "qualifications": [
+            {
+              "id": "holds-licence",
+              "kind": "holds_licence",
+              "statement": "You hold a licence.",
+              "grade": "enforced"
+            }
+          ],
+          "client_agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "asserted": [],
+          "facts": {
+            "subject": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+            "registered": true
+          },
+          "forms": false,
+          "why": "a condition a runtime cannot parse is one it cannot test, and reading it as met is how a document's own terms get waived by the runtime that could not read them"
+        }
+      ]
+    },
+    "signing": {
+      "comment": "THE CROSS-SDK BYTE TEST. The conditions sit INSIDE the signed bytes, which is the whole of rule 1's 'qualifications live in the signed document, where a prospective client reads them before spending anything'. A byte of canonical drift here is a condition one SDK enforces and the other cannot read. Note the two grades side by side in one clause, which is 4.2's requirement that a clause splitting across grades be expressed as singly-graded parts.",
+      "document": {
+        "sow": "v1",
+        "id": "sow_q3n7v2k8r4m6t9p1",
+        "version": 1,
+        "language": {
+          "id": "agent-sow-standard-language",
+          "version": 4,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "starts_at": null,
+        "ends_at": null,
+        "term_months": 6,
+        "parties": {
+          "provider": {
+            "agent": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+            "handle": "Granite.books@stonework.example",
+            "owner": "Stonework Analytics"
+          },
+          "client": null,
+          "grade": "evidence"
+        },
+        "scope": {
+          "offerings": [
+            "reconcile-statement"
+          ],
+          "examples": {
+            "in_scope": [
+              "reconcile the August statement"
+            ],
+            "out_of_scope": [
+              "file the return"
+            ]
+          },
+          "grade": "enforced"
+        },
+        "qualifications": [
+          {
+            "id": "mesh-registered",
+            "kind": "mesh_registration",
+            "statement": "Your agent holds a current registration on this mesh.",
+            "grade": "enforced"
+          },
+          {
+            "id": "salesforce-licence",
+            "kind": "asserted",
+            "statement": "You hold a current Salesforce licence covering the org this work touches.",
+            "grade": "evidence"
+          }
+        ],
+        "price": {
+          "arrangement": "fixed_fee",
+          "currency": "XCR",
+          "rates": [
+            {
+              "offering": "reconcile-statement",
+              "per_task": 2500000
+            }
+          ],
+          "grade": "enforced"
+        },
+        "volume": {
+          "per_hour": 5,
+          "per_day": 20,
+          "grade": "enforced"
+        },
+        "change_control": {
+          "review_window_days": 7,
+          "approval": {
+            "formation": "agent",
+            "amendment": "person"
+          },
+          "grade": "enforced"
+        },
+        "termination": {
+          "convenience_notice_hours": 24,
+          "grade": "enforced"
+        },
+        "disputes": {
+          "posture": "refund_on_failed_task",
+          "grade": "evidence"
+        },
+        "confidentiality": {
+          "transport": {
+            "sealed": true,
+            "grade": "enforced"
+          },
+          "retention": {
+            "max_days": 30,
+            "grade": "enforced"
+          },
+          "promises": {
+            "no_training": true,
+            "grade": "recorded"
+          }
+        }
+      },
+      "canonical": "{\"change_control\":{\"approval\":{\"amendment\":\"person\",\"formation\":\"agent\"},\"grade\":\"enforced\",\"review_window_days\":7},\"confidentiality\":{\"promises\":{\"grade\":\"recorded\",\"no_training\":true},\"retention\":{\"grade\":\"enforced\",\"max_days\":30},\"transport\":{\"grade\":\"enforced\",\"sealed\":true}},\"disputes\":{\"grade\":\"evidence\",\"posture\":\"refund_on_failed_task\"},\"ends_at\":null,\"id\":\"sow_q3n7v2k8r4m6t9p1\",\"language\":{\"id\":\"agent-sow-standard-language\",\"sha256\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"version\":4},\"parties\":{\"client\":null,\"grade\":\"evidence\",\"provider\":{\"agent\":\"UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A\",\"handle\":\"Granite.books@stonework.example\",\"owner\":\"Stonework Analytics\"}},\"price\":{\"arrangement\":\"fixed_fee\",\"currency\":\"XCR\",\"grade\":\"enforced\",\"rates\":[{\"offering\":\"reconcile-statement\",\"per_task\":2500000}]},\"qualifications\":[{\"grade\":\"enforced\",\"id\":\"mesh-registered\",\"kind\":\"mesh_registration\",\"statement\":\"Your agent holds a current registration on this mesh.\"},{\"grade\":\"evidence\",\"id\":\"salesforce-licence\",\"kind\":\"asserted\",\"statement\":\"You hold a current Salesforce licence covering the org this work touches.\"}],\"scope\":{\"examples\":{\"in_scope\":[\"reconcile the August statement\"],\"out_of_scope\":[\"file the return\"]},\"grade\":\"enforced\",\"offerings\":[\"reconcile-statement\"]},\"sow\":\"v1\",\"starts_at\":null,\"term_months\":6,\"termination\":{\"convenience_notice_hours\":24,\"grade\":\"enforced\"},\"version\":1,\"volume\":{\"grade\":\"enforced\",\"per_day\":20,\"per_hour\":5}}"
+    }
+  },
+  "approval": {
+    "comment": "6.1 approval authority plus the 6.2 mandate reference. Defaults when unstated: formation is `agent`, amendments are `person`. A runtime that does not perform the Agent Mandate section 7 checks MUST NOT present a document carrying a mandate as mandate-verified - the reference is then evidence that a mandate was cited, not enforced authority, and a runtime MUST NOT present it as a legal opinion.",
+    "authorities": [
+      "agent",
+      "person",
+      "agent_then_person"
+    ],
+    "defaults": {
+      "formation": "agent",
+      "amendment": "person"
+    },
+    "valid": [
+      {
+        "act": "formation",
+        "authority": "agent",
+        "key": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+        "approved_at": "2026-08-04T14:02:11Z"
+      },
+      {
+        "act": "amendment",
+        "authority": "person",
+        "key": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+        "approved_at": "2026-08-06T09:14:02Z",
+        "mandate": "mnd_harborandline_ap"
+      },
+      {
+        "act": "amendment",
+        "authority": "agent_then_person",
+        "key": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+        "approved_at": "2026-08-06T09:14:02Z",
+        "mandate": "mnd_harborandline_ap"
+      }
+    ],
+    "invalid": [
+      {
+        "case": "bad_mandate_ref",
+        "approval": {
+          "act": "amendment",
+          "authority": "person",
+          "key": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "approved_at": "2026-08-06T09:14:02Z",
+          "mandate": "harborandline"
+        },
+        "why": "6.2 names the Agent Mandate form: mnd_..."
+      },
+      {
+        "case": "mandate_on_an_agent_approval",
+        "approval": {
+          "act": "formation",
+          "authority": "agent",
+          "key": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "approved_at": "2026-08-04T14:02:11Z",
+          "mandate": "mnd_harborandline_ap"
+        },
+        "why": "6.2: a mandate names the mandate under which the approving PERSON acted. An agent-authority approval has no person to hold one"
+      },
+      {
+        "case": "unknown_authority",
+        "approval": {
+          "act": "formation",
+          "authority": "owner",
+          "key": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "approved_at": "2026-08-04T14:02:11Z"
+        },
+        "why": "6.1 names three values and no more"
+      }
+    ],
+    "mandate_verified": {
+      "comment": "6.2: only where the deployment actually performs the Agent Mandate section 7 checks. The honest default is false.",
+      "cases": [
+        {
+          "mandate": "mnd_harborandline_ap",
+          "checks_performed": true,
+          "expect": true
+        },
+        {
+          "mandate": "mnd_harborandline_ap",
+          "checks_performed": false,
+          "expect": false
+        },
+        {
+          "mandate": null,
+          "checks_performed": true,
+          "expect": false
+        }
+      ]
+    }
+  },
+  "signing": {
+    "comment": "6: owners sign, not agents. The signed bytes are the ASCII prefix `agent-sow-v1` followed by one newline, followed by the JCS canonical JSON of the document with the `signatures` array removed. THIS IS THE CROSS-SDK BYTE TEST: `canonical` is what the TypeScript SDK produced, and Rust must reproduce it exactly, because the 6.2 organization/mandate fields and the whole 5.5 price clause sit INSIDE these bytes - one byte of drift is a document that verifies in one SDK and is worthless in the other.",
+    "signed_bytes_prefix": "agent-sow-v1\n",
+    "document": {
+      "sow": "v1",
+      "id": "sow_k7m2q4x9w3e6r8t1",
+      "version": 1,
+      "starts_at": "2026-08-04T00:00:00Z",
+      "ends_at": "2027-02-01T00:00:00Z",
+      "language": {
+        "id": "agent-sow-standard-language",
+        "version": 4,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "parties": {
+        "provider": {
+          "agent": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+          "handle": "Granite.books@stonework.example",
+          "owner": "Stonework Analytics",
+          "organization": "org_stonework"
+        },
+        "client": {
+          "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "handle": "Petrel.mari@harborandline.example",
+          "owner": "Harbor & Line Outfitters",
+          "organization": "org_harborandline"
+        },
+        "grade": "evidence"
+      },
+      "scope": {
+        "offerings": [
+          "reconcile-statement"
+        ],
+        "examples": {
+          "in_scope": [
+            "reconcile the August statement"
+          ],
+          "out_of_scope": [
+            "file the return"
+          ]
+        },
+        "grade": "enforced"
+      },
+      "price": {
+        "arrangement": "time_and_materials",
+        "currency": "XCR",
+        "schedule": [
+          {
+            "meter": "tokens_out",
+            "unit": "1000 tokens",
+            "per": 1000,
+            "per_unit": 1500
+          },
+          {
+            "meter": "tool_calls",
+            "unit": "call",
+            "per": 1,
+            "per_unit": 2000
+          },
+          {
+            "meter": "items",
+            "unit": "invoice",
+            "per": 1,
+            "per_unit": 40000
+          },
+          {
+            "meter": "elapsed",
+            "unit": "minute",
+            "per": 60,
+            "per_unit": 12000
+          }
+        ],
+        "cap": {
+          "amount": 40000000
+        },
+        "reservation": {
+          "window_days": 30
+        },
+        "grade": "enforced"
+      },
+      "volume": {
+        "per_hour": 20,
+        "per_day": 200,
+        "grade": "enforced"
+      },
+      "change_control": {
+        "review_window_days": 7,
+        "approval": {
+          "formation": "agent",
+          "amendment": "person"
+        },
+        "approvals": [
+          {
+            "act": "amendment",
+            "authority": "person",
+            "key": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+            "approved_at": "2026-08-06T09:14:02Z",
+            "mandate": "mnd_harborandline_ap"
+          }
+        ],
+        "grade": "enforced"
+      },
+      "termination": {
+        "convenience_notice_hours": 48,
+        "grade": "enforced"
+      },
+      "disputes": {
+        "posture": "escalate_to_owners",
+        "grade": "evidence"
+      },
+      "confidentiality": {
+        "transport": {
+          "sealed": true,
+          "grade": "enforced"
+        },
+        "retention": {
+          "max_days": 30,
+          "grade": "enforced"
+        },
+        "promises": {
+          "no_training": true,
+          "grade": "recorded"
+        }
+      }
+    },
+    "canonical": "{\"change_control\":{\"approval\":{\"amendment\":\"person\",\"formation\":\"agent\"},\"approvals\":[{\"act\":\"amendment\",\"approved_at\":\"2026-08-06T09:14:02Z\",\"authority\":\"person\",\"key\":\"UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP\",\"mandate\":\"mnd_harborandline_ap\"}],\"grade\":\"enforced\",\"review_window_days\":7},\"confidentiality\":{\"promises\":{\"grade\":\"recorded\",\"no_training\":true},\"retention\":{\"grade\":\"enforced\",\"max_days\":30},\"transport\":{\"grade\":\"enforced\",\"sealed\":true}},\"disputes\":{\"grade\":\"evidence\",\"posture\":\"escalate_to_owners\"},\"ends_at\":\"2027-02-01T00:00:00Z\",\"id\":\"sow_k7m2q4x9w3e6r8t1\",\"language\":{\"id\":\"agent-sow-standard-language\",\"sha256\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"version\":4},\"parties\":{\"client\":{\"agent\":\"UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP\",\"handle\":\"Petrel.mari@harborandline.example\",\"organization\":\"org_harborandline\",\"owner\":\"Harbor & Line Outfitters\"},\"grade\":\"evidence\",\"provider\":{\"agent\":\"UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A\",\"handle\":\"Granite.books@stonework.example\",\"organization\":\"org_stonework\",\"owner\":\"Stonework Analytics\"}},\"price\":{\"arrangement\":\"time_and_materials\",\"cap\":{\"amount\":40000000},\"currency\":\"XCR\",\"grade\":\"enforced\",\"reservation\":{\"window_days\":30},\"schedule\":[{\"meter\":\"tokens_out\",\"per\":1000,\"per_unit\":1500,\"unit\":\"1000 tokens\"},{\"meter\":\"tool_calls\",\"per\":1,\"per_unit\":2000,\"unit\":\"call\"},{\"meter\":\"items\",\"per\":1,\"per_unit\":40000,\"unit\":\"invoice\"},{\"meter\":\"elapsed\",\"per\":60,\"per_unit\":12000,\"unit\":\"minute\"}]},\"scope\":{\"examples\":{\"in_scope\":[\"reconcile the August statement\"],\"out_of_scope\":[\"file the return\"]},\"grade\":\"enforced\",\"offerings\":[\"reconcile-statement\"]},\"sow\":\"v1\",\"starts_at\":\"2026-08-04T00:00:00Z\",\"termination\":{\"convenience_notice_hours\":48,\"grade\":\"enforced\"},\"version\":1,\"volume\":{\"grade\":\"enforced\",\"per_day\":200,\"per_hour\":20}}",
+    "signed": {
+      "sow": "v1",
+      "id": "sow_k7m2q4x9w3e6r8t1",
+      "version": 1,
+      "starts_at": "2026-08-04T00:00:00Z",
+      "ends_at": "2027-02-01T00:00:00Z",
+      "language": {
+        "id": "agent-sow-standard-language",
+        "version": 4,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "parties": {
+        "provider": {
+          "agent": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+          "handle": "Granite.books@stonework.example",
+          "owner": "Stonework Analytics",
+          "organization": "org_stonework"
+        },
+        "client": {
+          "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "handle": "Petrel.mari@harborandline.example",
+          "owner": "Harbor & Line Outfitters",
+          "organization": "org_harborandline"
+        },
+        "grade": "evidence"
+      },
+      "scope": {
+        "offerings": [
+          "reconcile-statement"
+        ],
+        "examples": {
+          "in_scope": [
+            "reconcile the August statement"
+          ],
+          "out_of_scope": [
+            "file the return"
+          ]
+        },
+        "grade": "enforced"
+      },
+      "price": {
+        "arrangement": "time_and_materials",
+        "currency": "XCR",
+        "schedule": [
+          {
+            "meter": "tokens_out",
+            "unit": "1000 tokens",
+            "per": 1000,
+            "per_unit": 1500
+          },
+          {
+            "meter": "tool_calls",
+            "unit": "call",
+            "per": 1,
+            "per_unit": 2000
+          },
+          {
+            "meter": "items",
+            "unit": "invoice",
+            "per": 1,
+            "per_unit": 40000
+          },
+          {
+            "meter": "elapsed",
+            "unit": "minute",
+            "per": 60,
+            "per_unit": 12000
+          }
+        ],
+        "cap": {
+          "amount": 40000000
+        },
+        "reservation": {
+          "window_days": 30
+        },
+        "grade": "enforced"
+      },
+      "volume": {
+        "per_hour": 20,
+        "per_day": 200,
+        "grade": "enforced"
+      },
+      "change_control": {
+        "review_window_days": 7,
+        "approval": {
+          "formation": "agent",
+          "amendment": "person"
+        },
+        "approvals": [
+          {
+            "act": "amendment",
+            "authority": "person",
+            "key": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+            "approved_at": "2026-08-06T09:14:02Z",
+            "mandate": "mnd_harborandline_ap"
+          }
+        ],
+        "grade": "enforced"
+      },
+      "termination": {
+        "convenience_notice_hours": 48,
+        "grade": "enforced"
+      },
+      "disputes": {
+        "posture": "escalate_to_owners",
+        "grade": "evidence"
+      },
+      "confidentiality": {
+        "transport": {
+          "sealed": true,
+          "grade": "enforced"
+        },
+        "retention": {
+          "max_days": 30,
+          "grade": "enforced"
+        },
+        "promises": {
+          "no_training": true,
+          "grade": "recorded"
+        }
+      },
+      "signatures": [
+        {
+          "role": "provider",
+          "key": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "signed_at": "2026-08-04T14:02:11Z",
+          "sig": "Irupty8eYZ1wwvMXx7K8gC7WyO6Tg2xoxv78Hc7AxXRSFp9mPFdjP34mD5NRv4PzdNUqyNqdcTG_nRd5sJb-Dw"
+        }
+      ]
+    },
+    "tamper": {
+      "comment": "SEMANTIC, no re-signing: change any one of these inside the signed document above and the signature MUST stop verifying. The 6.2 fields are listed explicitly because their whole point is that they cannot be added, removed or altered after signing.",
+      "fields": [
+        "price.cap.amount",
+        "price.schedule[0].per_unit",
+        "price.reservation.window_days",
+        "parties.client.organization",
+        "change_control.approvals[0].mandate"
+      ]
+    }
+  },
+  "operator_fee": {
+    "comment": "5.5.8. An operator is a party that stands between the client and the provider when money moves: it hosts one or both agents, builds the quote, settles the charge, or does more than one of those. Wherever a price is quoted or settled, any operator fee inside that price MUST be disclosed as its own line carrying the fee's `amount`, the `basis` it was computed from, and the `base` that basis was applied to. `base` is required and it is not decoration: ten percent of the provider's price and ten percent of the total the buyer pays are different numbers from the same percentage, and a client node MUST NOT infer the base. THE AMOUNT FLOORS, AND THE CHECK IS EXACT (0.9.0-draft): under a percentage basis `amount` MUST equal floor(base * percent / 100), and under a fixed basis nothing is rounded and `amount` MUST equal `basis.fixed` whatever the base is. The line carries no rounding field and an operator states no rounding rule, because there is no choice left to state. The one-whole-unit tolerance earlier versions of this fixture pinned is WITHDRAWN: it existed because no rule was ever stated, so an arithmetic check called `enforced` accepted several answers to the same line forever. A client node MUST reject an amount that is not the floored figure, and there is no tolerance of one unit or of any other size. `percent` is a non-negative INTEGER and a client node MUST reject a fractional one: a fraction inside the signed bytes is a float two implementations must print identically forever. An operator whose rate is finer than a whole percent, or one that rounds a margin UP the way this deployment does, states the charge that rate produced as a FIXED basis against the same base. That discloses strictly more, because the buyer reads the charge itself instead of multiplying the base out.",
+    "valid": [
+      {
+        "case": "the specification's own worked example",
+        "fee": {
+          "operator": "acme-mesh.example",
+          "basis": {
+            "kind": "percent",
+            "percent": 10
+          },
+          "base": 2500000,
+          "amount": 250000
+        },
+        "why": "5.5.8's example line, verbatim. Ten percent of 2500000 is 250000 exactly, so nothing here depends on the rounding direction."
+      },
+      {
+        "case": "a percentage of a base too small to produce one whole unit",
+        "fee": {
+          "basis": {
+            "kind": "percent",
+            "percent": 10
+          },
+          "base": 5,
+          "amount": 0
+        },
+        "why": "Ten percent of 5 is half a unit and the amount floors, so it produces NOTHING. This is the only conformant percentage line against this basis and base; an amount of 1 here is refused by the arithmetic check below. `operator` is absent, which is allowed: 5.5.8 requires amount, basis and base."
+      },
+      {
+        "case": "the bridge's own worked example, restated as the charge it is",
+        "fee": {
+          "operator": "agentmesh.ai",
+          "basis": {
+            "kind": "fixed",
+            "fixed": 1
+          },
+          "base": 5,
+          "amount": 1
+        },
+        "why": "BRIDGE-A2A.md 9.2's example. The deployment rounds a margin up, so ten percent of a 5 credit rate is 1 credit and not 0. Under 0.9.0-draft that cannot be stated as a percentage, because a percentage floors. It is stated as the fixed charge it is, against the same base, which is what 5.5.8 tells an operator with a finer rate to do and which discloses strictly more than the percentage would."
+      },
+      {
+        "case": "a fixed charge",
+        "fee": {
+          "operator": "acme-mesh.example",
+          "basis": {
+            "kind": "fixed",
+            "fixed": 62500
+          },
+          "base": 2500000,
+          "amount": 62500
+        },
+        "why": "A fixed basis is the charge itself. The base is disclosed anyway, because it is what tells the buyer which total the fee sits inside, and it is how a fraction of a percent is stated without putting a float in the signed bytes."
+      },
+      {
+        "case": "a zero fee, disclosed",
+        "fee": {
+          "basis": {
+            "kind": "percent",
+            "percent": 0
+          },
+          "base": 2500000,
+          "amount": 0
+        },
+        "why": "An operator that takes nothing on a transaction may say so on the line. Absence would assert the same thing; stating it is not an error."
+      },
+      {
+        "case": "a fixed charge of one unit where a percentage would produce none",
+        "fee": {
+          "basis": {
+            "kind": "fixed",
+            "fixed": 1
+          },
+          "base": 5,
+          "amount": 1
+        },
+        "why": "5.5.8's own instruction for the base too small to earn a whole unit: an operator that intends to charge one unit there states a fixed basis of one unit, which discloses the charge as the charge it is rather than as a percentage the buyer would compute a different answer from."
+      }
+    ],
+    "invalid": [
+      {
+        "case": "no base",
+        "fee": {
+          "basis": {
+            "kind": "percent",
+            "percent": 10
+          },
+          "amount": 250000
+        },
+        "why": "5.5.8: a percentage is not checkable until the buyer knows what it was applied to, and a client node MUST NOT infer the base."
+      },
+      {
+        "case": "a fractional percentage",
+        "fee": {
+          "basis": {
+            "kind": "percent",
+            "percent": 2.5
+          },
+          "base": 2500000,
+          "amount": 62500
+        },
+        "why": "Refused by both SDKs: a fraction in the signed bytes is a float two implementations must print identically forever, and it makes the one-whole-unit check inexact. State the charge as a fixed basis instead. This is a restriction the specification does not state either way."
+      },
+      {
+        "case": "a basis that is both",
+        "fee": {
+          "basis": {
+            "kind": "percent",
+            "percent": 10,
+            "fixed": 250000
+          },
+          "base": 2500000,
+          "amount": 250000
+        },
+        "why": "A basis is either a percentage or a fixed charge, never both, or the buyer cannot tell which one produced the amount."
+      },
+      {
+        "case": "a basis that is neither",
+        "fee": {
+          "basis": {
+            "kind": "share",
+            "share": 10
+          },
+          "base": 2500000,
+          "amount": 250000
+        },
+        "why": "The kind is a closed set of two."
+      },
+      {
+        "case": "no basis at all",
+        "fee": {
+          "base": 2500000,
+          "amount": 250000
+        },
+        "why": "5.5.8 requires the basis the amount was computed from. A bare number discloses that money was taken and nothing about why."
+      },
+      {
+        "case": "a negative amount",
+        "fee": {
+          "basis": {
+            "kind": "percent",
+            "percent": 10
+          },
+          "base": 2500000,
+          "amount": -250000
+        },
+        "why": "Money is a non-negative integer in the smallest unit of the settlement currency. A negative operator fee is a refund wearing the wrong line."
+      }
+    ],
+    "arithmetic": {
+      "comment": "The check itself, separated from the shape check: a line can be well formed and still not close, and those are different failures to a client node reading a settlement record. EXACT FOR BOTH KINDS. A percentage line closes only at floor(base * percent / 100) and a fixed line closes only at basis.fixed. There is no tolerance in either direction. The three cases below that USED to close and now do not are kept deliberately, labelled, so an implementer porting from 0.8.0-draft sees the verdict change rather than inferring it.",
+      "cases": [
+        {
+          "case": "the spec's example closes exactly",
+          "fee": {
+            "basis": {
+              "kind": "percent",
+              "percent": 10
+            },
+            "base": 2500000,
+            "amount": 250000
+          },
+          "closes": true
+        },
+        {
+          "case": "one whole unit over is REFUSED - this closed under 0.8.0-draft and does not now",
+          "fee": {
+            "basis": {
+              "kind": "percent",
+              "percent": 10
+            },
+            "base": 2500000,
+            "amount": 250001
+          },
+          "closes": false
+        },
+        {
+          "case": "one whole unit under is REFUSED - this closed under 0.8.0-draft and does not now",
+          "fee": {
+            "basis": {
+              "kind": "percent",
+              "percent": 10
+            },
+            "base": 2500000,
+            "amount": 249999
+          },
+          "closes": false
+        },
+        {
+          "case": "two whole units over is refused, as it always was",
+          "fee": {
+            "basis": {
+              "kind": "percent",
+              "percent": 10
+            },
+            "base": 2500000,
+            "amount": 250002
+          },
+          "closes": false
+        },
+        {
+          "case": "two whole units under is refused, as it always was",
+          "fee": {
+            "basis": {
+              "kind": "percent",
+              "percent": 10
+            },
+            "base": 2500000,
+            "amount": 249998
+          },
+          "closes": false
+        },
+        {
+          "case": "a percentage of a base too small to earn a unit produces nothing",
+          "fee": {
+            "basis": {
+              "kind": "percent",
+              "percent": 10
+            },
+            "base": 5,
+            "amount": 0
+          },
+          "closes": true
+        },
+        {
+          "case": "the same base rounded UP is REFUSED - this closed under 0.8.0-draft and does not now",
+          "fee": {
+            "basis": {
+              "kind": "percent",
+              "percent": 10
+            },
+            "base": 5,
+            "amount": 1
+          },
+          "closes": false
+        },
+        {
+          "case": "and the operator that meant to charge that unit states it as a fixed basis",
+          "fee": {
+            "basis": {
+              "kind": "fixed",
+              "fixed": 1
+            },
+            "base": 5,
+            "amount": 1
+          },
+          "closes": true
+        },
+        {
+          "case": "two units away from a floored half, refused",
+          "fee": {
+            "basis": {
+              "kind": "percent",
+              "percent": 10
+            },
+            "base": 5,
+            "amount": 2
+          },
+          "closes": false
+        },
+        {
+          "case": "a fixed charge closes only exactly",
+          "fee": {
+            "basis": {
+              "kind": "fixed",
+              "fixed": 62500
+            },
+            "base": 2500000,
+            "amount": 62500
+          },
+          "closes": true
+        },
+        {
+          "case": "a fixed charge is rounded by nothing",
+          "fee": {
+            "basis": {
+              "kind": "fixed",
+              "fixed": 62500
+            },
+            "base": 2500000,
+            "amount": 62501
+          },
+          "closes": false
+        }
+      ]
+    },
+    "computed": {
+      "comment": "What a constructor produces from a basis and a base. ONE ANSWER, not three: the amount floors under a percentage basis and is the charge itself under a fixed one. The three-mode table this section carried under 0.8.0-draft (ceil / floor / nearest, with ceil as the default) is gone, and with it the rounding argument the constructors took. Nothing is serialized either way: the line has no field for a rounding rule and an operator states none, because there is no choice left to state.",
+      "cases": [
+        {
+          "basis": {
+            "kind": "percent",
+            "percent": 10
+          },
+          "base": 2500000,
+          "amount": 250000
+        },
+        {
+          "basis": {
+            "kind": "percent",
+            "percent": 10
+          },
+          "base": 5,
+          "amount": 0
+        },
+        {
+          "basis": {
+            "kind": "percent",
+            "percent": 10
+          },
+          "base": 1,
+          "amount": 0
+        },
+        {
+          "basis": {
+            "kind": "percent",
+            "percent": 15
+          },
+          "base": 333,
+          "amount": 49
+        },
+        {
+          "basis": {
+            "kind": "percent",
+            "percent": 0
+          },
+          "base": 2500000,
+          "amount": 0
+        },
+        {
+          "basis": {
+            "kind": "percent",
+            "percent": 100
+          },
+          "base": 333,
+          "amount": 333
+        },
+        {
+          "basis": {
+            "kind": "fixed",
+            "fixed": 62500
+          },
+          "base": 2500000,
+          "amount": 62500
+        },
+        {
+          "basis": {
+            "kind": "fixed",
+            "fixed": 1
+          },
+          "base": 5,
+          "amount": 1
+        }
+      ]
+    },
+    "cap": {
+      "comment": "5.5.3 and 5.5.8: THE CAP BOUNDS WHAT THE CLIENT PAYS, FEE INCLUDED. An operator fee is not charged on top of the cap. The provider's rated work runs to the cap LESS the fee taken on it, and reaching that limit reaches the cap: the engagement concludes `exhausted` under 5.5.5, a task in flight ends `exhausted` with its artifacts attached, and metered units past that point are the provider's to bear. No new state, field or refusal. THE BOUNDARY RULE IS PINNED HERE because the specification does not force it and two implementations reading only the text would disagree by one unit at every boundary, inside signed bytes. With a percentage fee the largest rated total fitting under a cap is NOT floor(cap * 100 / (100 + percent)): that closed form assumes the fee scales continuously, and the fee floors. The rule both SDKs implement, and any third one MUST, is MAXIMAL FIT - the largest rated total whose sum with its own fee is within the cap. Both answers satisfy 5.5.8 and a client reading either record cannot tell them apart, which is exactly why the choice has to be written down rather than left to taste.",
+      "rule": "maximal_fit",
+      "cases": [
+        {
+          "case": "the boundary: a cap of 100 at ten percent",
+          "cap_remaining": 100,
+          "basis": {
+            "kind": "percent",
+            "percent": 10
+          },
+          "max_rated_total": 91,
+          "fee": 9,
+          "client_total": 100,
+          "why": "THE case this rule exists for. floor(100 * 100 / 110) is 90, and 90 also fits, but 91 fits too: ten percent of 91 floors to 9 and 91 + 9 is exactly 100. 92 does not fit, because 92 + 9 is 101. The maximal fit is 91, and an implementation that answers 90 here is not wrong under the specification and IS wrong under this fixture."
+        },
+        {
+          "case": "no operator in the path leaves the whole cap for the provider",
+          "cap_remaining": 100,
+          "basis": null,
+          "max_rated_total": 100,
+          "fee": 0,
+          "client_total": 100,
+          "why": "The peer-to-peer case, and the reason nothing changes for a caller that takes no fee: with no basis the answer is the remaining cap itself, exactly as it was before 0.9.0-draft."
+        },
+        {
+          "case": "a zero percent fee also leaves the whole cap",
+          "cap_remaining": 100,
+          "basis": {
+            "kind": "percent",
+            "percent": 0
+          },
+          "max_rated_total": 100,
+          "fee": 0,
+          "client_total": 100,
+          "why": "An operator that takes nothing bounds nothing. The line may still be written; it just costs the provider no headroom."
+        },
+        {
+          "case": "a fixed charge comes off the top",
+          "cap_remaining": 100,
+          "basis": {
+            "kind": "fixed",
+            "fixed": 9
+          },
+          "max_rated_total": 91,
+          "fee": 9,
+          "client_total": 100,
+          "why": "A fixed charge is basis.fixed whatever the base, so it is subtracted from the exposure and the rest is the provider's."
+        },
+        {
+          "case": "a fixed charge larger than what is left leaves nothing",
+          "cap_remaining": 5,
+          "basis": {
+            "kind": "fixed",
+            "fixed": 9
+          },
+          "max_rated_total": 0,
+          "fee": 0,
+          "client_total": 0,
+          "why": "Nothing fits, so nothing is rated, so nothing is charged and NO FEE LINE IS WRITTEN: a fee is a cut out of what the client pays, and the client pays nothing here. A line stating the fixed charge against a zero total would bill for work that did not happen."
+        },
+        {
+          "case": "an exhausted cap admits nothing",
+          "cap_remaining": 0,
+          "basis": {
+            "kind": "percent",
+            "percent": 10
+          },
+          "max_rated_total": 0,
+          "fee": 0,
+          "client_total": 0,
+          "why": "5.5.5 in its ordinary form: no further requests are admitted and units the provider incurs are the provider's to bear."
+        },
+        {
+          "case": "a large cap at a whole percent, where the closed form is already right",
+          "cap_remaining": 40000000,
+          "basis": {
+            "kind": "percent",
+            "percent": 10
+          },
+          "max_rated_total": 36363637,
+          "fee": 3636363,
+          "client_total": 40000000,
+          "why": "The closed form gives 36363636, which fits with a whole unit to spare (36363636 + 3636363 = 39999999). 36363637 fits too and fits exactly: its fee still floors to 3636363, and 36363637 + 3636363 = 40000000. 36363638 is over. The one unit the closed form leaves on the table is the provider's money, at every scale and not only at small numbers."
+        }
+      ]
+    },
+    "grade": {
+      "comment": "5.5.8's three grades, and the honesty rule of 8.2 applied to the mixed case the specification does not name. `enforced` needs BOTH ends: the operator built the quote AND settled the charge, so presence and arithmetic are checkable against two records the client holds. The basis itself is `evidence` always, because a client node cannot verify that the disclosed percentage is the rate the operator actually agreed with the provider - it is not party to that agreement. Peer to peer with no operator in the path of either is `recorded`: nothing there can refuse an omission, and grading it enforced would be exactly the laundering of trust as enforcement 8.2 forbids. The mixed cases (an operator at one end only) grade `recorded` here, because the omission nothing can refuse is still possible at the end nobody operates.",
+      "basis": "evidence",
+      "cases": [
+        {
+          "operator_built_quote": true,
+          "operator_settled": true,
+          "grade": "enforced"
+        },
+        {
+          "operator_built_quote": false,
+          "operator_settled": false,
+          "grade": "recorded"
+        },
+        {
+          "operator_built_quote": true,
+          "operator_settled": false,
+          "grade": "recorded"
+        },
+        {
+          "operator_built_quote": false,
+          "operator_settled": true,
+          "grade": "recorded"
+        }
+      ]
+    },
+    "settlement": {
+      "comment": "Disclosure binds at two moments and both are required: in the quote before commitment, and in the settlement record afterwards. A client node reading a settlement record MUST check three things - that an operator fee line is present where the quote carried one, that the line's amount follows from its basis and base, and that the record's total accounts for every line the record carries. A record failing any of them is a DISPUTED SETTLEMENT: the client node MUST NOT record the charge as settled, MUST record the discrepancy instead holding both documents, MUST raise it under the engagement's dispute clause (5.10) where it counts as a failed obligation for 5.9 and 5.10, and MUST NOT repair the record by supplying the missing line or recomputing the total, because a record the client rewrote is no longer evidence of what the operator claimed. The fourth reason here, `operator_fee_undisclosed`, is not one of the three: it is the mirror of the first, and it catches a record that contradicts the quote's own assertion that no operator fee was inside that total.",
+      "cases": [
+        {
+          "case": "the operator's fee survives from the quote into the record",
+          "quote": {
+            "total": 2750000,
+            "currency": "XCR",
+            "operator_fee": {
+              "operator": "acme-mesh.example",
+              "basis": {
+                "kind": "percent",
+                "percent": 10
+              },
+              "base": 2500000,
+              "amount": 250000
+            }
+          },
+          "record": {
+            "total": 2750000,
+            "currency": "XCR",
+            "lines": [
+              {
+                "meter": "items",
+                "unit": "invoice",
+                "count": 1,
+                "per": 1,
+                "per_unit": 2500000,
+                "amount": 2500000
+              }
+            ],
+            "operator_fee": {
+              "operator": "acme-mesh.example",
+              "basis": {
+                "kind": "percent",
+                "percent": 10
+              },
+              "base": 2500000,
+              "amount": 250000
+            }
+          },
+          "settled": true,
+          "provider_net": 2500000
+        },
+        {
+          "case": "no operator anywhere, and both documents say so",
+          "quote": {
+            "total": 2500000,
+            "currency": "XCR"
+          },
+          "record": {
+            "total": 2500000,
+            "currency": "XCR",
+            "lines": [
+              {
+                "meter": "items",
+                "unit": "invoice",
+                "count": 1,
+                "per": 1,
+                "per_unit": 2500000,
+                "amount": 2500000
+              }
+            ]
+          },
+          "settled": true,
+          "provider_net": 2500000
+        },
+        {
+          "case": "the record drops the line the quote carried",
+          "quote": {
+            "total": 2750000,
+            "currency": "XCR",
+            "operator_fee": {
+              "basis": {
+                "kind": "percent",
+                "percent": 10
+              },
+              "base": 2500000,
+              "amount": 250000
+            }
+          },
+          "record": {
+            "total": 2750000,
+            "currency": "XCR",
+            "lines": [
+              {
+                "meter": "items",
+                "unit": "invoice",
+                "count": 1,
+                "per": 1,
+                "per_unit": 2750000,
+                "amount": 2750000
+              }
+            ]
+          },
+          "settled": false,
+          "reason": "operator_fee_missing"
+        },
+        {
+          "case": "the record's fee does not follow from its own basis and base",
+          "quote": {
+            "total": 2750000,
+            "currency": "XCR",
+            "operator_fee": {
+              "basis": {
+                "kind": "percent",
+                "percent": 10
+              },
+              "base": 2500000,
+              "amount": 250000
+            }
+          },
+          "record": {
+            "total": 2900000,
+            "currency": "XCR",
+            "lines": [
+              {
+                "meter": "items",
+                "unit": "invoice",
+                "count": 1,
+                "per": 1,
+                "per_unit": 2500000,
+                "amount": 2500000
+              }
+            ],
+            "operator_fee": {
+              "basis": {
+                "kind": "percent",
+                "percent": 10
+              },
+              "base": 2500000,
+              "amount": 400000
+            }
+          },
+          "settled": false,
+          "reason": "operator_fee_arithmetic"
+        },
+        {
+          "case": "the record states a total its own lines do not account for",
+          "quote": {
+            "total": 2750000,
+            "currency": "XCR",
+            "operator_fee": {
+              "basis": {
+                "kind": "percent",
+                "percent": 10
+              },
+              "base": 2500000,
+              "amount": 250000
+            }
+          },
+          "record": {
+            "total": 3000000,
+            "currency": "XCR",
+            "lines": [
+              {
+                "meter": "items",
+                "unit": "invoice",
+                "count": 1,
+                "per": 1,
+                "per_unit": 2500000,
+                "amount": 2500000
+              }
+            ],
+            "operator_fee": {
+              "basis": {
+                "kind": "percent",
+                "percent": 10
+              },
+              "base": 2500000,
+              "amount": 250000
+            }
+          },
+          "settled": false,
+          "reason": "total_unaccounted"
+        },
+        {
+          "case": "the record discloses a fee the quote did not",
+          "quote": {
+            "total": 2500000,
+            "currency": "XCR"
+          },
+          "record": {
+            "total": 2750000,
+            "currency": "XCR",
+            "lines": [
+              {
+                "meter": "items",
+                "unit": "invoice",
+                "count": 1,
+                "per": 1,
+                "per_unit": 2500000,
+                "amount": 2500000
+              }
+            ],
+            "operator_fee": {
+              "basis": {
+                "kind": "percent",
+                "percent": 10
+              },
+              "base": 2500000,
+              "amount": 250000
+            }
+          },
+          "settled": false,
+          "reason": "operator_fee_undisclosed"
+        }
+      ],
+      "refuse_further_work_after": 2
+    },
+    "no_charge": {
+      "comment": "5.5.8: a no_charge engagement rates nothing and produces no settlement record (5.5.7), so it has no total for a fee to sit inside and carries no operator fee line. Nothing new is executed here; it is written down so the absence is read as a rule rather than as an oversight.",
+      "carries_a_line": false
+    }
+  },
+  "not_covered": {
+    "comment": "Boundaries, written down so nobody mistakes them for gaps.",
+    "items": [
+      "The both-roles `agreed` case (6: both signatures over the SAME canonical bytes) is not pinned as a vector, because a second signature needs a second seed and this repository publishes exactly one. The rule is executed in each SDK's own tests with a locally generated key; what is pinned here is the byte-for-byte canonical form both must sign.",
+      "5.5.2's 'a schedule MUST NOT price a meter the offering does not declare' needs an offering manifest to check against, so it is exercised in each SDK's unit tests rather than pinned here - the fixture has no manifest.",
+      "What a meter COUNTS is not pinned here and is not the schedule's business: 5.5.2 prices a meter, and how the provider's runtime arrives at a token count is its own affair. What IS pinned is the conversion from that count to money, because that is the part both parties must agree on to the micro-unit.",
+      "Reservation holds themselves (5.5.4 grades `enforced` only where clearing supports holds) are a clearing-service behaviour, not an SDK wire shape. The SDKs compute the window and the release instant; whether money is actually held is the deployment's honesty to declare.",
+      "Whether an exhausted engagement is REPORTED unscored (5.5.5, agentreputations.com) is the bureau's behaviour, tested there.",
+      "Whether an engagement that charges nothing is REPORTED to a reputation bureau, and how its reviews are weighed, is the bureau's behaviour rather than an SDK wire shape. 5.5.7 says only that such an engagement may be reviewed under 15 and that those reviews carry the weight any review carries.",
+      "12.1.1's other two lapses are runtime facts rather than document shapes, so they are not pinned here: withdrawal by the provider (which on a directed proposal reaches its whole audience, being the one party), and a directed proposal being spent by the formation it completes. Both are exercised in each implementation's own tests, against its own store.",
+      "12.1 rule 3 - that a runtime MUST record a refusal made on a ground the document does not state - is a runtime behaviour rather than a document shape, so it is exercised in each implementation's own tests. So is 13's validation probe: there is no probe kind in the vocabulary because a runtime that holds no probe records cannot check one, and 13 forbids inventing the record.",
+      "12.1.1 allows a directed offer to be bounded by the close of a named occasion defined OUTSIDE the specification - a solicitation's deadline is the case it was written for - but names no field for it. No vector can pin a shape the specification does not state, so what is pinned instead is the refusal a reader owes an offer whose lapse it cannot read."
+    ]
+  }
+}

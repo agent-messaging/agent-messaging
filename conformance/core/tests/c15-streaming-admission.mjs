@@ -17,6 +17,8 @@
 // reaches the command — rather than the shape of any particular fix.
 import { connect, jwtAuthenticator, nkeys } from "../../peering/lib/mesh.mjs";
 import { createEnvelope, signEnvelope } from "../../peering/lib/sdk.mjs";
+import { deregisterAdapter } from "../lib/deregister.mjs";
+import { plantAdapterIdentity } from "../lib/test-agents.mjs";
 import { spawn } from "node:child_process";
 import { mkdtempSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -38,6 +40,8 @@ export default {
     if (!existsSync(ADAPTER)) throw new Error("env-skip: mesh-adapter.mjs not found (set RESOLVER_MJS)");
 
     const state = mkdtempSync(join(tmpdir(), "c15-stream-"));
+    // The standing test agent c15-stream.test@agentmesh.ai (lib/test-agents.mjs).
+    plantAdapterIdentity(state, env, "c15-stream");
     // NO streaming brain is configured, deliberately. Without STREAM_BRAIN the
     // adapter answers a streamed turn with its built-in word-by-word echo of
     // the sender's own prompt — which is a better probe than a scripted brain:
@@ -98,15 +102,28 @@ export default {
       await cli(["contacts", "allow", kpAllowed.getPublicKey(), "c15 allowed sender"]);
 
       /** Send a STREAMING request (the sender sets config.stream) and collect
-       *  whatever comes back on the task stream. */
+       *  whatever comes back on the task stream, plus the §11.3 opening
+       *  respond. Since 0.3 that opening (signed, "working", carrying the
+       *  task_id) arrives at the REQUESTER's own inbox correlated by
+       *  in_reply_to (§6.5), never on the transport reply subject; the chunks
+       *  still flow on the task stream subject. The adapter is rebuilt for 0.3
+       *  in the same release wave as this suite change; until that build
+       *  ships, an old adapter's opening goes where nothing listens.  */
       const streamTurn = async (kp, text) => {
         const from = kp.getPublicKey();
         const taskId = `c15-${Math.random().toString(36).slice(2, 10)}`;
         const chunks = [];
+        const inbound = [];
         const sub = nc.subscribe(`mesh.task.${taskId}.stream`);
+        const subInbox = nc.subscribe(`mesh.agent.${from}.inbox`);
         (async () => {
           for await (const m of sub) {
             try { chunks.push(JSON.parse(td.decode(m.data))); } catch { /* skip */ }
+          }
+        })();
+        (async () => {
+          for await (const m of subInbox) {
+            try { inbound.push(JSON.parse(td.decode(m.data))); } catch { /* skip */ }
           }
         })();
         // `prompt`, not `text`: the streaming handler reads input.prompt, and
@@ -116,17 +133,23 @@ export default {
           type: "request", from, to: agentId, task_id: taskId,
           payload: { skill: "chat", input: { prompt: text }, config: { stream: true } },
         }), kp);
-        let ack = null;
-        try {
-          ack = JSON.parse(td.decode(
-            (await nc.request(`mesh.agent.${agentId}.inbox`, te.encode(JSON.stringify(envl)), { timeout: 20_000 })).data));
-        } catch { /* an empty stream may mean no reply at all; that is fine */ }
+        nc.publish(`mesh.agent.${agentId}.inbox`, te.encode(JSON.stringify(envl)));
+        // The opening respond, skipping the §6.4a accept, which travels the
+        // same inbox and opens nothing. A missing opening may mean no reply at
+        // all (a silent refusal); that is fine, the assertions below compare
+        // fates rather than requiring one.
+        let opening = null;
+        for (let i = 0; i < 40 && !opening; i++) {
+          await sleep(250);
+          opening = inbound.find((r) => r?.in_reply_to === envl.id && r?.payload?.status !== "accepted") ?? null;
+        }
         await sleep(4000); // let any chunks land
         sub.unsubscribe();
+        subInbox.unsubscribe();
         // The whole frame is searched, not just payload.data: the point is
         // whether the sender's text came back at all, however it is shaped.
         const body = chunks.map((c) => JSON.stringify(c)).join("");
-        return { ack, chunks, body };
+        return { opening, chunks, body };
       };
 
       // 1. THE FINDING: a blocked sender's streamed request must not reach the
@@ -145,11 +168,14 @@ export default {
 
       // 3. The blocked sender must not be able to TELL it was blocked: the
       //    refusal has to look like an agent with nothing to say (c07's rule,
-      //    applied to the streaming path).
-      if (blocked.ack?.error && !allowed.ack?.error) {
+      //    applied to the streaming path). Compared on the opening responds at
+      //    each sender's own inbox, where every respond arrives since 0.3.
+      if (blocked.opening?.error && !allowed.opening?.error) {
         fails.push("the streaming refusal is distinguishable from a normal answer (block oracle)");
       }
     } finally {
+      // Off the registry first, or the mesh keeps one more c15-stream forever.
+      if (nc) await deregisterAdapter(nc, state);
       child.kill();
       await nc?.close().catch(() => {});
     }

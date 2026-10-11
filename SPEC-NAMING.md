@@ -1,14 +1,67 @@
 # Personal Agent Naming (PAN)
 
-**AgentMesh's naming service** — companion to the Agent Messaging specification, `SPEC.md`.
+**AgentMesh's naming service**, companion to the Agent Messaging specification, `SPEC.md`.
 
-**Version:** 0.7-draft · **Date:** 2026-07-26 · **Status:** draft, one reference implementation
+**Version:** 0.10-draft · **Date:** 2026-10-05 · **Status:** draft, one reference implementation
 **Authors:** Jeff R Schneider <jeffrschneider@gmail.com>
+
+**Changes from 0.9 (2026-10-05):** One addition, new §5.8, the rename
+within one registrar. §5.6 covers a name that moves to another registrar;
+nothing covered an agent given a new name at the same registrar with the
+same key, so the old name could only be released, and
+every address written down for the agent then answered "no agent by that
+name". §5.8 lets the old name keep resolving to the same card for a bounded
+window, with a notice beside the card naming the new handle and the day the
+old one stops, and afterwards answer resolution with `moved_to` for the
+cooling-off period: §5's optional tombstone signal, given a destination. It
+is not a referral. §5 and §7 gain one line each. No change to claiming,
+binding, the card, or re-homing.
+
+**Changes from 0.8:** One addition, new §4.4, making a rebind visible to the
+party it can deceive. §4.1's pairing ceremony never required a handle to be
+unbound, so one ceremony re-points a bound name to a brand new key. The act
+is legitimate (re-pairing after a key loss is exactly what the ceremony is
+for), but the party it can mislead is not the person who ran it, who
+authorized it twice over; it is the counterparty who reads the name.
+Reputation and audit history are keyed by the public key, so when the key
+changes, the record behind an unchanged name silently starts over at zero.
+A confirmation prompt at the owner therefore fixes nothing, and §5.3's
+pinning protects only a resolver that saw the handle before the change.
+§4.4 has a registrar record every change of a handle's bound agent key
+(previous key, new key, when, method) in a public, append-only record, and
+§5.1's card now serves that record as an identity field, `key_history`,
+inside the signed bytes, scoped to the handle's current claim. A resolver
+seeing the handle for the first time can now see that the name moved to its
+current key and when, and a registrar's human-readable page states it in
+plain words. §7 gains the matching obligation. No changes to handles,
+claiming, the pairing ceremony, or resolution; the card gains one field.
+
+**Changes from 0.7:** One addition, new §6.2, closing a gap §6's chaining
+never covered. A hash chain detects a rewrite; it does not detect a
+deletion, because a chain geneses at its first entry, so a registrar that
+discarded its log and started appending again would hold a chain that
+verifies perfectly, and nothing in the entries says how many there ought to
+be. The gap is worse for the party §6 serves: an owner receives only their
+own entries, whose `prev_hash` and `entry_hash` point at entries they may
+not read, so they can check that each entry hashes to what it claims and
+can never walk the chain it belongs to. "Append-only" was an assertion the
+registrar made about itself. §6.2 has a registrar publish, periodically and
+signed, where its chain ends and **how many entries it holds**, over a
+canonical form carrying the issuing registrar's own URL. The count is the
+part that matters: a hash says an entry is intact, a count says entries are
+present, and a chain later reporting fewer than a published commitment
+contradicts a signature the registrar cannot disown. Commitments MUST be
+publicly readable, since they are only worth anything to someone who kept an
+earlier one, and they disclose nothing, being a hash, a count and a
+sequence number, so §6.1's erasure is untouched. A registrar SHOULD commit
+on a cadence even when idle, so that having stopped is distinguishable from
+having nothing to report. No wire changes to handles, claiming, binding, the
+card, or resolution.
 
 **Changes from 0.6:** One addition, new §6.1, resolving a conflict inside §6
 that made erasure impossible: entries are never deleted and every entry
 named its anchor in plaintext, so an owner's email address sat permanently
-on a record nothing could remove — twice over, since an email-tier handle
+on a record nothing could remove, and twice over at that, since an email-tier handle
 contains the address in its own name. §6.1 lets a registrar record the
 owner as a stable opaque reference whose mapping to the anchor is
 separately deletable, so deleting the mapping severs the link without
@@ -25,7 +78,7 @@ Also in 0.7: §3.1 gains one permission and gives up one guarantee. A
 delegated session **MAY** now release a handle its own anchor holds, and
 **MUST** be refused for any other anchor's. The case is a partner closing
 a user's account, where the only route available was a registrar's
-moderation credential — putting an authority meant for taking names down
+moderation credential, putting an authority meant for taking names down
 for cause behind an action the user initiated, and writing the operator
 into the §6 log as having taken a name its owner gave up. §9 already
 required operator-initiated releases to be logged as such, which is only
@@ -34,7 +87,7 @@ owner's or delegate's release as an operator action. What the permission
 costs is stated where it is granted: a stolen §3.1 credential can name any
 anchor, so the guarantee that such a credential cannot take existing names
 away from their owners is given up by any registrar that accepts delegated
-release — which is why the permission is MAY, and why §3.1 tells a
+release, which is why the permission is MAY, and why §3.1 tells a
 registrar that wants the guarantee to decline. Unbinding, reversing a
 move, and releasing another anchor's handle stay refused. §4.3 and §9
 follow the change. No wire changes.
@@ -43,7 +96,7 @@ follow the change. No wire changes.
 entirely on it: the moderation credential's bytes are not the witnessing
 credential's bytes, two settings holding one value are not two credentials,
 and a registrar whose moderation authority still answers to the witnessing
-credential MUST tell its own operator so — the only party who can see that
+credential MUST say so to its own operator, the only party who can see that
 failure or fix it.
 
 **Changes from 0.5:** Hardening, written after a security review of the
@@ -72,9 +125,9 @@ every registrar. §5.1 splits the card into identity fields and
 attachment fields (different lifetimes, different TTLs) and adds the
 serving mesh to the agentmesh endpoint. New §5.5 (resolution authority:
 where authority flows from, and how a registrar of record is found) and
-§5.6 (re-homing: moving attachment or custodian with no identity event —
+§5.6 (re-homing: moving attachment or custodian with no identity event;
 pins deliberately do not alarm). §7 gains two obligations: WebFinger
-(MUST) and migration-out (MUST — a registrar executes a key-signed
+(MUST) and migration-out (MUST: a registrar executes a key-signed
 departure; a registrar that won't let a name leave is not conforming).
 §8 extends the trust model to multiple registrars (per-registrar
 pinning, conflict precedence, surfaced-never-merged). §10's federation
@@ -109,9 +162,9 @@ belongs to catalog/search layers like ARD).
 normative for the mesh: features that need a named, accountable operator
 (sender provenance, admission tiers, durable and sealed rooms) resolve
 handles against a PAN registrar. The spec stays deliberately
-self-contained as a layering discipline — claiming, binding, and
+self-contained as a layering discipline (claiming, binding, and
 resolution are defined without reference to mesh internals, and pairing
-requires nothing but an Ed25519 key — but PAN is not maintained as an
+requires nothing but an Ed25519 key), but PAN is not maintained as an
 independent standard, and this document assumes the AgentMesh deployment.
 
 **Relationship to ANS.** The Agent Name Service (ANS) covers
@@ -214,7 +267,7 @@ the spec constrains that trade three ways:
    operator name, start pairing, bind a handle to an agent record. It MUST
    NOT *move*: reversing a move (§5.7) and any future transfer MUST be
    refused with an instruction to sign in directly. It MUST NOT
-   **unbind** — detach a handle from the agent record it points at —
+   **unbind** (detach a handle from the agent record it points at),
    because unbinding destroys rather than establishes: a handle with
    nothing bound to it resolves as "reserved" (§5), so detaching an
    anchor's handles takes that operator's agents off the mesh as surely as
@@ -243,8 +296,8 @@ speaks for one anchor, so what it may give up is what that anchor holds,
 and nothing else.
 
 The case this exists for is a partner closing a user's account: the names
-anchored to that account have to go with it. The alternative — a
-registrar's own operator credential releasing them on the user's behalf —
+anchored to that account have to go with it. The alternative, a
+registrar's own operator credential releasing them on the user's behalf,
 is worse in two ways. It puts an authority meant for moderation (taking a
 name down for cause) behind an action the user initiated, widening that
 authority's blast radius to cover ordinary use. And it writes the operator
@@ -332,8 +385,8 @@ name.
 ### 4.3 Delegated binding
 
 When the partner behind a delegated session (§3.1) has itself verified
-control of an agent key first-hand — by an equivalent signed ceremony, a
-single-use code signed by the agent's key — the registrar MAY accept the
+control of an agent key first-hand (by an equivalent signed ceremony, a
+single-use code signed by the agent's key), the registrar MAY accept the
 partner's attestation and bind without a second pairing ceremony. The
 rationale is the person's experience: proving key control twice in one
 sitting, once to the partner and once to the registrar, proves nothing
@@ -349,14 +402,60 @@ The trade is disclosed the same way §3.1 discloses claiming:
    carries no attestation and MUST be refused for a delegated session like
    any other destructive act.
 2. **Disclosure.** The binding method is recorded and served as
-   `agent-key-delegated:<partner>` — in the history log entry and on the
-   card's `binding` field — so a relying party that requires first-hand
+   `agent-key-delegated:<partner>` (in the history log entry and on the
+   card's `binding` field), so a relying party that requires first-hand
    pairing (§4.1) can tell the difference and re-run the §4.1 ceremony if
    it cares.
 3. **Accountability.** The registrar's word now covers the partner's
    verification of key control, not only the email. §8's expansion
    ("trusting the registrar's choice of witnesses") covers this, and §9
    notes what a stolen delegate credential can and cannot do.
+
+### 4.4 Rebinding and key history
+
+A pairing ceremony does not require the handle to be unbound. Re-pairing is
+legitimate and expected: an owner replaces a machine, rotates a leaked key,
+or moves an agent to new software, and §4.1's two proofs authorize the new
+binding exactly as they authorized the first. What re-pairing also does is
+re-point a trusted name at a record with no past. Reputation, audit chains,
+and every other per-key record start over at zero behind a name that looks
+unchanged, and the party that lands on is the counterparty who resolves the
+name, not the owner who ran the ceremony. The owner cannot be prompted into
+protecting somebody else, so the defense is the one §5.3 already uses for
+key changes: make the change visible to readers.
+
+1. **Recorded.** When a binding replaces or removes a handle's bound agent
+   key, the registrar MUST record the change: the previous key, the new key
+   (or none, for a detachment), when it happened, and the binding method
+   that caused it. The first binding of a fresh handle is not a change and
+   is not recorded; neither is re-pairing the same key. The record is
+   append-only, like the §6 log. Unlike the §6 log it is public, because it
+   exists for readers, and it discloses nothing resolution does not already
+   serve: the handle, and keys the card itself would have carried.
+2. **Served.** The card (§5.1) MUST carry the handle's recorded key changes
+   as an identity field, `key_history`, inside the signed bytes: a list,
+   oldest first, of `{changed_at, old_key, new_key, method, old_key_revoked}`,
+   where a null `new_key` records a detachment and `old_key_revoked` is true
+   when the binding that made the change said the replaced key is revoked
+   (its owner reported it leaked; SPEC.md §4.10). A resolver SHOULD treat a
+   message signed by a key recorded as revoked as not from the agent. Changes that predate the handle's current
+   claim (an earlier owner's era, before a release and its cooling-off) MUST
+   NOT be served; they describe a different claim of the name.
+3. **Stated.** A registrar serving a human-readable page for a handle
+   SHOULD state a key change in plain words with its date, so a person
+   checking a name they were given does not need to read JSON to learn that
+   the record behind the name is younger than the name.
+
+What this complements rather than replaces: pinning (§5.3) alarms a
+consumer who resolved the handle before the change. `key_history` informs
+the consumer pinning cannot reach, the one resolving the handle for the
+first time after the rebind. Neither makes the change wrong; a consumer's
+policy toward a young key behind an old name is its own.
+
+A registrar MAY additionally require a caller starting a pairing for an
+already-bound handle to acknowledge the rebind in the request itself, as a
+machine-readable flag rather than an interactive prompt, so that automation
+cannot re-point a bound name by accident. This version does not require it.
 
 ## 5. Resolution
 
@@ -367,7 +466,8 @@ Resolution maps a handle to its **card**.
   handles.
 - Released handles MUST NOT resolve; registrars SHOULD signal a tombstone
   distinctly from "never existed" in their history log, and MAY do so at
-  resolution.
+  resolution. For a handle renamed within the registrar, §5.8 says how the
+  signal names the new handle.
 - A handle claimed but not yet bound resolves to its claim record without an
   address ("reserved").
 - A handle that has re-homed (§5.6) resolves to a signed **referral** rather
@@ -384,6 +484,7 @@ Resolution maps a handle to its **card**.
   "handle":   "Coder.ana@example.org",
   "operator": { "name": "Ana Lima" },   // REQUIRED: the anchor's chosen public label (§3)
   "binding":  "agent-key",                 // "agent-key" | "agent-key-delegated:<partner>" | "email-submitter" | null
+  "key_history": [],                       // §4.4: recorded changes of the bound agent key, oldest first
   "claimed_via": "email",                  // "email" | "delegated:<partner>" (§3.1) | "rehomed:<registrar>" (§5.6)
   "claimed_at":  "2026-07-18T…",
   "presence": { "state": "online", "last_seen_at": "…" },   // OPTIONAL, only if a source provides it
@@ -399,13 +500,15 @@ Resolution maps a handle to its **card**.
 ```
 
 **Identity fields and attachment fields.** The card carries two kinds of
-fact with different lifetimes. *Identity fields* — `handle`, `operator`,
-`binding`, `claimed_via`, `claimed_at`, `encryption_key` — say who the
-agent is; they change rarely, and only a key change alarms (§5.3).
-*Attachment fields* — `endpoints`, `presence` — say where the agent is
+fact with different lifetimes. *Identity fields* (`handle`, `operator`,
+`binding`, `key_history`, `claimed_via`, `claimed_at`, `encryption_key`)
+say who the agent is; they change rarely, and only a key change alarms
+(§5.3), which is also the change `key_history` (§4.4) keeps visible to a
+resolver arriving after it happened.
+*Attachment fields* (`endpoints`, `presence`) say where the agent is
 served right now; they are expected to change, and consumers MUST NOT
-cache them beyond the registrar's stated TTL. A third group —
-`registrar`, `issued_at`, `expires_at` — describes the *answer* rather
+cache them beyond the registrar's stated TTL. A third group,
+`registrar`, `issued_at`, `expires_at`, describes the *answer* rather
 than the agent: which registrar spoke, and for how long its word stands
 (§5.3). This split is what makes the serving mesh an implementation
 detail: *where* may move freely because *who* never rides on it
@@ -422,7 +525,7 @@ NOT cache attachment fields beyond the stated TTL, and MUST NOT act on a
 card whose `expires_at` has passed.
 
 The OPTIONAL `mesh` field on an agentmesh endpoint names the control
-plane of the instance currently serving the agent — its **home mesh**.
+plane of the instance currently serving the agent, its **home mesh**.
 It is how a resolver learns *where* alongside *who*, and it is an
 attachment field: re-pointing it is routine (§5.6), never an identity
 event.
@@ -466,8 +569,8 @@ serve `/.well-known/webfinger` for its own accounts, and where it does,
 its answer is final: a domain speaking for its own addresses outranks
 every registrar (§5.5). An organization that serves its own WebFinger
 needs no registrar at all for its agents' handles. The registrar is the
-path for anchors whose mail provider will never serve PAN records — a
-Gmail address cannot make google.com answer for it — not a toll booth on
+path for anchors whose mail provider will never serve PAN records (a
+Gmail address cannot make google.com answer for it), not a toll booth on
 the namespace.
 
 ### 5.3 Signed cards, key sets, and resolver pinning
@@ -475,7 +578,7 @@ the namespace.
 A resolve response is the registrar's live word, and everything downstream
 (sender provenance labels, endpoint routing, encryption keys) rides on it.
 Registrars MUST therefore sign cards: an Ed25519 signature over the
-canonical JSON of the card (compact, keys recursively sorted — the same
+canonical JSON of the card (compact, keys recursively sorted; the same
 canonical form as the history log, §6), delivered beside it:
 
 ```json
@@ -488,12 +591,12 @@ alone says only "some registrar said this, once." It does not say which
 registrar, and it does not say when: a document that never expires
 verifies forever. Capture a card while a handle is bound to K1, wait for
 its owner to re-pair to K2 after a key leak, and replay the captured
-document at any resolver seeing that handle for the first time — pinning
+document at any resolver seeing that handle for the first time: pinning
 (below) then makes the leaked key stick. The signed bytes MUST therefore
 also carry
 
-- `registrar` — the issuing registrar's own URL, and
-- `issued_at` and `expires_at` — RFC 3339 timestamps bounding how long the
+- `registrar`, the issuing registrar's own URL, and
+- `issued_at` and `expires_at`, RFC 3339 timestamps bounding how long the
   document may be relied on.
 
 A verifier MUST reject a card whose `expires_at` has passed (a small
@@ -549,12 +652,12 @@ new key is also mine." The endpoint MUST therefore publish a key **set**:
 honest (§8). The complementary consumer-side defense is **pinning**, and
 it is REQUIRED: resolvers MUST remember `handle → agent key` on first
 sight and MUST surface a loud warning when a known handle resolves to a
-different key — legitimate on re-pairing, and exactly the signal that
-matters if a registrar is compromised or coerced. Resolvers MUST pin
+different key. That is legitimate on re-pairing, and exactly the signal
+that matters if a registrar is compromised or coerced. Resolvers MUST pin
 registrar signing keys the same way and **per registrar**: §5.5 puts
 several in play, and one global pin would cry tampering on every correct
 answer from the second one. A pinned signing key that changes MUST NOT be
-replaced silently — the resolver MUST refuse that resolution and keep the
+replaced silently: the resolver MUST refuse that resolution and keep the
 pin it holds, because an unattended node that re-pins whatever answers has
 no alarm at all. The remedy is the registrar's published key set, fetched
 out of band and compared by `kid`. Because the history log is private
@@ -565,7 +668,7 @@ acceptance.
 ### 5.4 Discoverability (opt-in)
 
 Handles embed their anchor email, so §6 keeps the roster log private and
-no public endpoint enumerates an anchor's handles — someone knowing your
+no public endpoint enumerates an anchor's handles: someone knowing your
 email must not learn your agents. (A registrar operator's own credential
 is a separate question, and §9 says what it does and does not preserve.)
 Friend discovery ("do any of my contacts have
@@ -579,7 +682,7 @@ exception**:
 - `GET /api/discover?email=…` is public. For an opted-in anchor it
   returns the operator name and the anchor's active handles (name and
   bound-or-not; full detail still comes from per-handle resolution). For
-  everything else it answers `discoverable: false` — **a not-opted-in
+  everything else it answers `discoverable: false`. **A not-opted-in
   anchor and a nonexistent one answer identically**, so the endpoint
   confirms nothing about anyone who hasn't consented.
 - Registrars SHOULD rate-limit discovery like verification-code issuance:
@@ -590,7 +693,7 @@ instead of by handle (`?agent_id=…`), returning the card of the handle
 bound to that key. This is the same no-enumeration question asked
 backwards, and it needs saying because it looks harmless: an agent key
 travels on every signed message, so anyone who has received one message
-can turn it into that agent's handle — and a handle contains the
+can turn it into that agent's handle, and a handle contains the
 operator's email address in plain text. Registrars MUST rate-limit reverse
 resolution per caller address, and MAY gate it on the same `discoverable`
 consent as forward discovery; where a registrar gates it, a
@@ -615,17 +718,17 @@ flows from the name's owner outward, in this order:
    registrar of record two ways: a DNS `TXT` record at
    `_pan.<anchor-domain>` with the content `pan-registrar=<https-URL>`
    (one record; if several are published, resolvers use the
-   lexicographically first — deterministic, if inelegant), where the
+   lexicographically first, which is deterministic if inelegant), where the
    domain owner has published one; failing that, the resolver's
    configured registrar list. (The reference resolver ships with the reference registrar the
-   way browsers ship trust stores — the list is the resolver operator's
+   way browsers ship trust stores; the list is the resolver operator's
    policy, and adding to it requires no one's permission.)
 
 **Conflicts are surfaced, never merged.** If two registrars both answer
 for a handle, precedence is: the anchor domain's word, if any; else the
 registrar whose history log (§6) carries the earliest claim. A resolver
-that detects a conflict MUST surface it to its consumer as a warning —
-like a pin mismatch (§5.3), the remedy is out-of-band verification with
+that detects a conflict MUST surface it to its consumer as a warning.
+Like a pin mismatch (§5.3), the remedy is out-of-band verification with
 the owner, never silent selection.
 
 A reversed move (§5.7) is one of the ways two registrars come to answer
@@ -638,15 +741,15 @@ registrar to tell another that a move it corroborated has been undone
 (§10).
 
 A registrar is a **custodian, never an owner**. Nothing in this section
-gives any registrar — including the reference registrar — standing to
+gives any registrar (including the reference registrar) standing to
 retain a handle whose owner has moved on (§5.6, §7).
 
 **The anchor probe is visible to the anchor domain.** Consulting the
 domain first means the domain learns that somebody is resolving a handle
 under it, and roughly when. For a handle anchored at a large mail
 provider this tells that provider a little about who is being looked up.
-This is inherent in making the domain authoritative — the owner's chosen
-authority has to be asked to answer — and it is the same exposure
+This is inherent in making the domain authoritative (the owner's chosen
+authority has to be asked to answer), and it is the same exposure
 WebFinger has always carried. Implementations MUST NOT try to hide it by
 skipping the probe; they SHOULD keep it cheap and infrequent (a short
 timeout and a negative cache, so a provider that serves no PAN WebFinger
@@ -677,8 +780,8 @@ therefore move without anything happening, identity-wise:
   period (§3), and MUST NOT re-issue the handle. The new registrar
   records the claim with provenance `rehomed:<old-registrar>` and
   continues the handle's history from there. The old registrar MUST
-  record *when* it made the move — §5.7 bounds the anchor owner's
-  reversal window from that instant — and MUST refuse a second departure
+  record *when* it made the move (§5.7 bounds the anchor owner's
+  reversal window from that instant) and MUST refuse a second departure
   for a handle it has already moved: the name is no longer its to
   re-point, and a custodian that keeps accepting fresh destinations keeps
   changing what other registrars corroborate against.
@@ -686,7 +789,7 @@ therefore move without anything happening, identity-wise:
 **A statement is not custody.** The paragraph above describes a bearer
 authorization: it is self-signed by whoever holds a key, it names its own
 destination, and it is presented by an unauthenticated caller. Taken at
-face value it authorizes far more than a move — it lets anyone assert any
+face value it authorizes far more than a move: it lets anyone assert any
 name at any registrar. A registrar accepting a migration IN therefore
 MUST make all five of these checks, and a registrar that makes fewer is
 not conforming:
@@ -700,7 +803,7 @@ not conforming:
    window (RECOMMENDED: 15 minutes). Otherwise a captured statement is
    good forever. A registrar MUST treat a timestamp it cannot parse as
    RFC 3339, or cannot compare against its own clock without overflowing,
-   as stale — arithmetic on a caller-supplied number is not a place to be
+   as stale. Arithmetic on a caller-supplied number is not a place to be
    optimistic.
 3. **It must be unspent.** A registrar MUST record statements it has
    acted on and refuse a repeat. Freshness alone leaves a live window in
@@ -715,9 +818,9 @@ not conforming:
 4. **It must not take a name already held here by another key.** A
    signature proves control of the key in the statement and nothing else;
    it says nothing about a handle already bound to a different key. The
-   same reasoning bars a name inside its cooling-off period here (§3) —
+   same reasoning bars a name inside its cooling-off period here (§3):
    a move MUST NOT be a way around the wait.
-5. **The losing registrar must agree — and must be somebody this
+5. **The losing registrar must agree, and must be somebody this
    registrar already trusts.** Before taking custody, the new registrar
    MUST confirm with the named old registrar that the handle has been
    released *to it*. The confirmation is the referral the old registrar
@@ -733,7 +836,7 @@ not conforming:
       caller chose: standing up a service that answers "yes, released to
       you" is an afternoon's work, and it satisfies every other check on
       this list. That is not a weaker version of check 5, it is the
-      whole namespace — such a registrar mints any handle, under
+      whole namespace: such a registrar mints any handle, under
       anybody's email address, for anyone who asks. A registrar with no
       peers configured MUST refuse migration in entirely.
    2. **A bounded fetch.** The request MUST use `https`, MUST NOT follow
@@ -742,14 +845,14 @@ not conforming:
       there), private ranges, carrier NAT, the unspecified address,
       IPv4-mapped IPv6 forms, and single-label or reserved-internal
       hostnames are all refused. Address literals MUST be parsed rather
-      than string-matched — `169.254.169.254`, `http://2130706433`,
+      than string-matched: `169.254.169.254`, `http://2130706433`,
       `http://0177.0.0.1` and `[::ffff:127.0.0.1]` all read as ordinary
       hostnames to a prefix test, and all point inward. The registrar
       MUST bound how much of the answer it will read and how long it
       will wait.
    3. **A signed referral.** The referral MUST be signed, and the
       signature MUST verify against a key the peer publishes out of band
-      (§5.3) or a key pinned for that peer in configuration — never
+      (§5.3) or a key pinned for that peer in configuration, never
       against a key the response itself declares. Unsigned JSON off a
       socket is not a second party to the story; it is whatever
       answered.
@@ -779,8 +882,8 @@ served in place of a card (§5, §5.3):
 
 `operator` carries the anchor's public label across the move. A registrar
 accepting a migration in MUST record an operator name for the arriving
-handle — taken from the referral where it is given, otherwise a
-placeholder — and MUST let the owner replace it under a verified session,
+handle (taken from the referral where it is given, otherwise a
+placeholder) and MUST let the owner replace it under a verified session,
 because §5.1 marks the operator record REQUIRED and a migration brings no
 claim ceremony to set one. A verifier MUST reject an expired referral, and
 MAY accept one carrying no `expires_at` at all: check 3 has already
@@ -791,7 +894,7 @@ Check 5 fixes the order: **out first, then in.** A registrar MAY reject a
 migration IN that arrives before the corresponding migration OUT, and the
 owner retries after the departure is recorded.
 
-**Pinning is unaffected — by design.** Pins are `handle → agent key`
+**Pinning is unaffected, by design.** Pins are `handle → agent key`
 (§5.3), and re-homing moves custodians, not keys: a consumer's existing
 pin verifies identically against the new registrar's card. A resolver
 MUST NOT alarm on a change of registrar alone; it MUST alarm on a change
@@ -806,15 +909,15 @@ obligation. Both are deliberate: the key is the agent's identity (SPEC.md
 §1.5, invariant 2), and a custodian that can refuse to let a name leave is
 not a custodian. But the party a name is anchored to is the mailbox owner
 (§3), and a key-signed move does not consult them. Whoever holds the bound
-agent key — the owner's own software, a hosted agent service, a stolen
-laptop, anyone who ever ran the agent — moves the name with one request,
+agent key (the owner's own software, a hosted agent service, a stolen
+laptop, anyone who ever ran the agent) moves the name with one request,
 and §5.6's "MUST NOT re-issue" then bars even the owner from getting it
 back. Left there, the two rules together make a key a stronger claim on a
 name than the anchor it was minted under, which inverts §3.
 
 The owner's standing is therefore expressed as a reversal, not as a second
 signature on the way out. Requiring the owner's signature to leave would
-contradict §7.8 and would strand an owner whose mailbox has gone away —
+contradict §7.8 and would strand an owner whose mailbox has gone away,
 which is precisely the case §3's "lifetime = anchor lifetime" anticipates.
 
 1. **The move is dated.** A registrar recording a migration out MUST
@@ -826,9 +929,9 @@ which is precisely the case §3's "lifetime = anchor lifetime" anticipates.
    days). A reversal restores that registrar's own record of the handle,
    with the name, anchor, claim date, and binding it had before.
 3. **Directly verified sessions only.** A reversal MUST be available only
-   under a session whose provenance is `email` (§3.1) — a delegated
-   partner's attestation is not the owner's word about where their name
-   lives — and only for handles the session's own anchor holds.
+   under a session whose provenance is `email` (§3.1), and only for
+   handles the session's own anchor holds. A delegated partner's
+   attestation is not the owner's word about where their name lives.
 4. **Logged.** A reversal MUST append a history entry (§6) naming the
    destination the move had recorded.
 5. **The hold.** After a reversal, a registrar MUST refuse further
@@ -844,7 +947,7 @@ which is precisely the case §3's "lifetime = anchor lifetime" anticipates.
 
 **A reversal is not a re-issue.** §5.6's prohibition is unchanged: a
 registrar that let a name go MUST NOT hand it to a new claimant, and MUST
-NOT let it become claimable again as a fresh claim — not even by its own
+NOT let it become claimable again as a fresh claim, not even by its own
 owner, whose route back is this reversal and nothing else. Restoring the
 record of a departure the anchor owner never authorized is the opposite of
 re-issuing. Nothing new is minted, no uniqueness decision is revisited,
@@ -856,18 +959,61 @@ destination that corroborated the move (§5.6) holds its own record, and
 this version specifies no registrar-to-registrar revocation (§10), so a
 reversal inside the window can leave two registrars answering for one
 handle until the destination's record lapses or its operator acts. §5.5
-governs that state and favors the owner — the reversing registrar carries
-the earliest claim — and a resolver MUST surface the conflict rather than
+governs that state and favors the owner (the reversing registrar carries
+the earliest claim), and a resolver MUST surface the conflict rather than
 choose silently. The window is bounded for exactly this reason: it is
 recourse against a move the owner did not make, not a standing right to
 contradict a custodian the owner did move to.
+
+### 5.8 Renaming within a registrar
+
+*Added 2026-10-05 (0.10).* §5.6 covers a name that moves to another
+registrar and keeps its name. This section covers the other case: an agent
+given a new name at the same registrar, keeping its key, usually under the
+same anchor. The new handle is claimed (§3) and bound (§4) to the same
+agent record as the old one. Releasing the old handle at once
+(§3) makes every address written down for the agent fail with "no agent by
+that name", which is true of the name and false of the agent. A registrar
+MAY instead keep the old name working for a window, saying where it went.
+
+1. **The old name's anchor, the same agent.** A rename window MUST be
+   opened only on the authority of the anchor the old handle belongs to,
+   and only when the new handle is active and bound to the same agent
+   record as the old one. The new handle may sit under another anchor; what
+   makes the notice true is that both names reach the same agent.
+2. **The window.** For the window the old handle MUST resolve exactly as
+   before (§5, to the same card) and the resolution SHOULD carry a notice
+   beside the card, outside its signed bytes: the new handle and the time
+   the old one stops resolving. The card describes the agent, and the
+   agent did not change. A registrar MUST bound the window (RECOMMENDED:
+   30 days by default, at most 90).
+3. **Reverse resolution.** While both handles are bound, resolving the
+   agent key (§5) MUST answer the new handle.
+4. **The end.** When the window ends the old handle MUST stop resolving,
+   whether or not its anchor has released it yet. The anchor MAY end the
+   window early by releasing the old handle (§3).
+5. **Moved to.** After the window, and for the cooling-off period after
+   the old handle's release, a registrar SHOULD answer resolution of the
+   old handle with "not found" carrying the new handle (`moved_to`) and
+   when the old one stopped (`stopped_at`: the window's end, or the release
+   if that came first), distinct from "no agent by that name". This is §5's tombstone signal at
+   resolution, with a destination. It is not a referral (§5.6): the name
+   did not move to another custodian, and a resolver MUST NOT treat
+   `moved_to` as a card or follow it silently; it tells the sender where to
+   send instead.
+6. **Logged.** Opening a window MUST append a history entry (§6) naming the
+   new handle and the end of the window.
+
+The cooling-off period (§3) is unchanged and runs from the release: the old
+name is held from everyone, its former owner included, for at least 90 days
+after it stops resolving.
 
 ## 6. The history log
 
 Every claim, binding (with its proof method), release, move (§5.6) and
 reversal of a move (§5.7) appends an entry. Entries are never updated or
 deleted. An entry MUST be logged against the handle's own anchor, so that
-the one person entitled to read it — the owner, §6 being owner-scoped —
+the one person entitled to read it (the owner, §6 being owner-scoped)
 can see it: a move logged against no anchor is invisible to exactly the
 party who needs to know their name left.
 
@@ -891,7 +1037,7 @@ detectable:
 ### 6.1 Erasure
 
 The two requirements above pull against each other. An entry must be
-attributable to its anchor, and entries are never deleted — so an entry
+attributable to its anchor, and entries are never deleted, so an entry
 that names the anchor in plaintext puts the owner's address in a record
 nothing can remove, and for an email-tier handle it does so twice, because
 the handle IS `<name>.<email>` (§2). An owner who asks to be forgotten
@@ -899,8 +1045,8 @@ cannot be. Recording the anchor was never what the chain guaranteed; it is
 only how attribution happened to be implemented.
 
 A registrar therefore **MAY** record the owner as a stable opaque
-reference — a value derived from nothing, whose mapping to the anchor is
-held separately and is ordinarily deletable — in place of the anchor and
+reference (a value derived from nothing, whose mapping to the anchor is
+held separately and is ordinarily deletable) in place of the anchor and
 the whole handle. Attribution is unchanged: the owner-scoped read resolves
 the anchor to its reference and returns the same history, reassembling each
 handle from the anchor the request has just proved control of, which is why
@@ -913,8 +1059,8 @@ they asked to have erased.
 
 Such a reference is a **pseudonym, not anonymisation**, for as long as its
 mapping exists, and a registrar **MUST NOT** describe it as more than that.
-Stability is what keeps the log useful — it is what lets one owner's
-history be gathered, and lets an owner show which entries were theirs — and
+Stability is what keeps the log useful (it is what lets one owner's
+history be gathered, and lets an owner show which entries were theirs), and
 it is the same property that makes the reference a pseudonym. Erasure
 happens when the mapping is deleted, not when the reference is issued.
 
@@ -928,20 +1074,84 @@ disclose that residue rather than imply the erasure was total. `prev_hash`
 links every entry regardless of form, so the chain stays unbroken across the
 change and a verifier walks it end to end; what differs is only the
 per-entry canonical serialization, which carries whichever owner pair the
-entry itself holds — the anchor and the whole handle, or the opaque
+entry itself holds: the anchor and the whole handle, or the opaque
 reference and the handle's name with its anchor removed. No entry may carry
 both, so a verifier selects the rule from the entry and cannot be misled
 about which one applies.
 
 Erasing the log's linkage is one step in erasing an owner, not the whole of
 it. A registrar **MUST NOT** report an anchor as forgotten while it still
-holds that address elsewhere — in handle records, including released
-tombstones, in operator records, in verification state — or while a live
+holds that address elsewhere (in handle records, including released
+tombstones, in operator records, in verification state) or while a live
 handle spells the address out in its own name.
 
 Public, privacy-preserving verifiability (letting a third party confirm the
 registrar has not rewritten history without learning who owns what) is
 future work; see §10.
+
+### 6.2 Signed head commitments
+
+Chaining detects a rewrite. It does not detect a **deletion**, and the two
+are not the same attack. A chain geneses at its first entry, so a registrar
+that discarded its log and began appending again would hold a chain that
+verifies perfectly from its new beginning. Nothing in the entries says how
+many there are supposed to be.
+
+The gap is wider for the party §6 exists to serve. An owner-scoped read
+returns only that owner's entries, and each one carries `prev_hash` and
+`entry_hash` pointing at entries the owner is not entitled to read. The
+owner can confirm that each entry hashes to what it claims, and cannot walk
+the chain those hashes belong to. "The log is append-only" is therefore an
+assertion the registrar makes about itself, which a reader has no means to
+check.
+
+A registrar **SHOULD** therefore publish, periodically and signed, a
+statement of where its chain currently ends:
+
+```json
+{ "id": 42, "at": "…", "registrar": "https://…",
+  "head_seq": 4207, "entries": 12000, "head_hash": "b64…",
+  "kid": "93acdb980800", "signature": "b64…" }
+```
+
+The signature is over the newline-joined canonical form
+
+```
+pan-log-commitment-v1
+<registrar>
+<head_seq>
+<entries>
+<head_hash>
+<issued_at>
+```
+
+verified with the key whose `kid` matches an entry from §5.3's published key
+set. The issuing registrar's own URL is inside the signed bytes for the same
+reason a §5.6 referral carries it: without it, a commitment published by one
+registrar verifies as a statement about another's chain.
+
+`entries` is the field doing the work. A hash establishes that an entry is
+intact; a count establishes that entries are present. A chain that later
+reports fewer entries than a commitment already published contradicts a
+signature the registrar cannot disown.
+
+Commitments **MUST** be publicly retrievable, and a registrar **MUST NOT**
+require authentication to read them. This is not a disclosure: a commitment
+is a hash, a count and a sequence number, and names neither a handle nor an
+owner, so it coexists with the erasure in §6.1 rather than undoing it. The
+requirement is structural, because a commitment is only worth something to a
+party who kept an earlier one, and a reader who cannot fetch them cannot keep
+any.
+
+A registrar **SHOULD** issue a commitment on a fixed cadence even when the
+chain has not changed. A registrar that stopped committing is otherwise
+indistinguishable from one with nothing to report, and the cadence is what
+makes silence itself legible.
+
+What this does not do: it gives nobody the ability to read entries they are
+not entitled to, and it cannot prevent a deletion. It makes a deletion
+**detectable by anyone who archived a commitment**, which is the property
+chaining alone does not provide.
 
 ## 7. Registrar obligations
 
@@ -965,7 +1175,7 @@ A conforming registrar:
    it publishes the redirect, serves the signed referral, and releases
    custody. A registrar that will not let a name leave is not a
    conforming registrar. This obligation is worded so that the reference
-   registrar binds itself first — the credibility of the whole namespace
+   registrar binds itself first: the credibility of the whole namespace
    rests on custodians being fireable. It dates the move, notifies the
    anchor owner where it can, honors the owner's reversal window (§5.7),
    and does not re-point a handle it has already moved.
@@ -977,12 +1187,18 @@ A conforming registrar:
    stranger's assertion about somebody else's email address.
 10. Bounds what an unauthenticated caller can cause: per anchor, per
     caller address, and for the service as a whole (§9).
+11. Records every change of a handle's bound agent key and serves the
+    history on the card (§4.4): a name that moved to a new key says so to
+    the readers the move could otherwise mislead.
+12. Where it offers renames within the registrar (§5.8), bounds the window,
+    stops resolving the old handle when the window ends, and answers its
+    resolution with `moved_to` rather than a card from then on.
 
 ## 8. Trust model: read this before trusting a handle
 
 **The registrar is a notary, not an oracle.** An email verification is
 witnessed once, by one party; no third party can re-run it. Everyone who
-trusts a handle is trusting the registrar's word — and, for a handle whose
+trusts a handle is trusting the registrar's word, and for a handle whose
 card says `claimed_via: delegated:<partner>`, the registrar's choice of
 witness (§3.1). The history log records
 every action under a hash chain, so tampering is detectable, and an owner
@@ -993,13 +1209,13 @@ deliberate trade of external auditability for owner privacy.
 **The registrar and the mesh share an operator.** In the AgentMesh
 deployment, the party that runs the registrar also runs the transport.
 Signed cards authenticate *which* registrar spoke, and the hash-chained
-log makes tampering detectable to the owner — but nothing structural
+log makes tampering detectable to the owner, but nothing structural
 prevents the operator from rebinding a handle. The defense is §5.3's
 mandatory resolver pinning: clients *detect* rebinding rather than
-trusting the registrar not to. Authority separation is now *specified* —
+trusting the registrar not to. Authority separation is now *specified*:
 an anchor domain may answer for itself (§5.2), authority has a defined
-order (§5.5), and owners can move custodians (§5.6) — but until
-independent registrars exist in practice, pinning remains the operative
+order (§5.5), and owners can move custodians (§5.6). Until independent
+registrars exist in practice, however, pinning remains the operative
 defense, and this document does not pretend otherwise.
 
 **Many registrars, one namespace.** Nothing above requires a single
@@ -1007,7 +1223,7 @@ registrar, and §5.5 defines where authority lies when there are several.
 The consumer-side rules generalize cleanly: pin each registrar's signing
 key on first sight, scoped to that registrar (§5.3); treat the anchor
 domain's WebFinger, where it exists, as outranking any registrar (§5.2);
-and treat a two-registrar conflict like a pin mismatch — a loud warning
+and treat a two-registrar conflict like a pin mismatch, a loud warning
 whose remedy is out-of-band, never silent preference (§5.5). Trusting a
 handle still means trusting a registrar's word; with §5.5 the consumer
 at least chooses *whose* word, and the owner can fire a custodian who
@@ -1022,7 +1238,7 @@ owner, and that proof does not depend on the registrar's honesty. An
 
 **The operator name is a label, not an identity.** It is required, stable
 across the anchor's handles, set only under a verified session, and
-change-logged — which makes it a consistent, auditable claim rather than a
+change-logged, which makes it a consistent, auditable claim rather than a
 per-message assertion. It is still whatever the mailbox owner chose to
 type. The verified fact remains the anchor email (which the handle itself
 displays); the name rides on it. Renderers SHOULD source the name from
@@ -1045,7 +1261,7 @@ does not try to.
   runs several copies of itself: it MUST be shared across them, or its
   real value is the configured one multiplied by the instance count.
 - **Mail the registrar sends**: verification codes and invitations go out
-  from the registrar's own domain on a request that proves little — an
+  from the registrar's own domain on a request that proves little: an
   unauthenticated address for a code, one throwaway mailbox for an
   invitation. The per-anchor ceiling bounds what a single victim receives;
   only the per-address and service-wide ceilings bound what the domain
@@ -1054,9 +1270,9 @@ does not try to.
   owner typed) MUST NOT be interpolated into a subject line.
 - **Pairing codes are relayed by humans**: a pairing code gets read aloud
   and pasted, so anyone who sees one may try it. A registrar MUST NOT
-  spend a pairing code on a request whose signature does not verify —
-  otherwise one unsigned request invalidates the code and forces the owner
-  to start over — and MUST bound pairing attempts per caller address.
+  spend a pairing code on a request whose signature does not verify
+  (otherwise one unsigned request invalidates the code and forces the owner
+  to start over), and MUST bound pairing attempts per caller address.
 - **A key is not an anchor**: whoever holds the bound agent key can move a
   name to another registrar (§5.6). That is by design, and §5.7 is what
   keeps it from being theft: the move is dated, the anchor owner is told,
@@ -1073,8 +1289,8 @@ does not try to.
   a reachability scanner.
 - **Cross-origin**: a registrar's unauthenticated state-changing endpoints
   (code issuance, pairing completion, migration in) SHOULD NOT be callable
-  from arbitrary web pages. Nothing is stolen — authorization here is a
-  bearer token, never an ambient cookie — but a page that drives those
+  from arbitrary web pages. Nothing is stolen (authorization here is a
+  bearer token, never an ambient cookie), but a page that drives those
   endpoints through its visitors' browsers spreads a per-address ceiling
   across a residential address space.
 - **Squatting**: full-string uniqueness plus visible anchors makes
@@ -1098,8 +1314,8 @@ does not try to.
   makes the permission a MAY rather than a rule, and why a registrar
   granting it should weigh the account-closure case against a destructive
   failure mode it otherwise does not have. What the credential still
-  cannot do is unbind (§3.1) — so it cannot take an owner's working agents
-  off the mesh by detaching their names while leaving the names standing —
+  cannot do is unbind (§3.1), so it cannot take an owner's working agents
+  off the mesh by detaching their names while leaving the names standing,
   and it cannot move a name or reverse a move (§5.7). Each delegated
   session is bound to one anchor, so every release performed under one is
   attributable in the log to a named anchor and a named partner, never an
@@ -1107,7 +1323,7 @@ does not try to.
 - **Operator credentials are not delegated sessions**: §3.1 bounds what a
   *session* a partner mints can do. A deployment may separately hold
   operator credentials for moderation (taking a name down for cause) or
-  support, and those sit outside §3.1 by definition — §8's "trusting the
+  support, and those sit outside §3.1 by definition. §8's "trusting the
   registrar's word" already covers them. A deployment that uses one shared
   secret for both collapses the distinction, and collapses it in the record
   as well: one holder can then release a name either as the owner's
@@ -1123,9 +1339,9 @@ does not try to.
   credential's bytes. A deployment that holds two settings and configures
   both to one value has not separated anything, and is in the worse
   position of the two, because it reads as finished. A registrar that
-  authorizes moderation with the witnessing credential — whether because no
+  authorizes moderation with the witnessing credential (whether because no
   moderation credential is configured or because both are set to the same
-  value — **MUST** disclose that to its own operator, plainly and where an
+  value) **MUST** disclose that to its own operator, plainly and where an
   operator will see it, rather than presenting the two as separate. This is
   the one failure in this section that is invisible from outside: no
   partner, consumer, card or log entry can reveal it, so the only party who
@@ -1138,7 +1354,7 @@ does not try to.
   issue certificates. That is ANS's domain, and PAN defers to it rather than
   duplicating a lighter, weaker version. (Distinguish this from §5.2/§5.5
   domain *sovereignty over resolution*: a domain serving WebFinger decides
-  where its anchors' handles resolve — routing authority — but the names
+  where its anchors' handles resolve (routing authority), but the names
   stay email-anchored and the proofs stay §3/§4's; no certificate or
   DNS-proven identity is introduced.)
 
@@ -1153,13 +1369,13 @@ does not try to.
   named in the card's endpoints (A2A, Agent Messaging).
 - **A registrar network**: §5.5 defines resolution authority and §5.6
   defines migration between registrars, but a live mesh of referring
-  registrars — shared uniqueness enforcement, referral chains, gossip —
+  registrars (shared uniqueness enforcement, referral chains, gossip)
   is not specified. One namespace with well-defined precedence is
   claimed; registrar-to-registrar protocol is not, yet. In particular
   there is no way for one registrar to tell another that a move has been
   reversed (§5.7): the two-registrar state a reversal can create is
   surfaced to consumers by resolvers (§5.5), not settled between
-  custodians. Peering is configuration, not discovery — a registrar
+  custodians. Peering is configuration, not discovery: a registrar
   accepts migrations only from peers its operator named (§5.6, check 5).
 - **Additional anchor proofs**: e.g. OIDC sign-in as a mailbox proof.
 - **Public, privacy-preserving verifiability**: letting outside parties
@@ -1188,14 +1404,24 @@ hold.
 
 Also live as of 0.7: §3.1 delegated release bounded to the session's own
 anchor, §6.1 erasure by deleting the owner-reference mapping, and §9's
-separation of the witnessing credential from the moderation credential —
+separation of the witnessing credential from the moderation credential:
 two independent settings, with the moderation routes falling back to the
 witnessing credential where a deployment has not configured its own and
 saying so at every startup, as §9's disclosure rule requires.
 
+Also live as of 0.9: §4.4 key history. The reference registrar records a
+key change on re-pairing (direct and delegated) and on detachment, serves
+the current claim's changes in the card's `key_history` field, and states
+the latest change in plain words on its card page.
+
+Built, not yet deployed (2026-09-27, branch `live-revocation`): a delegated
+binding may carry `revoke_previous`, recorded on the key change as
+`old_key_revoked` and served in `key_history`; the card page then says the
+previous key leaked and is revoked. Existing changes read false.
+
 Not yet implemented: the DNS `_pan.<anchor-domain>` route to a registrar
-of record (§5.5 — the reference resolver uses the anchor-domain probe and
+of record (§5.5; the reference resolver uses the anchor-domain probe and
 its configured list, not the TXT record), and the consumer half of the
-0.6 card fields — the reference resolver verifies the signature and pins,
+0.6 card fields: the reference resolver verifies the signature and pins,
 but does not yet reject an expired card or select a key by `kid` (§5.3).
 Implementation status will be updated here as each lands.

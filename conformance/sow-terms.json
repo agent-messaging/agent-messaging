@@ -1,0 +1,112 @@
+{
+  "comment": "Agent SoW liability and service floors (agentsow.com 0.16.0-draft, 5.13 and 5.14): the two clauses that bound what the PROVIDER can lose and name the speed the parties agreed to. Pins the branches where two implementations drift. Liability (5.13): the cap is REQUIRED and MUTUAL, stated in exactly ONE form - a positive whole multiple_of_fees, or a positive integer amount with a three-letter uppercase currency; both forms in one cap and a cap naming neither are refused. carve_outs and indemnification are PROSE lists a court reads, deliberately unclosed, carried under the additions backstops (non-blank entries of at most 300 characters, at most 10 entries, and an empty list refused as a second spelling of omission). The grade is 'recorded', and this is the clause the grade vocabulary exists for: no runtime enforces a cap, measures damages, or holds anyone harmless - courts do, reading the signed document - so 'enforced' is the false enforcement claim and 'evidence' overstates what any machinery provides; a runtime MUST NOT refuse or gate anything on this clause. Service floors (5.14): floors is a non-empty list of at most 10, each floor an id in the qualification-id shape (1-40 lowercase letters, digits, dashes; distinct within the clause) with each_task_within in the 5.12 duration grammar - ONE duration reading in the system, so a calendar month is refused here by the same rule that refuses it on a reporting cadence. breach is REQUIRED (a floor without a stated consequence is decoration): misses a positive whole number, within the same grammar, remedy from a closed set whose one member is 'terminate_for_cause' - it grows only with the spec. The grade is 'evidence': the timestamps are in the records, a miss is a recorded obligation failure (never a money movement), and nothing here pauses a slow task or makes a fast one. Absence of either clause states nothing. The signing section pins a document carrying BOTH clauses and its canonical bytes, because both clauses sit INSIDE the signed bytes. THE FIXTURE IS THE AUTHORITY: when a test against it fails, fix the implementation; when the fixture itself is believed wrong, change it only with a spec change alongside.",
+  "version": 1,
+  "spec": "Agent SoW 0.16.0-draft: 5.13, 5.14",
+
+  "liability": {
+    "comment": "The 5.13 clause shape. The cap bounds each party's total liability to the other - mutual, exactly one form. Prose lists carry the additions backstops: at most 10 entries of at most 300 characters, non-blank, and an empty list refused because omitting the member already says the same thing.",
+    "prose_entries_max": 10,
+    "prose_chars_max": 300,
+    "valid": [
+      {
+        "cap": { "multiple_of_fees": 2 },
+        "carve_outs": [
+          "willful misconduct",
+          "breach of the confidentiality clause (5.11)"
+        ],
+        "indemnification": {
+          "by_provider": ["third-party IP claims arising from the deliverables"],
+          "by_client": ["claims arising from inputs the client furnished"]
+        },
+        "grade": "recorded"
+      },
+      { "cap": { "amount": 250000000, "currency": "XCR" }, "grade": "recorded" },
+      { "cap": { "multiple_of_fees": 1 }, "grade": "recorded" },
+      { "cap": { "multiple_of_fees": 3 }, "indemnification": { "by_provider": ["third-party IP claims arising from the deliverables"] }, "grade": "recorded" }
+    ],
+    "invalid": [
+      { "case": "not_an_object", "liability": "capped", "why": "the clause is an object carrying cap and grade, not a word" },
+      { "case": "missing_cap", "liability": { "grade": "recorded" }, "why": "the cap is required: a liability clause exists to bound each party's exposure, and one naming no bound states nothing a court can read a number from" },
+      { "case": "cap_neither_form", "liability": { "cap": {}, "grade": "recorded" }, "why": "the cap is stated in exactly one form - multiple_of_fees, or amount with currency; a cap naming neither bounds nothing, and is refused rather than read as omission's second spelling" },
+      { "case": "cap_both_forms", "liability": { "cap": { "multiple_of_fees": 2, "amount": 250000000, "currency": "XCR" }, "grade": "recorded" }, "why": "two bounds in one cap is two clauses disagreeing about the number; exactly one form" },
+      { "case": "zero_multiple", "liability": { "cap": { "multiple_of_fees": 0 }, "grade": "recorded" }, "why": "a zero multiple caps at nothing, which is a cap only in name" },
+      { "case": "negative_multiple", "liability": { "cap": { "multiple_of_fees": -2 }, "grade": "recorded" }, "why": "a bound does not run backwards" },
+      { "case": "fractional_multiple", "liability": { "cap": { "multiple_of_fees": 1.5 }, "grade": "recorded" }, "why": "whole multiples only; a fractional multiple invites two implementations to round differently" },
+      { "case": "amount_zero", "liability": { "cap": { "amount": 0, "currency": "XCR" }, "grade": "recorded" }, "why": "the absolute figure is a positive integer in the smallest unit of its currency" },
+      { "case": "amount_fractional", "liability": { "cap": { "amount": 2.5, "currency": "XCR" }, "grade": "recorded" }, "why": "money is an integer in this family - never a float" },
+      { "case": "amount_without_currency", "liability": { "cap": { "amount": 250000000 }, "grade": "recorded" }, "why": "an absolute figure without its currency is a number, not an amount" },
+      { "case": "bad_currency", "liability": { "cap": { "amount": 250000000, "currency": "credits" }, "grade": "recorded" }, "why": "currency is a three-letter uppercase code" },
+      { "case": "lowercase_currency", "liability": { "cap": { "amount": 250000000, "currency": "xcr" }, "grade": "recorded" }, "why": "the code is uppercase and comparison is exact" },
+      { "case": "blank_carve_out", "liability": { "cap": { "multiple_of_fees": 2 }, "carve_outs": ["   "], "grade": "recorded" }, "why": "present and blank is not the same as absent" },
+      { "case": "carve_out_too_long", "liability": { "cap": { "multiple_of_fees": 2 }, "carve_outs": ["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"], "grade": "recorded" }, "why": "301 characters; the backstop is 300" },
+      { "case": "eleven_carve_outs", "liability": { "cap": { "multiple_of_fees": 2 }, "carve_outs": ["c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9", "c10", "c11"], "grade": "recorded" }, "why": "11 carve-outs; a clause stating dozens is a liability regime wearing a clause's clothes" },
+      { "case": "empty_carve_outs", "liability": { "cap": { "multiple_of_fees": 2 }, "carve_outs": [], "grade": "recorded" }, "why": "an empty list declares nothing, which OMITTING the member already means; two spellings of one state is how implementations come to disagree about which is which" },
+      { "case": "empty_indemnification", "liability": { "cap": { "multiple_of_fees": 2 }, "indemnification": {}, "grade": "recorded" }, "why": "an indemnification member naming neither party's statements declares nothing, which omitting the member already means" },
+      { "case": "empty_indemnification_list", "liability": { "cap": { "multiple_of_fees": 2 }, "indemnification": { "by_provider": [] }, "grade": "recorded" }, "why": "the same empty-list rule as carve_outs: a second spelling of omission" },
+      { "case": "grade_enforced", "liability": { "cap": { "multiple_of_fees": 2 }, "grade": "enforced" }, "why": "the false enforcement claim, on the clause the grade vocabulary exists for: no runtime enforces a liability cap, measures damages, or holds anyone harmless - courts do, reading the signed document - and a runtime MUST NOT refuse or gate anything on this clause" },
+      { "case": "grade_evidence", "liability": { "cap": { "multiple_of_fees": 2 }, "grade": "evidence" }, "why": "overstates what ships: what the machinery provides is exactly the record of what was agreed - the clause inside the signed bytes - and nothing more" }
+    ]
+  },
+
+  "service_floors": {
+    "comment": "The 5.14 clause shape. Floors are bounds over facts both parties' records already hold: each_task_within, request arrival to terminal response, in the 5.12 duration grammar (one duration reading in the system). breach is required - a floor without a stated consequence is decoration - and its remedy comes from a closed set whose one member is terminate_for_cause, growing only with the spec.",
+    "floors_max": 10,
+    "remedies": ["terminate_for_cause"],
+    "valid": [
+      {
+        "floors": [{ "id": "turnaround", "each_task_within": "PT4H" }],
+        "breach": { "misses": 3, "within": "P30D", "remedy": "terminate_for_cause" },
+        "grade": "evidence"
+      },
+      {
+        "floors": [
+          { "id": "turnaround", "each_task_within": "PT4H" },
+          { "id": "end-of-day", "each_task_within": "P1D" }
+        ],
+        "breach": { "misses": 1, "within": "P1W", "remedy": "terminate_for_cause" },
+        "grade": "evidence"
+      }
+    ],
+    "invalid": [
+      { "case": "not_an_object", "service_floors": "fast", "why": "the clause is an object carrying floors, breach and grade, not a word" },
+      { "case": "empty_floors", "service_floors": { "floors": [], "breach": { "misses": 3, "within": "P30D", "remedy": "terminate_for_cause" }, "grade": "evidence" }, "why": "a service floors clause that names no floor bounds nothing" },
+      { "case": "eleven_floors", "service_floors": { "floors": [{ "id": "f1", "each_task_within": "PT1H" }, { "id": "f2", "each_task_within": "PT1H" }, { "id": "f3", "each_task_within": "PT1H" }, { "id": "f4", "each_task_within": "PT1H" }, { "id": "f5", "each_task_within": "PT1H" }, { "id": "f6", "each_task_within": "PT1H" }, { "id": "f7", "each_task_within": "PT1H" }, { "id": "f8", "each_task_within": "PT1H" }, { "id": "f9", "each_task_within": "PT1H" }, { "id": "f10", "each_task_within": "PT1H" }, { "id": "f11", "each_task_within": "PT1H" }], "breach": { "misses": 3, "within": "P30D", "remedy": "terminate_for_cause" }, "grade": "evidence" }, "why": "11 floors; a clause stating dozens is an SLA wearing a clause's clothes" },
+      { "case": "duplicate_ids", "service_floors": { "floors": [{ "id": "turnaround", "each_task_within": "PT4H" }, { "id": "turnaround", "each_task_within": "P1D" }], "breach": { "misses": 3, "within": "P30D", "remedy": "terminate_for_cause" }, "grade": "evidence" }, "why": "two floors share an id, and a recorded miss has to name one of them" },
+      { "case": "bad_id_shape", "service_floors": { "floors": [{ "id": "Turn_Around", "each_task_within": "PT4H" }], "breach": { "misses": 3, "within": "P30D", "remedy": "terminate_for_cause" }, "grade": "evidence" }, "why": "a floor's id is 1-40 lowercase letters, digits and dashes - the qualification-id shape" },
+      { "case": "month_bound", "service_floors": { "floors": [{ "id": "turnaround", "each_task_within": "P1M" }], "breach": { "misses": 3, "within": "P30D", "remedy": "terminate_for_cause" }, "grade": "evidence" }, "why": "a calendar month is not a fixed span of time; refused by the 5.12 grammar this clause reuses, one duration reading in the system" },
+      { "case": "bound_not_a_string", "service_floors": { "floors": [{ "id": "turnaround", "each_task_within": 4 }], "breach": { "misses": 3, "within": "P30D", "remedy": "terminate_for_cause" }, "grade": "evidence" }, "why": "each_task_within is an ISO 8601 duration string in the restricted grammar" },
+      { "case": "missing_breach", "service_floors": { "floors": [{ "id": "turnaround", "each_task_within": "PT4H" }], "grade": "evidence" }, "why": "a floor without a stated consequence is decoration: breach - misses, within, remedy - is required" },
+      { "case": "zero_misses", "service_floors": { "floors": [{ "id": "turnaround", "each_task_within": "PT4H" }], "breach": { "misses": 0, "within": "P30D", "remedy": "terminate_for_cause" }, "grade": "evidence" }, "why": "breach.misses is a positive whole number: zero misses would let the clause be breached by nothing happening" },
+      { "case": "fractional_misses", "service_floors": { "floors": [{ "id": "turnaround", "each_task_within": "PT4H" }], "breach": { "misses": 2.5, "within": "P30D", "remedy": "terminate_for_cause" }, "grade": "evidence" }, "why": "whole misses only; there is no half of a recorded fact" },
+      { "case": "month_window", "service_floors": { "floors": [{ "id": "turnaround", "each_task_within": "PT4H" }], "breach": { "misses": 3, "within": "P1M", "remedy": "terminate_for_cause" }, "grade": "evidence" }, "why": "the breach window rides the same grammar as the bounds; a calendar month is refused by name" },
+      { "case": "unknown_remedy", "service_floors": { "floors": [{ "id": "turnaround", "each_task_within": "PT4H" }], "breach": { "misses": 3, "within": "P30D", "remedy": "refund" }, "grade": "evidence" }, "why": "the remedy set is closed with one member, terminate_for_cause; it grows only with the spec, because a remedy invented here would promise an enforcement no runtime performs" },
+      { "case": "grade_recorded", "service_floors": { "floors": [{ "id": "turnaround", "each_task_within": "PT4H" }], "breach": { "misses": 3, "within": "P30D", "remedy": "terminate_for_cause" }, "grade": "recorded" }, "why": "understates what ships: detecting the task that ran past its floor is a mechanical MUST, from timestamps, which is evidence, not merely a record of the clause" },
+      { "case": "grade_enforced", "service_floors": { "floors": [{ "id": "turnaround", "each_task_within": "PT4H" }], "breach": { "misses": 3, "within": "P30D", "remedy": "terminate_for_cause" }, "grade": "enforced" }, "why": "nothing here pauses a slow task or makes a fast one; floors are agreed bounds with a record, never a guarantee" }
+    ]
+  },
+
+  "signing": {
+    "comment": "Both clauses sit INSIDE the signed bytes. One byte of canonical drift between the SDKs is a document that verifies in one and is worthless in the other. This document carries BOTH clauses of this fixture at once, so the bytes pin their coexistence, not just each shape alone.",
+    "document": {
+      "liability": {
+        "cap": { "multiple_of_fees": 2 },
+        "carve_outs": [
+          "willful misconduct",
+          "breach of the confidentiality clause (5.11)"
+        ],
+        "grade": "recorded",
+        "indemnification": {
+          "by_client": ["claims arising from inputs the client furnished"],
+          "by_provider": ["third-party IP claims arising from the deliverables"]
+        }
+      },
+      "scope": "keep the books current",
+      "service_floors": {
+        "breach": { "misses": 3, "remedy": "terminate_for_cause", "within": "P30D" },
+        "floors": [{ "each_task_within": "PT4H", "id": "turnaround" }],
+        "grade": "evidence"
+      }
+    },
+    "canonical": "{\"liability\":{\"cap\":{\"multiple_of_fees\":2},\"carve_outs\":[\"willful misconduct\",\"breach of the confidentiality clause (5.11)\"],\"grade\":\"recorded\",\"indemnification\":{\"by_client\":[\"claims arising from inputs the client furnished\"],\"by_provider\":[\"third-party IP claims arising from the deliverables\"]}},\"scope\":\"keep the books current\",\"service_floors\":{\"breach\":{\"misses\":3,\"remedy\":\"terminate_for_cause\",\"within\":\"P30D\"},\"floors\":[{\"each_task_within\":\"PT4H\",\"id\":\"turnaround\"}],\"grade\":\"evidence\"}}"
+  }
+}

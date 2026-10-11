@@ -1,0 +1,281 @@
+{
+  "comment": "Metering conformance fixture (SPEC.md 13.5, 19.2). Pins the meter event shape, the observed-meter set, the (meter, envelope_id) idempotency fold, the refusal event, and the payload.usage receipt — including a really-signed respond envelope, because the receipt's whole design is that the envelope signature covers it. THE FIXTURE IS THE AUTHORITY: when a test against it fails, fix the implementation; when the fixture itself is believed wrong, change it only with a spec change alongside.",
+  "version": 1,
+  "spec": "SPEC.md 13.5 (meters, events, receipt), 19.2 (task receipt), 19.6 (refusals rate to zero)",
+  "identities": {
+    "sender_seed": "SUAEGDPNTWXACIF45CA23BUY36RIMWZXW5LEHSEOK2ONS5JWJ7PBC2EWBA",
+    "sender": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+    "recipient": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+    "comment": "The same published test vectors budget.json, allowance.json and signature-tags.json use, deliberately: they are not real identities and control nothing, and reusing them keeps any new private-key-shaped string out of the repository. In commerce.json the sender key plays the CONSUMER OWNER (the agreement's signer); the recipient key plays the SELLING AGENT. In metering.json the sender key plays the RESPONDER (the usage receipt's signer)."
+  },
+  "observed_meters": {
+    "comment": "13.5: the closed set a metering deployment MUST be able to produce. Declared meter names MUST NOT collide with these. Common declared names (SHOULD, not closed): tokens_in, tokens_out, model_ms, tool_calls.",
+    "meters": [
+      "requests",
+      "responses",
+      "events",
+      "bytes_in",
+      "bytes_out",
+      "tasks_completed",
+      "task_ms"
+    ],
+    "name_pattern": "^[a-z0-9_]{1,64}$"
+  },
+  "event": {
+    "comment": "13.5: quantity a non-negative integer in the meter's unit; provider and consumer always both present; envelope_id is the deriving envelope's id ((meter, envelope_id) is the idempotency key); class is 'observed' or 'declared' and is a trust statement, not a category label.",
+    "valid": [
+      {
+        "meter": "tokens_out",
+        "class": "declared",
+        "quantity": 4210,
+        "provider": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+        "consumer": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+        "offering": "caselaw-summary",
+        "envelope_id": "0198c001-0000-7000-8000-00000000c4f2",
+        "ts": "2026-08-02T15:04:10Z"
+      },
+      {
+        "meter": "requests",
+        "class": "observed",
+        "quantity": 1,
+        "provider": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+        "consumer": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+        "offering": "caselaw-summary",
+        "envelope_id": "0198c001-0000-7000-8000-00000000a1b0",
+        "ts": "2026-08-02T15:04:02Z"
+      },
+      {
+        "meter": "task_ms",
+        "class": "observed",
+        "quantity": 8000,
+        "provider": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+        "consumer": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+        "task_id": "3f1c2e9a-5a44-4d8b-9f6f-0d9f4a1b2c3d",
+        "envelope_id": "0198c001-0000-7000-8000-00000000c4f2",
+        "ts": "2026-08-02T15:04:10Z"
+      },
+      {
+        "meter": "requests",
+        "class": "observed",
+        "quantity": 0,
+        "refused": true,
+        "refusal_code": "AGREEMENT_REQUIRED",
+        "provider": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+        "consumer": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+        "offering": "caselaw-summary",
+        "envelope_id": "0198c001-0000-7000-8000-00000000d5e1",
+        "ts": "2026-08-02T15:10:00Z"
+      }
+    ],
+    "invalid": [
+      {
+        "case": "negative_quantity",
+        "event": {
+          "meter": "tokens_out",
+          "class": "declared",
+          "quantity": -1,
+          "provider": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+          "consumer": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "envelope_id": "x",
+          "ts": "2026-08-02T15:04:10Z"
+        },
+        "why": "quantity must be non-negative"
+      },
+      {
+        "case": "float_quantity",
+        "event": {
+          "meter": "tokens_out",
+          "class": "declared",
+          "quantity": 4210.5,
+          "provider": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+          "consumer": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "envelope_id": "x",
+          "ts": "2026-08-02T15:04:10Z"
+        },
+        "why": "quantity must be an integer - a meter that needs fractions has the wrong unit"
+      },
+      {
+        "case": "missing_envelope_id",
+        "event": {
+          "meter": "tokens_out",
+          "class": "declared",
+          "quantity": 1,
+          "provider": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+          "consumer": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "ts": "2026-08-02T15:04:10Z"
+        },
+        "why": "envelope_id is the idempotency key; an event without one cannot be deduplicated"
+      },
+      {
+        "case": "missing_consumer",
+        "event": {
+          "meter": "requests",
+          "class": "observed",
+          "quantity": 1,
+          "provider": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+          "envelope_id": "x",
+          "ts": "2026-08-02T15:04:10Z"
+        },
+        "why": "both sides always: attribution in both directions is the point of the event"
+      },
+      {
+        "case": "declared_using_observed_name",
+        "event": {
+          "meter": "requests",
+          "class": "declared",
+          "quantity": 5,
+          "provider": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+          "consumer": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "envelope_id": "x",
+          "ts": "2026-08-02T15:04:10Z"
+        },
+        "why": "declared meter names MUST NOT collide with the observed set - the class is a trust statement and a collision launders a claim as an observation"
+      },
+      {
+        "case": "unknown_class",
+        "event": {
+          "meter": "tokens_out",
+          "class": "estimated",
+          "quantity": 5,
+          "provider": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+          "consumer": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "envelope_id": "x",
+          "ts": "2026-08-02T15:04:10Z"
+        },
+        "why": "class is 'observed' or 'declared', closed"
+      },
+      {
+        "case": "refusal_with_quantity",
+        "event": {
+          "meter": "requests",
+          "class": "observed",
+          "quantity": 1,
+          "refused": true,
+          "refusal_code": "BUDGET_INSUFFICIENT",
+          "provider": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+          "consumer": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "envelope_id": "x",
+          "ts": "2026-08-02T15:04:10Z"
+        },
+        "why": "a refusal event carries quantity 0 - it is a record, never a charge"
+      }
+    ]
+  },
+  "idempotency": {
+    "comment": "13.5: (meter, envelope_id) is the idempotency key; a consumer folding the stream MUST deduplicate on it. Same envelope_id under DIFFERENT meters is two distinct facts, not a duplicate.",
+    "events": [
+      {
+        "meter": "tokens_out",
+        "envelope_id": "E1",
+        "quantity": 4210
+      },
+      {
+        "meter": "tokens_out",
+        "envelope_id": "E1",
+        "quantity": 4210
+      },
+      {
+        "meter": "tool_calls",
+        "envelope_id": "E1",
+        "quantity": 3
+      },
+      {
+        "meter": "tokens_out",
+        "envelope_id": "E2",
+        "quantity": 1000
+      },
+      {
+        "meter": "tokens_out",
+        "envelope_id": "E2",
+        "quantity": 999
+      }
+    ],
+    "expect_folded": {
+      "tokens_out": 5210,
+      "tool_calls": 3
+    },
+    "why": "E1 tokens_out counted once (redelivery); E1 tool_calls is a different meter, kept; E2's second event is a duplicate KEY - first-writer wins, the 999 is dropped, exactly like the budget fixture's equal-revision rule"
+  },
+  "receipt": {
+    "comment": "13.5: payload.usage on the respond - an array of {meter, quantity}. The envelope signature covers it, which is the entire design: a usage report is a signed receipt with no new signature. A non-terminal report is cumulative and SUPERSEDED by a later one, never added.",
+    "supersede_case": {
+      "reports_in_order": [
+        {
+          "terminal": false,
+          "usage": [
+            {
+              "meter": "tokens_out",
+              "quantity": 2000
+            }
+          ]
+        },
+        {
+          "terminal": true,
+          "usage": [
+            {
+              "meter": "tokens_out",
+              "quantity": 4210
+            },
+            {
+              "meter": "tool_calls",
+              "quantity": 3
+            }
+          ]
+        }
+      ],
+      "expect_final": {
+        "tokens_out": 4210,
+        "tool_calls": 3
+      },
+      "why": "4210, not 6210: later reports supersede earlier ones - cumulative, not additive"
+    },
+    "signed_envelope": {
+      "comment": "A fully-formed, really-signed terminal respond carrying payload.usage and payload.cost, generated with the published sender seed. 'canonical' is the canonical envelope JSON WITHOUT the domain prefix; the signature covers signed_bytes_prefix + canonical (SPEC.md 5.3). Any conforming implementation MUST rebuild those bytes and verify; one changed quantity must fail verification.",
+      "signed_bytes_prefix": "agentmesh-envelope-v1\n",
+      "canonical": "{\"from\":\"UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP\",\"id\":\"0198c001-0000-7000-8000-00000000c4f2\",\"in_reply_to\":\"0198c001-0000-7000-8000-00000000a1b0\",\"payload\":{\"cost\":{\"amount_micro\":6315,\"currency\":\"USD\"},\"output\":{\"summary\":\"Hochster v. De la Tour remains the controlling authority.\"},\"status\":\"completed\",\"usage\":[{\"meter\":\"tokens_out\",\"quantity\":4210},{\"meter\":\"tool_calls\",\"quantity\":3}]},\"to\":\"UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A\",\"trace\":{\"parent_span_id\":null,\"span_id\":\"c4f2c4f2c4f2c4f2\",\"trace_id\":\"c4f2c4f2c4f2c4f2c4f2c4f2c4f2c4f2\"},\"ts\":\"2026-08-02T15:04:10.000Z\",\"type\":\"respond\",\"v\":\"0.2\"}",
+      "signed": {
+        "v": "0.2",
+        "id": "0198c001-0000-7000-8000-00000000c4f2",
+        "type": "respond",
+        "ts": "2026-08-02T15:04:10.000Z",
+        "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+        "to": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+        "in_reply_to": "0198c001-0000-7000-8000-00000000a1b0",
+        "trace": {
+          "trace_id": "c4f2c4f2c4f2c4f2c4f2c4f2c4f2c4f2",
+          "span_id": "c4f2c4f2c4f2c4f2",
+          "parent_span_id": null
+        },
+        "payload": {
+          "status": "completed",
+          "output": {
+            "summary": "Hochster v. De la Tour remains the controlling authority."
+          },
+          "usage": [
+            {
+              "meter": "tokens_out",
+              "quantity": 4210
+            },
+            {
+              "meter": "tool_calls",
+              "quantity": 3
+            }
+          ],
+          "cost": {
+            "amount_micro": 6315,
+            "currency": "USD"
+          }
+        },
+        "sig": "0yMR8pNycM9q2NlzvIkvqbbciSaz6CuMlqfhXU-TZNmNHwIslTMdel1qUMQ-HPnEfQZhUKin10Y8CWyHGcZJDg"
+      }
+    }
+  },
+  "not_covered": {
+    "comment": "Boundaries, written down so nobody mistakes them for gaps.",
+    "items": [
+      "Whether a declared quantity is TRUE is unverifiable by design (13.5: the signature proves authorship, not truth). This fixture pins shapes and folds, not honesty.",
+      "The task receipt's derivation (19.2) is a platform fold over these events; its wire shape is pinned by prose and unchanged from 0.2's receipt.",
+      "What a quantity COSTS is rating (19.6) - pinned in commerce.json, not here."
+    ]
+  }
+}

@@ -3,6 +3,7 @@
 // failure mode had never been observed before this test.
 import { connect, jwtAuthenticator, nkeys } from "../../peering/lib/mesh.mjs";
 import { sdkModule as sdk, createEnvelope, signEnvelope } from "../../peering/lib/sdk.mjs";
+import { cleanSlate, seedFor } from "../lib/test-agents.mjs";
 
 const te = new TextEncoder();
 const td = new TextDecoder();
@@ -23,7 +24,11 @@ export default {
     // c09's own title says "1 MB cap", so leaving the app cap on would make it
     // assert the wrong layer — its 500 KB "under the cap" case would be refused
     // by the SDK before the broker ever had an opinion.
-    const a = await AgentMesh.connect(env.meshWsUrl, { authenticator: auth(), nkeySeed: td.decode(nkeys.createUser().getSeed()), maxInboundChars: 0 });
+    // A standing, named key (lib/test-agents.mjs), cleared of an earlier run's
+    // mailbox first. The sender below only sends and stays fresh.
+    const seedA = seedFor(env, "c09-target");
+    await cleanSlate(env, "c09-target");
+    const a = await AgentMesh.connect(env.meshWsUrl, { requireNamed: false, authenticator: auth(), nkeySeed: seedA, maxInboundChars: 0 });
     a.onRequest("echo", async (input) => ({ bytes: JSON.stringify(input).length }));
     await a.register({ name: "c09-target", visibility: "unlisted", skills: [{ id: "echo", name: "echo", description: "c09" }] });
     const idA = a.agentId;
@@ -32,20 +37,41 @@ export default {
     const fails = [];
     try {
       const kpS = nkeys.createUser();
-      const mk = (n) => te.encode(JSON.stringify(signEnvelope(createEnvelope({
-        type: "request", from: kpS.getPublicKey(), to: idA,
+      const idS = kpS.getPublicKey();
+      const mkEnv = (n) => signEnvelope(createEnvelope({
+        type: "request", from: idS, to: idA,
         payload: { skill: "echo", input: { blob: "x".repeat(n) } },
-      }), kpS)));
+      }), kpS);
+      const mk = (env2) => te.encode(JSON.stringify(env2));
 
-      // Under the cap: 500 KB crosses and answers.
-      const ok = JSON.parse(td.decode((await nc.request(`mesh.agent.${idA}.inbox`, mk(500_000), { timeout: 15_000 })).data));
-      if (ok.error) fails.push(`500KB request errored: ${ok.error.message}`);
+      // Under the cap: 500 KB crosses and answers. The answer arrives at the
+      // SENDER's inbox correlated by in_reply_to (§6.4), so collect there; the
+      // reply subject carries delivery signals only under 0.3.
+      const underEnv = mkEnv(500_000);
+      const subS = nc.subscribe(`mesh.agent.${idS}.inbox`);
+      let ok = null;
+      const wait = (async () => {
+        for await (const m of subS) {
+          let r; try { r = JSON.parse(td.decode(m.data)); } catch { continue; }
+          if (r?.in_reply_to !== underEnv.id) continue;
+          if (r?.payload?.status === "accepted" && !r.error) continue;
+          return r;
+        }
+        return null;
+      })();
+      nc.publish(`mesh.agent.${idA}.inbox`, mk(underEnv));
+      const timer = setTimeout(() => subS.unsubscribe(), 15_000);
+      ok = await wait;
+      clearTimeout(timer);
+      subS.unsubscribe();
+      if (!ok) fails.push("500KB request got no correlated answer at the sender's inbox within 15s");
+      else if (ok.error) fails.push(`500KB request errored: ${ok.error.message}`);
 
       // Over the cap: ~1.2 MB must fail FAST with a defined error, not hang.
       const t0 = Date.now();
       let outcome = "answered";
       try {
-        await nc.request(`mesh.agent.${idA}.inbox`, mk(1_200_000), { timeout: 10_000 });
+        await nc.request(`mesh.agent.${idA}.inbox`, mk(mkEnv(1_200_000)), { timeout: 10_000 });
       } catch (e) {
         outcome = String(e?.code ?? e?.message ?? e);
       }
@@ -58,6 +84,7 @@ export default {
       await a.deregister().catch(() => {});
       await a.close().catch(() => {});
       await nc.close().catch(() => {});
+      await cleanSlate(env, "c09-target");
     }
     return fails.length
       ? { status: "fail", detail: fails.join("; ") }

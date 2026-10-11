@@ -1,0 +1,438 @@
+{
+  "comment": "PACT Identity conformance suite (PACT 1.0, spec sections 2, 3, 4 and 6), for both roles: a Provider that hosts businesses' agents and a personal-agent platform that calls them. Every requirement is one MUST, MUST NOT, SHOULD or MAY line of https://openpactprotocol.org/spec.md, quoted in `rule` and kept in the spec's order, with a `check` a program can run. The claim vectors in `jwt_vectors` are checkable with no network and no clock: each case carries its own `now`, and the runner signs each case with the test key below unless the case names another signer. THE FIXTURE IS THE AUTHORITY for AgentMesh's code (the gateway's PACT provider in bridge-a2a/src/pact/ and the personal-agent side in services/src/pact/): when a test against it fails, fix the code, and change the fixture only with the spec. Where PACT's reference conformance suite (openpactprotocol/openpactprotocol e2e/pact.test.ts at 838c6bd) disagrees with the spec, the case says so in `reference_differs` and docs/pact-working-group-notes.md carries the question.",
+  "version": 1,
+  "spec": "PACT 1.0, https://openpactprotocol.org/spec.md sections 2, 3, 4, 6 (profile PACT Identity, section 7)",
+  "profile": "PACT Identity",
+  "roles": ["provider", "personal_agent"],
+  "test_key": {
+    "comment": "TEST VECTOR. A throwaway ES256 key for the claim vectors; it controls nothing and is registered nowhere real. The runner registers it at the provider under test as issuer `https://pa.test.invalid` with audience `https://provider.test.invalid/a2a`.",
+    "issuer": "https://pa.test.invalid",
+    "audience": "https://provider.test.invalid/a2a",
+    "private_jwk": {
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "LqPty7mlVGIxeq2Q0HuFFRR5qs-7j78-6nC8QCSkOPo",
+      "y": "V_GxC6WgE9DYcTkQCTuAvhKzdXfEd7taa6yRqxu9RkY",
+      "d": "pqXnzUmF33phbLVUF2IOOpWoNqcFP0d6SBl41JMXPGY",
+      "kid": "pact-test-1",
+      "alg": "ES256",
+      "use": "sig"
+    }
+  },
+  "requirements": [
+    {
+      "id": "PI-T1",
+      "role": "personal_agent",
+      "section": "2",
+      "level": "SHOULD",
+      "rule": "Requests SHOULD send `A2A-Version: 1.0` and `Content-Type: application/json`.",
+      "check": "Every request the personal agent sends to a Provider carries both headers."
+    },
+    {
+      "id": "PI-T2",
+      "role": "provider",
+      "section": "2",
+      "level": "MUST",
+      "rule": "A2A responses MUST use `Content-Type: application/a2a+json`.",
+      "check": "message:send, GET tasks and every A2A error envelope answer with Content-Type application/a2a+json."
+    },
+    {
+      "id": "PI-C1",
+      "role": "provider",
+      "section": "2.1",
+      "level": "MUST",
+      "rule": "One card per Brand, served at `GET {PROVIDER_URL}/a2a/{brandId}/.well-known/agent-card.json`, with no authentication.",
+      "check": "The card of a known brand is 200 with no Authorization header."
+    },
+    {
+      "id": "PI-C2",
+      "role": "provider",
+      "section": "2.1",
+      "level": "MUST",
+      "rule": "An unknown `brandId` gets `404` with no A2A body.",
+      "check": "GET /a2a/unknown-brand/.well-known/agent-card.json is 404 and its Content-Type is not application/a2a+json."
+    },
+    {
+      "id": "PI-C3",
+      "role": "provider",
+      "section": "2.1",
+      "level": "MUST",
+      "rule": "The card MUST list a `supportedInterfaces` entry with `protocolBinding: \"HTTP+JSON\"` and `protocolVersion: \"1.0\"`. Its `url` is the interface URL.",
+      "check": "supportedInterfaces holds an entry with those two values, and every other route in this suite hangs off its url."
+    },
+    {
+      "id": "PI-C4",
+      "role": "provider",
+      "section": "2.1",
+      "level": "MUST",
+      "rule": "The card MUST declare the personal-agent JWT as an `httpAuthSecurityScheme` with `scheme: \"Bearer\"`, `bearerFormat: \"JWT\"`, listed alone in one `securityRequirements` entry.",
+      "check": "securitySchemes has a scheme of that shape, and securityRequirements has an entry naming that scheme and nothing else.",
+      "reference_differs": "The spec names the scheme paJwt in its examples; the reference suite reads securitySchemes.platformJwt. The name is not normative. AgentMesh names it paJwt."
+    },
+    {
+      "id": "PI-C5",
+      "role": "personal_agent",
+      "section": "2.1",
+      "level": "MUST",
+      "rule": "The personal agent gets the card URL from the Brand; it never builds it from a Brand ID.",
+      "check": "The personal agent's send call takes a card URL (or the Brand's own domain, whose /.well-known/agent-card.json it fetches) and has no form that takes a brandId."
+    },
+    {
+      "id": "PI-C6",
+      "role": "personal_agent",
+      "section": "2.1",
+      "level": "MUST",
+      "rule": "Personal agents pick the interface by binding and version, not by position.",
+      "check": "Given a card whose first supportedInterfaces entry is JSONRPC and whose second is HTTP+JSON 1.0, the personal agent sends to the second."
+    },
+    {
+      "id": "PI-O1",
+      "role": "provider",
+      "section": "2.2",
+      "level": "MUST",
+      "rule": "`POST message:send` answers `200` with `{ \"message\": Message }` (or `{ \"task\": Task }` under section 5.5).",
+      "check": "A valid message gets 200 and a body with exactly one of message or task."
+    },
+    {
+      "id": "PI-O2",
+      "role": "provider",
+      "section": "2.2",
+      "level": "MUST",
+      "rule": "`GET tasks` answers `200` with an empty `ListTasksResponse` (`pageSize` 1 to 100, default 50).",
+      "check": "GET tasks?pageSize=20 is {tasks:[], nextPageToken:\"\", pageSize:20, totalSize:0}; GET tasks gives pageSize 50; pageSize=0 and pageSize=101 are INVALID_PARAMS."
+    },
+    {
+      "id": "PI-O3",
+      "role": "provider",
+      "section": "2.2",
+      "level": "MUST",
+      "rule": "`GET tasks/{id}` and `POST tasks/{id}:cancel` answer `TASK_NOT_FOUND`.",
+      "check": "Both answer 404 with reason TASK_NOT_FOUND after a valid token."
+    },
+    {
+      "id": "PI-O4",
+      "role": "provider",
+      "section": "2.2",
+      "level": "MUST",
+      "rule": "Other A2A operations behave as A2A defines.",
+      "check": "With streaming false: POST message:stream and POST tasks/{id}:subscribe are UNSUPPORTED_OPERATION. With extendedAgentCard false: GET extendedAgentCard is UNSUPPORTED_OPERATION. With pushNotifications false: GET and POST tasks/{id}/pushNotificationConfigs, and GET and DELETE tasks/{id}/pushNotificationConfigs/{configId}, are PUSH_NOTIFICATION_NOT_SUPPORTED."
+    },
+    {
+      "id": "PI-O5",
+      "role": "provider",
+      "section": "2.2",
+      "level": "MUST",
+      "rule": "Any route that isn't an A2A operation gets `404` or `405` with no A2A body.",
+      "check": "With no token: GET unknown, GET/PUT/DELETE message:send, POST tasks, DELETE tasks/{id}/pushNotificationConfigs and POST tasks/{id}/pushNotificationConfigs/{configId} are 404 or 405 and not application/a2a+json."
+    },
+    {
+      "id": "PI-O6",
+      "role": "provider",
+      "section": "2.2",
+      "level": "MUST",
+      "rule": "Routing happens before authentication; an unknown Brand is `404` even with a valid token.",
+      "check": "GET /a2a/missing-brand/tasks with a valid token is 404 with no A2A body.",
+      "reference_differs": "Section 3.4 says Providers SHOULD authenticate before looking up the Brand. AgentMesh reads routing as matching the path: path, then authentication, then the Brand, as the reference does."
+    },
+    {
+      "id": "PI-R1",
+      "role": "provider",
+      "section": "3.1",
+      "level": "MUST",
+      "rule": "The Provider keeps, per personal agent, `issuer` (exact string match against `iss`), `jwksUri` (HTTPS), and enabled.",
+      "check": "A registration can be looked up by issuer and gives its JWKS URL and its enabled state; an issuer that differs by one character (a trailing slash) is not found."
+    },
+    {
+      "id": "PI-R2",
+      "role": "provider",
+      "section": "3.1",
+      "level": "MAY",
+      "rule": "Providers MAY disable a personal agent; its requests then get `401`.",
+      "check": "After the test issuer is disabled, a request with a valid token from it is 401; after it is enabled again, 200."
+    },
+    {
+      "id": "PI-R3",
+      "role": "provider",
+      "section": "3.1",
+      "level": "MUST NOT",
+      "rule": "`audience` is one value per Provider and MUST NOT be derived from a card URL.",
+      "check": "The Provider's audience is one configured string, the same for every brand; a token whose aud is a brand's interface URL is 401."
+    },
+    {
+      "id": "PI-R4",
+      "role": "personal_agent",
+      "section": "3.1",
+      "level": "MUST NOT",
+      "rule": "The personal agent puts the Provider's assigned `audience` in `aud` verbatim; it MUST NOT derive it from a card URL.",
+      "check": "The personal agent's aud for a Provider comes from its record of that Provider; a card from a Provider it has no record of is refused with a plain reason, not sent with a guessed audience."
+    },
+    {
+      "id": "PI-J1",
+      "role": "provider",
+      "section": "3.2",
+      "level": "MUST",
+      "rule": "Every request except the card carries `Authorization: Bearer <pa-jwt>`; a request without it is refused.",
+      "check": "GET tasks with no Authorization is 401 with WWW-Authenticate: Bearer realm=\"a2a\" and no A2A body; so is POST message:send with no token and a body of `{`."
+    },
+    {
+      "id": "PI-J2",
+      "role": "provider",
+      "section": "3.2",
+      "level": "MUST",
+      "rule": "`alg` is `ES256` or `RS256`. Providers MUST reject others.",
+      "check": "jwt_vectors cases alg_hs256 and alg_none are refused; alg_es256 and alg_rs256 are accepted."
+    },
+    {
+      "id": "PI-J3",
+      "role": "personal_agent",
+      "section": "3.2",
+      "level": "SHOULD",
+      "rule": "`kid` SHOULD match a key in the JWKS.",
+      "check": "Every token the personal agent signs has a kid that its published JWKS lists."
+    },
+    {
+      "id": "PI-J4",
+      "role": "provider",
+      "section": "3.2",
+      "level": "MUST",
+      "rule": "`iss` MUST equal the registered issuer.",
+      "check": "jwt_vectors case iss_unregistered is refused."
+    },
+    {
+      "id": "PI-J5",
+      "role": "both",
+      "section": "3.2",
+      "level": "MUST",
+      "rule": "`sub` MUST be present. Stable, opaque, per User. MUST NOT contain personal data.",
+      "check": "Provider: jwt_vectors cases sub_missing and sub_empty are refused. Personal agent: the sub for one person is the same on every request to one Provider, and contains no name, email, account id or handle (it is a digest)."
+    },
+    {
+      "id": "PI-J6",
+      "role": "provider",
+      "section": "3.2",
+      "level": "MUST",
+      "rule": "`aud` MUST equal the assigned audience. One string.",
+      "check": "jwt_vectors cases aud_wrong and aud_array are refused."
+    },
+    {
+      "id": "PI-J7",
+      "role": "provider",
+      "section": "3.2",
+      "level": "MUST",
+      "rule": "`iat` MUST be present. Reject if more than 30 s in the future.",
+      "check": "jwt_vectors cases iat_missing and iat_31s_future are refused; iat_30s_future is accepted."
+    },
+    {
+      "id": "PI-J8",
+      "role": "both",
+      "section": "3.2",
+      "level": "MUST",
+      "rule": "`exp` MUST be present and at most 300 s after `iat`.",
+      "check": "Provider: jwt_vectors cases exp_missing and exp_301s are refused, exp_300s is accepted. Personal agent: every token it signs has exp minus iat of at most 300."
+    },
+    {
+      "id": "PI-J9",
+      "role": "provider",
+      "section": "3.2",
+      "level": "MAY",
+      "rule": "`jti` MAY be present. Providers need not track replay.",
+      "check": "A token without jti is accepted, and the same token is accepted twice and at two brands."
+    },
+    {
+      "id": "PI-J10",
+      "role": "provider",
+      "section": "3.2",
+      "level": "MUST",
+      "rule": "Providers MUST verify the signature via `jwksUri`, allow at most 30 s clock skew, and reject unknown or disabled personal agents.",
+      "check": "jwt_vectors cases bad_signature, unknown_kid_other_key, expired_31s and iss_unregistered are refused; expired_29s is accepted (AgentMesh allows the full 30 s); a disabled issuer is refused (PI-R2)."
+    },
+    {
+      "id": "PI-J11",
+      "role": "personal_agent",
+      "section": "3.2",
+      "level": "MUST",
+      "rule": "The User is the pair `(personal agent, sub)`; the personal agent MUST reuse the same `sub` for the same User.",
+      "check": "Two sends for one person to one Provider, minutes apart and after a restart, carry the same sub."
+    },
+    {
+      "id": "PI-A1",
+      "role": "provider",
+      "section": "3.4",
+      "level": "MUST",
+      "rule": "Every authentication failure answers `401` with `WWW-Authenticate: Bearer realm=\"a2a\"` and no A2A body.",
+      "check": "Each refused jwt_vectors case is exactly that response."
+    },
+    {
+      "id": "PI-A2",
+      "role": "provider",
+      "section": "3.4",
+      "level": "SHOULD",
+      "rule": "Providers SHOULD authenticate before looking up the Brand or reading the body.",
+      "check": "POST message:send with no token and an unparseable body is 401, not INVALID_PARAMS."
+    },
+    {
+      "id": "PI-M1",
+      "role": "provider",
+      "section": "4.1",
+      "level": "MAY",
+      "rule": "The request is an A2A `SendMessageRequest`; `configuration` and `metadata` MAY be ignored.",
+      "check": "A message with configuration and metadata set is answered as if they were absent."
+    },
+    {
+      "id": "PI-M2",
+      "role": "provider",
+      "section": "4.1",
+      "level": "MUST",
+      "rule": "`role` MUST be `ROLE_USER`. `parts` MUST have at least one non-blank `text` part. Other part kinds get `CONTENT_TYPE_NOT_SUPPORTED`.",
+      "check": "role ROLE_AGENT is INVALID_PARAMS; parts [{text:\"  \"}] is INVALID_PARAMS; parts [{raw:\"aGVsbG8=\"}] is CONTENT_TYPE_NOT_SUPPORTED; a body of `{` is INVALID_PARAMS."
+    },
+    {
+      "id": "PI-M3",
+      "role": "provider",
+      "section": "4.1",
+      "level": "MUST",
+      "rule": "`taskId` MUST be absent; otherwise `TASK_NOT_FOUND`.",
+      "check": "A message carrying taskId is 404 with reason TASK_NOT_FOUND."
+    },
+    {
+      "id": "PI-M4",
+      "role": "personal_agent",
+      "section": "4.1",
+      "level": "MUST",
+      "rule": "`messageId` MUST be unique within the context.",
+      "check": "The personal agent mints a fresh messageId per new message and reuses one only to retry the same message."
+    },
+    {
+      "id": "PI-X1",
+      "role": "provider",
+      "section": "4.2",
+      "level": "MUST",
+      "rule": "The reply is synchronous: `{ \"message\": Message }` with `role: ROLE_AGENT` and `contextId` set (or a task, section 5.5).",
+      "check": "A first message gets a ROLE_AGENT message with a contextId and no taskId."
+    },
+    {
+      "id": "PI-X2",
+      "role": "provider",
+      "section": "4.2",
+      "level": "MUST",
+      "rule": "Without `contextId`, the message starts a new conversation and the Provider mints an opaque `contextId`. With `contextId`, the message continues that conversation.",
+      "check": "Two messages sent with the first reply's contextId get replies carrying that same contextId, and the second is answered in the light of the first."
+    },
+    {
+      "id": "PI-X3",
+      "role": "provider",
+      "section": "4.2",
+      "level": "MUST",
+      "rule": "The context MUST belong to this Brand and this `(personal agent, sub)`; otherwise `INVALID_PARAMS`, without saying whether it exists for someone else.",
+      "check": "A contextId used by another sub at the same brand, or by the same sub at another brand, is 400 INVALID_PARAMS with the message \"Unknown contextId\", the same answer as a contextId that never existed."
+    },
+    {
+      "id": "PI-X4",
+      "role": "provider",
+      "section": "4.2",
+      "level": "MUST",
+      "rule": "`contextId` is state, not a credential. Ordinary turns create no A2A Task.",
+      "check": "After ordinary turns, GET tasks is still empty and no reply carries a task."
+    },
+    {
+      "id": "PI-X5",
+      "role": "provider",
+      "section": "4.2",
+      "level": "MAY",
+      "rule": "A Provider MAY close a conversation. A message to a closed `contextId` gets `UNSUPPORTED_OPERATION`.",
+      "check": "After the provider closes a context, a message to it is 400 UNSUPPORTED_OPERATION."
+    },
+    {
+      "id": "PI-X6",
+      "role": "personal_agent",
+      "section": "4.2",
+      "level": "MUST",
+      "rule": "On a closed conversation, the personal agent starts a new conversation by omitting `contextId`.",
+      "check": "After UNSUPPORTED_OPERATION on a context, the personal agent's next send to that brand carries no contextId and records the new one."
+    },
+    {
+      "id": "PI-Y1",
+      "role": "provider",
+      "section": "4.3",
+      "level": "MUST",
+      "rule": "A repeated `messageId` in the same `contextId` returns the stored reply without re-running the agent. If there is no stored reply yet, return `INVALID_PARAMS`.",
+      "check": "The same message sent twice gets replies with the same messageId and the agent runs once; a repeat while the first is still running is INVALID_PARAMS."
+    },
+    {
+      "id": "PI-E1",
+      "role": "provider",
+      "section": "6",
+      "level": "MUST",
+      "rule": "A2A errors use the A2A / AIP-193 envelope. `code` repeats the HTTP status; the reason is `error.details[0].reason`.",
+      "check": "Every error in this suite has error.code equal to the HTTP status, error.status as in the table, and details[0] {\"@type\":\"type.googleapis.com/google.rpc.ErrorInfo\", reason, domain:\"a2a-protocol.org\"}."
+    },
+    {
+      "id": "PI-E2",
+      "role": "personal_agent",
+      "section": "6",
+      "level": "MUST NOT",
+      "rule": "Clients MUST NOT infer the reason from the status alone.",
+      "check": "The personal agent decides what to do from details[0].reason: a 400 with UNSUPPORTED_OPERATION starts a new context, and a 400 with INVALID_PARAMS does not."
+    },
+    {
+      "id": "PI-E3",
+      "role": "provider",
+      "section": "6",
+      "level": "MUST",
+      "rule": "`429` with `Retry-After` when a Provider rate-limits a personal agent or a `(personal agent, sub)`.",
+      "check": "Past the provider's per-user limit, message:send is 429 with a Retry-After header in seconds."
+    },
+    {
+      "id": "PI-E4",
+      "role": "personal_agent",
+      "section": "6",
+      "level": "SHOULD",
+      "rule": "On `429`, personal agents SHOULD wait `Retry-After` before retrying.",
+      "check": "Given 429 with Retry-After: 2, the personal agent's retry comes at least 2 seconds later, or it reports the wait to its caller instead of retrying."
+    }
+  ],
+  "errors": {
+    "comment": "Section 6's table, pinned.",
+    "INVALID_PARAMS": { "http": 400, "status": "INVALID_ARGUMENT" },
+    "CONTENT_TYPE_NOT_SUPPORTED": { "http": 400, "status": "INVALID_ARGUMENT" },
+    "UNSUPPORTED_OPERATION": { "http": 400, "status": "FAILED_PRECONDITION" },
+    "PUSH_NOTIFICATION_NOT_SUPPORTED": { "http": 400, "status": "FAILED_PRECONDITION" },
+    "TASK_NOT_FOUND": { "http": 404, "status": "NOT_FOUND" },
+    "INTERNAL": { "http": 500, "status": "INTERNAL" }
+  },
+  "jwt_vectors": {
+    "comment": "Claims checks for section 3.2, run against the verifier with the test key registered. `now` is seconds since the epoch. A case's `header` and `claims` are signed as given unless `sign` says otherwise: `hs256` signs with the shared secret \"not-an-allowed-key\", `none` sends an empty signature, `other_key` signs with a fresh key whose kid is not published, `rs256` signs with a fresh RSA key published in the test JWKS beside the EC key.",
+    "now": 1791000000,
+    "base": {
+      "header": { "alg": "ES256", "kid": "pact-test-1", "typ": "JWT" },
+      "claims": { "iss": "https://pa.test.invalid", "sub": "user-7f3a", "aud": "https://provider.test.invalid/a2a", "iat": 1791000000, "exp": 1791000120 }
+    },
+    "accept": [
+      { "case": "alg_es256" },
+      { "case": "alg_rs256", "sign": "rs256", "header": { "alg": "RS256", "kid": "pact-test-rsa" } },
+      { "case": "no_jti" },
+      { "case": "with_jti", "claims": { "jti": "j-1" } },
+      { "case": "iat_30s_future", "claims": { "iat": 1791000030, "exp": 1791000150 } },
+      { "case": "exp_300s", "claims": { "iat": 1791000000, "exp": 1791000300 } },
+      { "case": "expired_29s", "claims": { "iat": 1790999700, "exp": 1790999971 } }
+    ],
+    "refuse": [
+      { "case": "alg_hs256", "sign": "hs256", "header": { "alg": "HS256" } },
+      { "case": "alg_none", "sign": "none", "header": { "alg": "none" } },
+      { "case": "bad_signature", "tamper": "flip_last_signature_byte" },
+      { "case": "unknown_kid_other_key", "sign": "other_key", "header": { "kid": "not-published" } },
+      { "case": "iss_unregistered", "claims": { "iss": "https://pa.test.invalid/other" } },
+      { "case": "iss_trailing_slash", "claims": { "iss": "https://pa.test.invalid/" } },
+      { "case": "sub_missing", "claims": { "sub": null } },
+      { "case": "sub_empty", "claims": { "sub": "" } },
+      { "case": "aud_wrong", "claims": { "aud": "https://provider.test.invalid/a2a/brand-1" } },
+      { "case": "aud_array", "claims": { "aud": ["https://provider.test.invalid/a2a"] } },
+      { "case": "iat_missing", "claims": { "iat": null } },
+      { "case": "iat_31s_future", "claims": { "iat": 1791000031, "exp": 1791000151 } },
+      { "case": "exp_missing", "claims": { "exp": null } },
+      { "case": "exp_301s", "claims": { "iat": 1791000000, "exp": 1791000301 } },
+      { "case": "expired_31s", "claims": { "iat": 1790999700, "exp": 1790999969 } },
+      { "case": "not_three_parts", "raw": "abc.def" }
+    ]
+  }
+}

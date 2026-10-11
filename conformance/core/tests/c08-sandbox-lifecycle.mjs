@@ -1,108 +1,54 @@
-// c08 — the sandbox credential lifecycle, the path every no-signup user
-// takes (§1.3, try-the-mesh): provision a guest credential over HTTP,
-// connect and register with it, and verify the sandbox contract is
-// ENFORCED, not advertised: clamped out of open discovery, no offline
-// mailbox, reserved namespace refused. Then release the lease.
-import { connect, jwtAuthenticator, nkeys } from "../../peering/lib/mesh.mjs";
-import { sdkModule as sdk } from "../../peering/lib/sdk.mjs";
+// c08 — the no-signup door is closed (SPEC §4.1, 2026-09-27). This test used
+// to walk the sandbox credential lifecycle (c08) and prove the guest
+// permission fence (c17). Both assumed a door that handed any caller a live
+// credential with no account. The door is closed now, so the one thing left
+// to prove is that it stays closed: every route that used to issue, keep or
+// release a no-signup credential answers 410 Gone, says to sign up, and
+// carries no credential in its body.
+//
+// The file keeps its name so the board's history for c08 continues.
 
-const te = new TextEncoder();
-const td = new TextDecoder();
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const ROUTES = ["/v1/guest", "/v1/guest/heartbeat", "/v1/guest/release", "/auth/provision"];
+
+// Anything shaped like a credential: a NATS user JWT (three base64url parts,
+// the header decoding to {"typ":"JWT"...}), a user seed (SU...), or the field
+// names a credential rides in.
+const CREDENTIAL_SHAPES = [
+  /eyJ0eXAiOiJKV1Qi[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/,
+  /\bSU[A-Z2-7]{56}\b/,
+  /"(jwt|seed|creds|credential)"\s*:/i,
+];
 
 export default {
   id: "c08",
-  title: "sandbox lifecycle: provisioned, fenced, unlisted, no mailbox, released",
-  spec: "§1.3, §9.7, §14.3, §16.4",
+  title: "no-signup door closed: /v1/guest and its kin answer 410 with no credential",
+  spec: "§4.1, §18.10",
   async run(env) {
-    const { AgentMesh } = sdk;
-    if (!env.creds) throw new Error("env-skip: MESH_CREDS_FILE (durable NATS creds) required");
-    // Provision from the real API. A busy pool is env-skip, not failure.
-    const res = await fetch(`${env.storefrontBase}/v1/guest`, { method: "POST" }).catch(() => null);
-    if (!res) throw new Error("env-skip: guest API unreachable");
-    if (res.status === 429 || res.status === 503) throw new Error("env-skip: sandbox pool busy");
-    const g = await res.json();
     const fails = [];
-    if (g.sandbox !== true || g.discoverable !== false) fails.push("guest grant does not declare the sandbox contract");
-    if (!g.limits) fails.push("guest grant advertises no limits");
-
-    let a = null;
-    let nc = null;
-    try {
-      // Connect + register AS the guest (guest key = identity, per the docs).
-      a = await AgentMesh.connect(env.meshWsUrl, { jwt: g.jwt, nkeySeed: g.seed });
-      a.onRequest("echo", async (input) => ({ ok: input }));
-      await a.register({ name: "c08-sandbox", skills: [{ id: "echo", name: "echo", description: "c08" }] });
-      await sleep(1200);
-
-      // Fenced: the reserved peering namespace refuses guest credentials (§14.3).
-      let fenced = false;
-      try {
-        a; // publish via a raw guest connection to observe the permission error
-        nc = await connect({ servers: env.meshWsUrl, authenticator: jwtAuthenticator(g.jwt, te.encode(g.seed)), timeout: 10_000, maxReconnectAttempts: 0 });
-        nc.publish("mesh.peer.c08.probe", te.encode("x"));
-        await nc.flush();
-        await sleep(600);
-        fenced = nc.isClosed(); // permission violations surface as errors/close on some servers
-        // Even if the connection survives, the broker logged a violation; the
-        // definitive check is that t03 (peering suite) covers this fence.
-      } catch { fenced = true; }
-      if (!fenced) {
-        // Soft check: don't fail on transport-surface differences; the hard
-        // fence assertion lives in t03 with the same credential class.
-      }
-
-      // Unlisted: open discovery must not contain the sandbox agent.
-      const observer = await AgentMesh.connect(env.meshWsUrl, {
-        authenticator: jwtAuthenticator(env.creds.jwt, te.encode(env.creds.seed)),
-        nkeySeed: td.decode(nkeys.createUser().getSeed()),
-      });
-      let listed = false;
-      try {
-        const found = await observer.discover({});
-        listed = (found?.agents ?? found ?? []).some?.((m) => m.id === a.agentId) ?? false;
-      } finally { await observer.close().catch(() => {}); }
-      if (listed) fails.push("sandbox agent appeared in open discovery");
-
-      // No mailbox: sandbox registration must not create an offline buffer.
-      const jsm = await (nc ?? (nc = await connect({ servers: env.meshWsUrl, authenticator: jwtAuthenticator(g.jwt, te.encode(g.seed)), timeout: 10_000, maxReconnectAttempts: 0 }))).jetstreamManager().catch(() => null);
-      if (jsm) {
-        let hasMailbox = true;
-        try { await jsm.streams.info(`MESH_INBOX_${a.agentId}`); } catch { hasMailbox = false; }
-        if (hasMailbox) fails.push("sandbox agent got an offline mailbox (must be live-only)");
-      }
-
-      // Release the lease like a good citizen — and PROVE the release was
-      // accepted. Releasing now requires proof that the caller holds the
-      // credential's seed: a bare publicKey used to be enough, which meant
-      // anyone could force a live credential back into the pool and then be
-      // handed it (assessment 3.4). An unasserted `.catch(() => {})` here would
-      // hide a 401 and leave this test claiming a release that never happened,
-      // so the status is checked.
-      const relTs = new Date().toISOString();
-      const relSig = Buffer.from(
-        nkeys.fromSeed(te.encode(g.seed)).sign(te.encode(`guest-release-v1:${g.publicKey}:${relTs}`)),
-      ).toString("base64");
-      const rel = await fetch(`${env.storefrontBase}/v1/guest/release`, {
-        method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ publicKey: g.publicKey, ts: relTs, sig: relSig }),
-      }).catch((e) => ({ ok: false, status: 0, statusText: e.message }));
-      if (!rel.ok) fails.push(`signed lease release refused: HTTP ${rel.status} ${rel.statusText ?? ""}`.trim());
-
-      // And the mirror: an UNSIGNED release must be refused, or the proof is
-      // decorative. A pool credential anyone can recycle is a credential
-      // anyone can be handed.
-      const bare = await fetch(`${env.storefrontBase}/v1/guest/release`, {
-        method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ publicKey: g.publicKey }),
+    let reached = 0;
+    for (const path of ROUTES) {
+      const res = await fetch(`${env.storefrontBase}${path}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{}",
+        signal: AbortSignal.timeout(15_000),
       }).catch(() => null);
-      if (bare && bare.ok) fails.push("unsigned lease release was accepted (anyone can recycle a live credential)");
-    } finally {
-      await a?.close().catch(() => {});
-      await nc?.close().catch(() => {});
+      if (!res) continue;
+      reached++;
+      const text = await res.text().catch(() => "");
+      if (res.status !== 410) fails.push(`${path} answered ${res.status}, not 410`);
+      for (const shape of CREDENTIAL_SHAPES) {
+        if (shape.test(text)) { fails.push(`${path} carried something shaped like a credential (${shape})`); break; }
+      }
+      let body = null;
+      try { body = JSON.parse(text); } catch { /* checked below */ }
+      if (res.status === 410 && (!body || typeof body.error !== "string" || !/sign in|sign up|signed up/i.test(body.error))) {
+        fails.push(`${path} answered 410 without words telling the caller to sign up`);
+      }
     }
+    if (reached === 0) throw new Error("env-skip: the API at STOREFRONT_BASE did not answer");
     return fails.length
       ? { status: "fail", detail: fails.join("; ") }
-      : { status: "pass", detail: "guest provisioned with declared contract, clamped from discovery, no mailbox, signed lease release accepted and unsigned refused" };
+      : { status: "pass", detail: `all ${ROUTES.length} no-signup routes answered 410 with sign-up words and no credential` };
   },
 };

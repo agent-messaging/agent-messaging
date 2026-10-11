@@ -1,7 +1,7 @@
 {
   "comment": "Sender pre-flight conformance fixture (SPEC.md 6.4b). Pins the local-refusal decisions a sending SDK MUST make before publishing: sender text against the recipient's declared cap or the 22.5 default, the serialized envelope against the transport's advertised maximum payload (18.9), and content types against the manifest (8.1) - each refused locally with the SAME error code the recipient would answer with, so a pre-flight refusal and a remote refusal are indistinguishable to the caller's error handling. One file per concern: this is the sibling of accept-signal.json. THE FIXTURE IS THE AUTHORITY: when a test against it fails, fix the implementation, and when the fixture itself is believed wrong, change it only with a spec change alongside.",
   "version": 1,
-  "spec": "SPEC.md 6.4b (sender pre-flight), 22.5 (cap, extraction ladder, UTF-16 measurement), 18.9 (max payload), 8.1/8.2 (limits, rate_limits, skills), 12.2 (codes)",
+  "spec": "SPEC.md 6.4b (sender pre-flight), 22.5 (cap, extraction ladder, UTF-16 measurement), 18.9 (max payload), 8.1/8.2 (limits, rate_limits, offerings), 12.2 (codes)",
   "identities": {
     "sender_seed": "SUAEGDPNTWXACIF45CA23BUY36RIMWZXW5LEHSEOK2ONS5JWJ7PBC2EWBA",
     "sender": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
@@ -93,23 +93,32 @@
     ]
   },
   "content_type": {
-    "comment": "Against the recipient's manifest (8.1): the skill's output_modes must be able to satisfy the request's config.accepted_output, and the input's type must be within the skill's input_modes. Refusal code is the one 6.4 answers with.",
+    "comment": "Against the recipient's manifest (8.1): the offering's output_modes must be able to satisfy the request's config.accepted_output, and the input's type must be within the offering's input_modes. Refusal code is the one 6.4 answers with.",
     "cases": [
       {
         "id": "accepted_output_satisfiable",
-        "skill_output_modes": ["text/plain", "application/json"],
-        "accepted_output": ["application/json"],
+        "offering_output_modes": [
+          "text/plain",
+          "application/json"
+        ],
+        "accepted_output": [
+          "application/json"
+        ],
         "verdict": "publish",
-        "why": "at least one requested output mode is one the skill produces"
+        "why": "at least one requested output mode is one the offering produces"
       },
       {
         "id": "accepted_output_unsatisfiable",
-        "skill_output_modes": ["text/plain"],
-        "accepted_output": ["image/png"],
+        "offering_output_modes": [
+          "text/plain"
+        ],
+        "accepted_output": [
+          "image/png"
+        ],
         "verdict": "refuse_local",
         "error_code": "CONTENT_TYPE_NOT_SUPPORTED",
         "retryable": false,
-        "why": "no requested output mode is one the skill produces - the recipient would refuse with this exact code, so the sender does, locally"
+        "why": "no requested output mode is one the offering produces - the recipient would refuse with this exact code, so the sender does, locally"
       }
     ]
   },

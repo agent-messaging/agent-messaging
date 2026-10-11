@@ -1,0 +1,787 @@
+{
+  "comment": "Conformance fixture for the job manifest (format job-manifest-v1): the signed record of what an agent delivered for one completion of a job. The TS SDK (sdk-typescript/src/job-manifest.ts) and the Rust SDK (sdk-rust/src/job_manifest.rs) MUST both reproduce the canonical bytes and the signatures here from the same seed, verify them, give the pinned reason for each invalid case, and compute the pinned reuse count for the prior/revision pair. sig covers signed_bytes_prefix + canonicalJSON(document without sig) and NOTHING ELSE; the prefix never appears in the document; sig is base64url. THE FIXTURE IS THE AUTHORITY: when a test against it fails, fix the implementation, and when the fixture itself is believed wrong, regenerate it with sdk-typescript/regen-job-manifest-fixture.mts alongside the change that made it wrong.",
+  "version": 1,
+  "spec": "job-manifest-v1 (the delivering agent's signed record of a completion's pieces); signing scheme as SPEC.md 5.3 / conformance/signature-tags.json",
+  "identities": {
+    "sender_seed": "SUAEGDPNTWXACIF45CA23BUY36RIMWZXW5LEHSEOK2ONS5JWJ7PBC2EWBA",
+    "sender": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+    "recipient": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+    "comment": "The same published test vectors signature-tags.json, budget.json and inbound-protections.json use, deliberately: they are not real identities and control nothing, and reusing them keeps any new private-key-shaped string out of the repository. The sender is the delivering agent (the signer); the recipient is only ever the WRONG key here."
+  },
+  "job_manifest": {
+    "comment": "The first delivery of a job: version 1, revises nothing, job is its own task_id, nothing reused. The agent (sender) signs. sig is base64url and covers signed_bytes_prefix + canonical. The first piece carries the optional path and kind, the second carries path alone; a piece without them is a file with no stated place, and a manifest without them is the same document it was before they existed.",
+    "format": "job-manifest-v1",
+    "signed_bytes_prefix": "agentmesh-job-manifest-v1\n",
+    "canonical": "{\"agent\":\"UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP\",\"context_id\":\"0198c002-0000-7000-8000-00000000c0de\",\"format\":\"job-manifest-v1\",\"job\":\"0198c002-0000-7000-8000-00000000d001\",\"offering\":\"story-package\",\"pieces\":[{\"digest\":\"sha256:e48b58b7fa79a6349af7402bba30738a4b6151f9045f7071000fed08a816099c\",\"kind\":\"file\",\"media_type\":\"text/plain\",\"name\":\"beat script\",\"path\":\"script/beats.txt\",\"produced_from\":[\"brief\"],\"ref\":\"mesh:artifacts:01J8Z2K9Q0BEAT00000000000001\",\"reused\":false,\"size\":1234,\"step\":\"write-the-story\"},{\"digest\":\"sha256:7482f754348b8e74a34e8ccfafc8f9d02ce9ccd565f5f9b610e9d57796ee6374\",\"media_type\":\"image/png\",\"name\":\"storyboard\",\"path\":\"boards/storyboard.png\",\"produced_from\":[\"beat script\"],\"ref\":\"mesh:artifacts:01J8Z2K9Q0BOARD0000000000001\",\"reused\":false,\"size\":48213,\"step\":\"draw-the-boards\"}],\"produced_at\":\"2026-09-08T09:00:00.000Z\",\"reused\":{\"of\":2,\"pieces\":0},\"revises\":null,\"task_id\":\"0198c002-0000-7000-8000-00000000d001\",\"version\":1}",
+    "signed": {
+      "format": "job-manifest-v1",
+      "job": "0198c002-0000-7000-8000-00000000d001",
+      "task_id": "0198c002-0000-7000-8000-00000000d001",
+      "context_id": "0198c002-0000-7000-8000-00000000c0de",
+      "revises": null,
+      "version": 1,
+      "offering": "story-package",
+      "produced_at": "2026-09-08T09:00:00.000Z",
+      "pieces": [
+        {
+          "name": "beat script",
+          "step": "write-the-story",
+          "media_type": "text/plain",
+          "ref": "mesh:artifacts:01J8Z2K9Q0BEAT00000000000001",
+          "size": 1234,
+          "digest": "sha256:e48b58b7fa79a6349af7402bba30738a4b6151f9045f7071000fed08a816099c",
+          "produced_from": [
+            "brief"
+          ],
+          "path": "script/beats.txt",
+          "kind": "file",
+          "reused": false
+        },
+        {
+          "name": "storyboard",
+          "step": "draw-the-boards",
+          "media_type": "image/png",
+          "ref": "mesh:artifacts:01J8Z2K9Q0BOARD0000000000001",
+          "size": 48213,
+          "digest": "sha256:7482f754348b8e74a34e8ccfafc8f9d02ce9ccd565f5f9b610e9d57796ee6374",
+          "produced_from": [
+            "beat script"
+          ],
+          "path": "boards/storyboard.png",
+          "reused": false
+        }
+      ],
+      "reused": {
+        "pieces": 0,
+        "of": 2
+      },
+      "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+      "sig": "J1vfTL4-RctGTSFgNrkVHf-NTrudbzyLSp2se55ZIYXu4dkaXrFIeHVSE8fm_aHS4Fa1k3CsJ7oI8ZHhq_iFBg"
+    }
+  },
+  "reuse": {
+    "comment": "A revision of the manifest above: version 2, revises the first delivery's task_id, same job. Reuse is computed by matching pieces by name AND step, and a match is reused only when its ref AND digest both equal the prior's. Here the beat script is carried forward and the storyboard was redrawn, so 1 of 2. `prior` is byte for byte job_manifest.signed; a reader holding the pair computes `expected` and finds the revision's own reused member agrees. Each piece's reused flag must agree with the computation too.",
+    "prior": {
+      "format": "job-manifest-v1",
+      "job": "0198c002-0000-7000-8000-00000000d001",
+      "task_id": "0198c002-0000-7000-8000-00000000d001",
+      "context_id": "0198c002-0000-7000-8000-00000000c0de",
+      "revises": null,
+      "version": 1,
+      "offering": "story-package",
+      "produced_at": "2026-09-08T09:00:00.000Z",
+      "pieces": [
+        {
+          "name": "beat script",
+          "step": "write-the-story",
+          "media_type": "text/plain",
+          "ref": "mesh:artifacts:01J8Z2K9Q0BEAT00000000000001",
+          "size": 1234,
+          "digest": "sha256:e48b58b7fa79a6349af7402bba30738a4b6151f9045f7071000fed08a816099c",
+          "produced_from": [
+            "brief"
+          ],
+          "path": "script/beats.txt",
+          "kind": "file",
+          "reused": false
+        },
+        {
+          "name": "storyboard",
+          "step": "draw-the-boards",
+          "media_type": "image/png",
+          "ref": "mesh:artifacts:01J8Z2K9Q0BOARD0000000000001",
+          "size": 48213,
+          "digest": "sha256:7482f754348b8e74a34e8ccfafc8f9d02ce9ccd565f5f9b610e9d57796ee6374",
+          "produced_from": [
+            "beat script"
+          ],
+          "path": "boards/storyboard.png",
+          "reused": false
+        }
+      ],
+      "reused": {
+        "pieces": 0,
+        "of": 2
+      },
+      "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+      "sig": "J1vfTL4-RctGTSFgNrkVHf-NTrudbzyLSp2se55ZIYXu4dkaXrFIeHVSE8fm_aHS4Fa1k3CsJ7oI8ZHhq_iFBg"
+    },
+    "revision_canonical": "{\"agent\":\"UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP\",\"context_id\":\"0198c002-0000-7000-8000-00000000c0de\",\"format\":\"job-manifest-v1\",\"job\":\"0198c002-0000-7000-8000-00000000d001\",\"offering\":\"story-package\",\"pieces\":[{\"digest\":\"sha256:e48b58b7fa79a6349af7402bba30738a4b6151f9045f7071000fed08a816099c\",\"kind\":\"file\",\"media_type\":\"text/plain\",\"name\":\"beat script\",\"path\":\"script/beats.txt\",\"produced_from\":[\"brief\"],\"ref\":\"mesh:artifacts:01J8Z2K9Q0BEAT00000000000001\",\"reused\":true,\"size\":1234,\"step\":\"write-the-story\"},{\"digest\":\"sha256:ea7a20e88b300271b17681dd29fecd5fd8827084c96f14cb091c34fef1a9b511\",\"media_type\":\"image/png\",\"name\":\"storyboard\",\"path\":\"boards/storyboard.png\",\"produced_from\":[\"beat script\",\"review notes\"],\"ref\":\"mesh:artifacts:01J8Z2K9Q0BOARD0000000000002\",\"reused\":false,\"size\":51877,\"step\":\"draw-the-boards\"}],\"produced_at\":\"2026-09-08T11:30:00.000Z\",\"reused\":{\"of\":2,\"pieces\":1},\"revises\":\"0198c002-0000-7000-8000-00000000d001\",\"task_id\":\"0198c002-0000-7000-8000-00000000d002\",\"version\":2}",
+    "revision": {
+      "format": "job-manifest-v1",
+      "job": "0198c002-0000-7000-8000-00000000d001",
+      "task_id": "0198c002-0000-7000-8000-00000000d002",
+      "context_id": "0198c002-0000-7000-8000-00000000c0de",
+      "revises": "0198c002-0000-7000-8000-00000000d001",
+      "version": 2,
+      "offering": "story-package",
+      "produced_at": "2026-09-08T11:30:00.000Z",
+      "pieces": [
+        {
+          "name": "beat script",
+          "step": "write-the-story",
+          "media_type": "text/plain",
+          "ref": "mesh:artifacts:01J8Z2K9Q0BEAT00000000000001",
+          "size": 1234,
+          "digest": "sha256:e48b58b7fa79a6349af7402bba30738a4b6151f9045f7071000fed08a816099c",
+          "produced_from": [
+            "brief"
+          ],
+          "path": "script/beats.txt",
+          "kind": "file",
+          "reused": true
+        },
+        {
+          "name": "storyboard",
+          "step": "draw-the-boards",
+          "media_type": "image/png",
+          "ref": "mesh:artifacts:01J8Z2K9Q0BOARD0000000000002",
+          "size": 51877,
+          "digest": "sha256:ea7a20e88b300271b17681dd29fecd5fd8827084c96f14cb091c34fef1a9b511",
+          "produced_from": [
+            "beat script",
+            "review notes"
+          ],
+          "path": "boards/storyboard.png",
+          "reused": false
+        }
+      ],
+      "reused": {
+        "pieces": 1,
+        "of": 2
+      },
+      "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+      "sig": "P9QyCRvOQv2oB5iuGGS4GnU8E5bAGMu-v-R5y7vDZ4W_nbWCRSEA6paKfXJEiNh0vOoRjJ9m6fy6MKZkhjkcCw"
+    },
+    "expected": {
+      "pieces": 1,
+      "of": 2
+    }
+  },
+  "invalid": {
+    "comment": "Each case names the reason and the member BOTH SDKs must give from verify (and, for malformed and wrong_format, from validate as well). `expected_agent`, when present, is the key the verifier was told to expect.",
+    "cases": [
+      {
+        "case": "wrong_format",
+        "comment": "Well-formed and REALLY signed by the agent over the job-manifest prefix, with format set to job-manifest-v2. A verifier refuses it on the format member before it looks at a byte of the signature: a signature can never make a document into a manifest.",
+        "document": {
+          "format": "job-manifest-v2",
+          "job": "0198c002-0000-7000-8000-00000000d001",
+          "task_id": "0198c002-0000-7000-8000-00000000d001",
+          "context_id": "0198c002-0000-7000-8000-00000000c0de",
+          "revises": null,
+          "version": 1,
+          "offering": "story-package",
+          "produced_at": "2026-09-08T09:00:00.000Z",
+          "pieces": [
+            {
+              "name": "beat script",
+              "step": "write-the-story",
+              "media_type": "text/plain",
+              "ref": "mesh:artifacts:01J8Z2K9Q0BEAT00000000000001",
+              "size": 1234,
+              "digest": "sha256:e48b58b7fa79a6349af7402bba30738a4b6151f9045f7071000fed08a816099c",
+              "produced_from": [
+                "brief"
+              ],
+              "path": "script/beats.txt",
+              "kind": "file",
+              "reused": false
+            },
+            {
+              "name": "storyboard",
+              "step": "draw-the-boards",
+              "media_type": "image/png",
+              "ref": "mesh:artifacts:01J8Z2K9Q0BOARD0000000000001",
+              "size": 48213,
+              "digest": "sha256:7482f754348b8e74a34e8ccfafc8f9d02ce9ccd565f5f9b610e9d57796ee6374",
+              "produced_from": [
+                "beat script"
+              ],
+              "path": "boards/storyboard.png",
+              "reused": false
+            }
+          ],
+          "reused": {
+            "pieces": 0,
+            "of": 2
+          },
+          "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "sig": "oQZ5nFaDT-SBFSjcvdgTYXnqzM3cTnxaZBs6rFWez1P-BjyoD2x__gwnN6H7riJE7Wmyb_QDxQLzF0UIJGLZCA"
+        },
+        "reason": "wrong_format",
+        "member": "format"
+      },
+      {
+        "case": "tampered_digest",
+        "comment": "The pinned manifest with the last hex digit of pieces[0].digest flipped. Still a well-shaped digest; no longer what the agent signed.",
+        "document": {
+          "format": "job-manifest-v1",
+          "job": "0198c002-0000-7000-8000-00000000d001",
+          "task_id": "0198c002-0000-7000-8000-00000000d001",
+          "context_id": "0198c002-0000-7000-8000-00000000c0de",
+          "revises": null,
+          "version": 1,
+          "offering": "story-package",
+          "produced_at": "2026-09-08T09:00:00.000Z",
+          "pieces": [
+            {
+              "name": "beat script",
+              "step": "write-the-story",
+              "media_type": "text/plain",
+              "ref": "mesh:artifacts:01J8Z2K9Q0BEAT00000000000001",
+              "size": 1234,
+              "digest": "sha256:e48b58b7fa79a6349af7402bba30738a4b6151f9045f7071000fed08a8160990",
+              "produced_from": [
+                "brief"
+              ],
+              "path": "script/beats.txt",
+              "kind": "file",
+              "reused": false
+            },
+            {
+              "name": "storyboard",
+              "step": "draw-the-boards",
+              "media_type": "image/png",
+              "ref": "mesh:artifacts:01J8Z2K9Q0BOARD0000000000001",
+              "size": 48213,
+              "digest": "sha256:7482f754348b8e74a34e8ccfafc8f9d02ce9ccd565f5f9b610e9d57796ee6374",
+              "produced_from": [
+                "beat script"
+              ],
+              "path": "boards/storyboard.png",
+              "reused": false
+            }
+          ],
+          "reused": {
+            "pieces": 0,
+            "of": 2
+          },
+          "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "sig": "J1vfTL4-RctGTSFgNrkVHf-NTrudbzyLSp2se55ZIYXu4dkaXrFIeHVSE8fm_aHS4Fa1k3CsJ7oI8ZHhq_iFBg"
+        },
+        "reason": "bad_signature",
+        "member": "sig"
+      },
+      {
+        "case": "agent_swapped",
+        "comment": "The pinned manifest with `agent` replaced by the recipient key and the signature left as it was. The signature is the sender's, so it does not verify against the key the document names.",
+        "document": {
+          "format": "job-manifest-v1",
+          "job": "0198c002-0000-7000-8000-00000000d001",
+          "task_id": "0198c002-0000-7000-8000-00000000d001",
+          "context_id": "0198c002-0000-7000-8000-00000000c0de",
+          "revises": null,
+          "version": 1,
+          "offering": "story-package",
+          "produced_at": "2026-09-08T09:00:00.000Z",
+          "pieces": [
+            {
+              "name": "beat script",
+              "step": "write-the-story",
+              "media_type": "text/plain",
+              "ref": "mesh:artifacts:01J8Z2K9Q0BEAT00000000000001",
+              "size": 1234,
+              "digest": "sha256:e48b58b7fa79a6349af7402bba30738a4b6151f9045f7071000fed08a816099c",
+              "produced_from": [
+                "brief"
+              ],
+              "path": "script/beats.txt",
+              "kind": "file",
+              "reused": false
+            },
+            {
+              "name": "storyboard",
+              "step": "draw-the-boards",
+              "media_type": "image/png",
+              "ref": "mesh:artifacts:01J8Z2K9Q0BOARD0000000000001",
+              "size": 48213,
+              "digest": "sha256:7482f754348b8e74a34e8ccfafc8f9d02ce9ccd565f5f9b610e9d57796ee6374",
+              "produced_from": [
+                "beat script"
+              ],
+              "path": "boards/storyboard.png",
+              "reused": false
+            }
+          ],
+          "reused": {
+            "pieces": 0,
+            "of": 2
+          },
+          "agent": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+          "sig": "J1vfTL4-RctGTSFgNrkVHf-NTrudbzyLSp2se55ZIYXu4dkaXrFIeHVSE8fm_aHS4Fa1k3CsJ7oI8ZHhq_iFBg"
+        },
+        "reason": "bad_signature",
+        "member": "sig"
+      },
+      {
+        "case": "not_the_expected_agent",
+        "comment": "The pinned manifest, verified by a reader that expected the recipient to have delivered. The document is sound; it is the wrong agent's.",
+        "document": {
+          "format": "job-manifest-v1",
+          "job": "0198c002-0000-7000-8000-00000000d001",
+          "task_id": "0198c002-0000-7000-8000-00000000d001",
+          "context_id": "0198c002-0000-7000-8000-00000000c0de",
+          "revises": null,
+          "version": 1,
+          "offering": "story-package",
+          "produced_at": "2026-09-08T09:00:00.000Z",
+          "pieces": [
+            {
+              "name": "beat script",
+              "step": "write-the-story",
+              "media_type": "text/plain",
+              "ref": "mesh:artifacts:01J8Z2K9Q0BEAT00000000000001",
+              "size": 1234,
+              "digest": "sha256:e48b58b7fa79a6349af7402bba30738a4b6151f9045f7071000fed08a816099c",
+              "produced_from": [
+                "brief"
+              ],
+              "path": "script/beats.txt",
+              "kind": "file",
+              "reused": false
+            },
+            {
+              "name": "storyboard",
+              "step": "draw-the-boards",
+              "media_type": "image/png",
+              "ref": "mesh:artifacts:01J8Z2K9Q0BOARD0000000000001",
+              "size": 48213,
+              "digest": "sha256:7482f754348b8e74a34e8ccfafc8f9d02ce9ccd565f5f9b610e9d57796ee6374",
+              "produced_from": [
+                "beat script"
+              ],
+              "path": "boards/storyboard.png",
+              "reused": false
+            }
+          ],
+          "reused": {
+            "pieces": 0,
+            "of": 2
+          },
+          "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "sig": "J1vfTL4-RctGTSFgNrkVHf-NTrudbzyLSp2se55ZIYXu4dkaXrFIeHVSE8fm_aHS4Fa1k3CsJ7oI8ZHhq_iFBg"
+        },
+        "expected_agent": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+        "reason": "agent_mismatch",
+        "member": "agent"
+      },
+      {
+        "case": "digest_not_sha256",
+        "comment": "digest must be \"sha256:\" followed by 64 lowercase hex digits.",
+        "document": {
+          "format": "job-manifest-v1",
+          "job": "0198c002-0000-7000-8000-00000000d001",
+          "task_id": "0198c002-0000-7000-8000-00000000d001",
+          "context_id": "0198c002-0000-7000-8000-00000000c0de",
+          "revises": null,
+          "version": 1,
+          "offering": "story-package",
+          "produced_at": "2026-09-08T09:00:00.000Z",
+          "pieces": [
+            {
+              "name": "beat script",
+              "step": "write-the-story",
+              "media_type": "text/plain",
+              "ref": "mesh:artifacts:01J8Z2K9Q0BEAT00000000000001",
+              "size": 1234,
+              "digest": "sha256:notahash",
+              "produced_from": [
+                "brief"
+              ],
+              "path": "script/beats.txt",
+              "kind": "file",
+              "reused": false
+            },
+            {
+              "name": "storyboard",
+              "step": "draw-the-boards",
+              "media_type": "image/png",
+              "ref": "mesh:artifacts:01J8Z2K9Q0BOARD0000000000001",
+              "size": 48213,
+              "digest": "sha256:7482f754348b8e74a34e8ccfafc8f9d02ce9ccd565f5f9b610e9d57796ee6374",
+              "produced_from": [
+                "beat script"
+              ],
+              "path": "boards/storyboard.png",
+              "reused": false
+            }
+          ],
+          "reused": {
+            "pieces": 0,
+            "of": 2
+          },
+          "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "sig": "J1vfTL4-RctGTSFgNrkVHf-NTrudbzyLSp2se55ZIYXu4dkaXrFIeHVSE8fm_aHS4Fa1k3CsJ7oI8ZHhq_iFBg"
+        },
+        "reason": "malformed",
+        "member": "pieces[0].digest"
+      },
+      {
+        "case": "reused_summary_disagrees_with_the_list",
+        "comment": "reused.pieces claims 2 while no piece is flagged reused. The summary must count the flags; whether the flags are TRUE needs the prior manifest and is the reuse claim check's question, not the shape's.",
+        "document": {
+          "format": "job-manifest-v1",
+          "job": "0198c002-0000-7000-8000-00000000d001",
+          "task_id": "0198c002-0000-7000-8000-00000000d001",
+          "context_id": "0198c002-0000-7000-8000-00000000c0de",
+          "revises": null,
+          "version": 1,
+          "offering": "story-package",
+          "produced_at": "2026-09-08T09:00:00.000Z",
+          "pieces": [
+            {
+              "name": "beat script",
+              "step": "write-the-story",
+              "media_type": "text/plain",
+              "ref": "mesh:artifacts:01J8Z2K9Q0BEAT00000000000001",
+              "size": 1234,
+              "digest": "sha256:e48b58b7fa79a6349af7402bba30738a4b6151f9045f7071000fed08a816099c",
+              "produced_from": [
+                "brief"
+              ],
+              "path": "script/beats.txt",
+              "kind": "file",
+              "reused": false
+            },
+            {
+              "name": "storyboard",
+              "step": "draw-the-boards",
+              "media_type": "image/png",
+              "ref": "mesh:artifacts:01J8Z2K9Q0BOARD0000000000001",
+              "size": 48213,
+              "digest": "sha256:7482f754348b8e74a34e8ccfafc8f9d02ce9ccd565f5f9b610e9d57796ee6374",
+              "produced_from": [
+                "beat script"
+              ],
+              "path": "boards/storyboard.png",
+              "reused": false
+            }
+          ],
+          "reused": {
+            "pieces": 2,
+            "of": 2
+          },
+          "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "sig": "J1vfTL4-RctGTSFgNrkVHf-NTrudbzyLSp2se55ZIYXu4dkaXrFIeHVSE8fm_aHS4Fa1k3CsJ7oI8ZHhq_iFBg"
+        },
+        "reason": "malformed",
+        "member": "reused.pieces"
+      },
+      {
+        "case": "version_zero",
+        "comment": "version is an integer starting at 1.",
+        "document": {
+          "format": "job-manifest-v1",
+          "job": "0198c002-0000-7000-8000-00000000d001",
+          "task_id": "0198c002-0000-7000-8000-00000000d001",
+          "context_id": "0198c002-0000-7000-8000-00000000c0de",
+          "revises": null,
+          "version": 0,
+          "offering": "story-package",
+          "produced_at": "2026-09-08T09:00:00.000Z",
+          "pieces": [
+            {
+              "name": "beat script",
+              "step": "write-the-story",
+              "media_type": "text/plain",
+              "ref": "mesh:artifacts:01J8Z2K9Q0BEAT00000000000001",
+              "size": 1234,
+              "digest": "sha256:e48b58b7fa79a6349af7402bba30738a4b6151f9045f7071000fed08a816099c",
+              "produced_from": [
+                "brief"
+              ],
+              "path": "script/beats.txt",
+              "kind": "file",
+              "reused": false
+            },
+            {
+              "name": "storyboard",
+              "step": "draw-the-boards",
+              "media_type": "image/png",
+              "ref": "mesh:artifacts:01J8Z2K9Q0BOARD0000000000001",
+              "size": 48213,
+              "digest": "sha256:7482f754348b8e74a34e8ccfafc8f9d02ce9ccd565f5f9b610e9d57796ee6374",
+              "produced_from": [
+                "beat script"
+              ],
+              "path": "boards/storyboard.png",
+              "reused": false
+            }
+          ],
+          "reused": {
+            "pieces": 0,
+            "of": 2
+          },
+          "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "sig": "J1vfTL4-RctGTSFgNrkVHf-NTrudbzyLSp2se55ZIYXu4dkaXrFIeHVSE8fm_aHS4Fa1k3CsJ7oI8ZHhq_iFBg"
+        },
+        "reason": "malformed",
+        "member": "version"
+      },
+      {
+        "case": "first_delivery_that_revises",
+        "comment": "version 1 is the first delivery and revises nothing.",
+        "document": {
+          "format": "job-manifest-v1",
+          "job": "0198c002-0000-7000-8000-00000000d001",
+          "task_id": "0198c002-0000-7000-8000-00000000d001",
+          "context_id": "0198c002-0000-7000-8000-00000000c0de",
+          "revises": "0198c002-0000-7000-8000-00000000d000",
+          "version": 1,
+          "offering": "story-package",
+          "produced_at": "2026-09-08T09:00:00.000Z",
+          "pieces": [
+            {
+              "name": "beat script",
+              "step": "write-the-story",
+              "media_type": "text/plain",
+              "ref": "mesh:artifacts:01J8Z2K9Q0BEAT00000000000001",
+              "size": 1234,
+              "digest": "sha256:e48b58b7fa79a6349af7402bba30738a4b6151f9045f7071000fed08a816099c",
+              "produced_from": [
+                "brief"
+              ],
+              "path": "script/beats.txt",
+              "kind": "file",
+              "reused": false
+            },
+            {
+              "name": "storyboard",
+              "step": "draw-the-boards",
+              "media_type": "image/png",
+              "ref": "mesh:artifacts:01J8Z2K9Q0BOARD0000000000001",
+              "size": 48213,
+              "digest": "sha256:7482f754348b8e74a34e8ccfafc8f9d02ce9ccd565f5f9b610e9d57796ee6374",
+              "produced_from": [
+                "beat script"
+              ],
+              "path": "boards/storyboard.png",
+              "reused": false
+            }
+          ],
+          "reused": {
+            "pieces": 0,
+            "of": 2
+          },
+          "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "sig": "J1vfTL4-RctGTSFgNrkVHf-NTrudbzyLSp2se55ZIYXu4dkaXrFIeHVSE8fm_aHS4Fa1k3CsJ7oI8ZHhq_iFBg"
+        },
+        "reason": "malformed",
+        "member": "revises"
+      },
+      {
+        "case": "sig_missing",
+        "comment": "No sig, no manifest.",
+        "document": {
+          "format": "job-manifest-v1",
+          "job": "0198c002-0000-7000-8000-00000000d001",
+          "task_id": "0198c002-0000-7000-8000-00000000d001",
+          "context_id": "0198c002-0000-7000-8000-00000000c0de",
+          "revises": null,
+          "version": 1,
+          "offering": "story-package",
+          "produced_at": "2026-09-08T09:00:00.000Z",
+          "pieces": [
+            {
+              "name": "beat script",
+              "step": "write-the-story",
+              "media_type": "text/plain",
+              "ref": "mesh:artifacts:01J8Z2K9Q0BEAT00000000000001",
+              "size": 1234,
+              "digest": "sha256:e48b58b7fa79a6349af7402bba30738a4b6151f9045f7071000fed08a816099c",
+              "produced_from": [
+                "brief"
+              ],
+              "path": "script/beats.txt",
+              "kind": "file",
+              "reused": false
+            },
+            {
+              "name": "storyboard",
+              "step": "draw-the-boards",
+              "media_type": "image/png",
+              "ref": "mesh:artifacts:01J8Z2K9Q0BOARD0000000000001",
+              "size": 48213,
+              "digest": "sha256:7482f754348b8e74a34e8ccfafc8f9d02ce9ccd565f5f9b610e9d57796ee6374",
+              "produced_from": [
+                "beat script"
+              ],
+              "path": "boards/storyboard.png",
+              "reused": false
+            }
+          ],
+          "reused": {
+            "pieces": 0,
+            "of": 2
+          },
+          "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP"
+        },
+        "reason": "malformed",
+        "member": "sig"
+      },
+      {
+        "case": "sig_not_a_signature",
+        "comment": "sig decodes (three bytes) but is not a 64-byte Ed25519 signature — a shape fault, not a verification failure.",
+        "document": {
+          "format": "job-manifest-v1",
+          "job": "0198c002-0000-7000-8000-00000000d001",
+          "task_id": "0198c002-0000-7000-8000-00000000d001",
+          "context_id": "0198c002-0000-7000-8000-00000000c0de",
+          "revises": null,
+          "version": 1,
+          "offering": "story-package",
+          "produced_at": "2026-09-08T09:00:00.000Z",
+          "pieces": [
+            {
+              "name": "beat script",
+              "step": "write-the-story",
+              "media_type": "text/plain",
+              "ref": "mesh:artifacts:01J8Z2K9Q0BEAT00000000000001",
+              "size": 1234,
+              "digest": "sha256:e48b58b7fa79a6349af7402bba30738a4b6151f9045f7071000fed08a816099c",
+              "produced_from": [
+                "brief"
+              ],
+              "path": "script/beats.txt",
+              "kind": "file",
+              "reused": false
+            },
+            {
+              "name": "storyboard",
+              "step": "draw-the-boards",
+              "media_type": "image/png",
+              "ref": "mesh:artifacts:01J8Z2K9Q0BOARD0000000000001",
+              "size": 48213,
+              "digest": "sha256:7482f754348b8e74a34e8ccfafc8f9d02ce9ccd565f5f9b610e9d57796ee6374",
+              "produced_from": [
+                "beat script"
+              ],
+              "path": "boards/storyboard.png",
+              "reused": false
+            }
+          ],
+          "reused": {
+            "pieces": 0,
+            "of": 2
+          },
+          "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "sig": "AAAA"
+        },
+        "reason": "malformed",
+        "member": "sig"
+      },
+      {
+        "case": "path_escapes",
+        "comment": "The pinned manifest with pieces[0].path set to \"../beats.txt\". A path that climbs out of the delivery is refused before any layout is attempted.",
+        "document": {
+          "format": "job-manifest-v1",
+          "job": "0198c002-0000-7000-8000-00000000d001",
+          "task_id": "0198c002-0000-7000-8000-00000000d001",
+          "context_id": "0198c002-0000-7000-8000-00000000c0de",
+          "revises": null,
+          "version": 1,
+          "offering": "story-package",
+          "produced_at": "2026-09-08T09:00:00.000Z",
+          "pieces": [
+            {
+              "name": "beat script",
+              "step": "write-the-story",
+              "media_type": "text/plain",
+              "ref": "mesh:artifacts:01J8Z2K9Q0BEAT00000000000001",
+              "size": 1234,
+              "digest": "sha256:e48b58b7fa79a6349af7402bba30738a4b6151f9045f7071000fed08a816099c",
+              "produced_from": [
+                "brief"
+              ],
+              "path": "../beats.txt",
+              "kind": "file",
+              "reused": false
+            },
+            {
+              "name": "storyboard",
+              "step": "draw-the-boards",
+              "media_type": "image/png",
+              "ref": "mesh:artifacts:01J8Z2K9Q0BOARD0000000000001",
+              "size": 48213,
+              "digest": "sha256:7482f754348b8e74a34e8ccfafc8f9d02ce9ccd565f5f9b610e9d57796ee6374",
+              "produced_from": [
+                "beat script"
+              ],
+              "path": "boards/storyboard.png",
+              "reused": false
+            }
+          ],
+          "reused": {
+            "pieces": 0,
+            "of": 2
+          },
+          "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "sig": "J1vfTL4-RctGTSFgNrkVHf-NTrudbzyLSp2se55ZIYXu4dkaXrFIeHVSE8fm_aHS4Fa1k3CsJ7oI8ZHhq_iFBg"
+        },
+        "reason": "malformed",
+        "member": "pieces[0].path"
+      },
+      {
+        "case": "kind_unknown",
+        "comment": "The pinned manifest with pieces[0].kind set to \"url\". The descriptor's output kinds are not the manifest's vocabulary; a manifest piece is a file or a link.",
+        "document": {
+          "format": "job-manifest-v1",
+          "job": "0198c002-0000-7000-8000-00000000d001",
+          "task_id": "0198c002-0000-7000-8000-00000000d001",
+          "context_id": "0198c002-0000-7000-8000-00000000c0de",
+          "revises": null,
+          "version": 1,
+          "offering": "story-package",
+          "produced_at": "2026-09-08T09:00:00.000Z",
+          "pieces": [
+            {
+              "name": "beat script",
+              "step": "write-the-story",
+              "media_type": "text/plain",
+              "ref": "mesh:artifacts:01J8Z2K9Q0BEAT00000000000001",
+              "size": 1234,
+              "digest": "sha256:e48b58b7fa79a6349af7402bba30738a4b6151f9045f7071000fed08a816099c",
+              "produced_from": [
+                "brief"
+              ],
+              "path": "script/beats.txt",
+              "kind": "url",
+              "reused": false
+            },
+            {
+              "name": "storyboard",
+              "step": "draw-the-boards",
+              "media_type": "image/png",
+              "ref": "mesh:artifacts:01J8Z2K9Q0BOARD0000000000001",
+              "size": 48213,
+              "digest": "sha256:7482f754348b8e74a34e8ccfafc8f9d02ce9ccd565f5f9b610e9d57796ee6374",
+              "produced_from": [
+                "beat script"
+              ],
+              "path": "boards/storyboard.png",
+              "reused": false
+            }
+          ],
+          "reused": {
+            "pieces": 0,
+            "of": 2
+          },
+          "agent": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "sig": "J1vfTL4-RctGTSFgNrkVHf-NTrudbzyLSp2se55ZIYXu4dkaXrFIeHVSE8fm_aHS4Fa1k3CsJ7oI8ZHhq_iFBg"
+        },
+        "reason": "malformed",
+        "member": "pieces[0].kind"
+      }
+    ]
+  },
+  "not_covered": {
+    "comment": "Boundaries, written down so nobody mistakes them for gaps.",
+    "items": [
+      "Whether a ref resolves and its bytes hash to the digest is the artifact store's question; the manifest pins what the agent claimed, and the signature pins that the agent claimed it.",
+      "Whether `revises` names a real earlier completion of the same job by the same agent is the platform's question (the completion ledger); the reuse computation is defined over any pair it is handed and does not check job or revises.",
+      "Reuse is computed between two manifests only. A piece that reappears with the same bytes three versions later, having been dropped in between, is new again at that version.",
+      "The manifest carries no price and no acceptance; those are the settlement's and the acceptance record's."
+    ]
+  }
+}

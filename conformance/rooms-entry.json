@@ -1,0 +1,644 @@
+{
+  "comment": "Room transcript entry conformance fixture (EXT-5 rooms). Pins the FLATTENED shape a room surface hands a browser - not a wire format, but a cross-surface contract, which is why it needs a fixture at all. Two independent implementations produce it from the same room messages: the AgentMesh API's `flattenEntry` (services/src/api/room-entry.ts) for the hosted rooms page, and the Egg Gateway's `entry_view` (egg-daemon/src/mesh/rooms.rs) for the Rooms egglet. They live in different repositories with no shared type, so nothing but this file stops them drifting - and they HAD drifted before it existed: the Gateway discarded the expel `note` entirely, and returned the whole envelope payload as `artifact` where the API returned four named fields. A user reading the same room through two surfaces would have seen different messages. THE FIXTURE IS THE AUTHORITY: when a test against it fails, fix the implementation; when the fixture itself is believed wrong, change it deliberately and update both sides together.",
+  "version": 4,
+  "spec": "EXT-5-rooms.md (room messages, 8.1 expel severities, 8.5 phases), SPEC.md 5.3 (the envelope carries the verified author)",
+  "shape": {
+    "comment": "Every entry has exactly these keys, always present, null where they do not apply. Absent-vs-null matters: a surface that omits inapplicable keys forces every client into optional-chaining, and a client that sees `body` missing on an expel cannot tell it apart from a `say` whose body failed to decode.",
+    "keys": [
+      "seq",
+      "kind",
+      "from",
+      "body",
+      "channel",
+      "member",
+      "severity",
+      "note",
+      "pattern",
+      "artifact"
+    ],
+    "notes": {
+      "seq": "The durable record's sequence number. LIVE frames carry 0: a sequence number belongs to the record, and inventing one for a live frame would collide with a real seq and corrupt a client's read-position arithmetic.",
+      "kind": "say | join | leave | genesis | artifact | expel | phase | close | unknown. `unknown` is REQUIRED behaviour for a message this implementation cannot parse - the entry still occupies a sequence number, and dropping it leaves a silent gap that reads as lost messages.",
+      "from": "Read off the ENVELOPE, never the payload. The SDK drops any frame whose signature fails, so an author that reaches a surface is a verified fact the UI may assert; a payload-level author would be a mere claim.",
+      "body": "`say` only, and already decrypted in a sealed room the reader is a member of. Never borrowed by other kinds: rendering an expel's note as `body` would show a moderation event as if someone had spoken.",
+      "severity": "`expel` only: timeout | conduct | safety. An unrecognized value from a newer peer arrives normalized to `conduct` (EXT-5 8.1).",
+      "note": "`expel` and `phase`, optional on both. This is text the author WROTE about what they just did - the reason for a removal, or what the facilitator wants members to know about the phase they just called - so a surface that drops it renders the act with no reason. The Gateway discarded it until this fixture existed.",
+      "pattern": "`phase` only (EXT-5 8.5): the pattern the room was moved to. It gets its own key rather than borrowing `body`, because a client must tell 'the room moved to a critique circle' apart from a member saying those words. NOTE WHAT IS NOT HERE: whether the move counted. Only the facilitator's phase moves the room, and the facilitator is named in the descriptor the client already holds, so the check belongs on the client comparing `from` against it. A surface that reported an authorized flag would be a second copy of a rule the SDK already applies, free to drift from it.",
+      "artifact": "`artifact` only. Named fields rather than the raw payload: `digest` is what lets a client verify the bytes it fetched, and `sealed` tells it whether what it fetched needs a room key, so neither may be dropped. `origin` is what the attaching member said about where the bytes came from BEFORE this room (EXT-5 5.1) - a claim, carried attributably, never adjudicated. `external` is set when the room holds NO bytes and they live at that location, with `digest` then being the member's claim about them (EXT-5 5.2); a surface that drops it renders a linked artifact exactly like a stored one and sends its user to fetch bytes the drive never had. Inapplicable sub-fields are null, not absent - EXCEPT `sealed`, where absence means false, because absence of a boolean flag has a meaning and absence of a media type does not. `role` is what the announcing member said the file IS to the meeting - input, interim, or output (EXT-5 5.3): a declared claim like `origin`, carried as written even when unrecognized, and null when undeclared. A surface MAY display a default off origin (brought-in as input, made-here as interim), but hand-over reads only explicit output marks - a default shown as a declaration would put words in the member's mouth."
+    }
+  },
+  "cases": [
+    {
+      "name": "say",
+      "comment": "The ordinary case. `channel` is always populated by the sender's SDK, which defaults it to the descriptor's first channel.",
+      "input": {
+        "seq": 7,
+        "message": {
+          "type": "say",
+          "channel": "main",
+          "in_reply_to": null,
+          "body": "hello room"
+        },
+        "envelope": {
+          "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP"
+        }
+      },
+      "expected": {
+        "seq": 7,
+        "kind": "say",
+        "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+        "body": "hello room",
+        "channel": "main",
+        "member": null,
+        "severity": null,
+        "note": null,
+        "pattern": null,
+        "artifact": null
+      }
+    },
+    {
+      "name": "say on a live frame",
+      "comment": "seq 0 marks a frame that arrived on the live stream rather than the record. A client backfills from the record and treats these as the tail.",
+      "input": {
+        "seq": 0,
+        "message": {
+          "type": "say",
+          "channel": "general",
+          "in_reply_to": null,
+          "body": "just now"
+        },
+        "envelope": {
+          "from": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A"
+        }
+      },
+      "expected": {
+        "seq": 0,
+        "kind": "say",
+        "from": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+        "body": "just now",
+        "channel": "general",
+        "member": null,
+        "severity": null,
+        "note": null,
+        "pattern": null,
+        "artifact": null
+      }
+    },
+    {
+      "name": "join",
+      "input": {
+        "seq": 2,
+        "message": {
+          "type": "join",
+          "member": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A"
+        },
+        "envelope": {
+          "from": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A"
+        }
+      },
+      "expected": {
+        "seq": 2,
+        "kind": "join",
+        "from": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+        "body": null,
+        "channel": null,
+        "member": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+        "severity": null,
+        "note": null,
+        "pattern": null,
+        "artifact": null
+      }
+    },
+    {
+      "name": "leave",
+      "input": {
+        "seq": 9,
+        "message": {
+          "type": "leave",
+          "member": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A"
+        },
+        "envelope": {
+          "from": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A"
+        }
+      },
+      "expected": {
+        "seq": 9,
+        "kind": "leave",
+        "from": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+        "body": null,
+        "channel": null,
+        "member": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+        "severity": null,
+        "note": null,
+        "pattern": null,
+        "artifact": null
+      }
+    },
+    {
+      "name": "expel with a note",
+      "comment": "THE case the drift was hiding. The note is the moderator's stated reason; a surface that drops it shows a member removed for no visible cause.",
+      "input": {
+        "seq": 12,
+        "message": {
+          "type": "expel",
+          "member": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+          "severity": "safety",
+          "note": "posting malware links"
+        },
+        "envelope": {
+          "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP"
+        }
+      },
+      "expected": {
+        "seq": 12,
+        "kind": "expel",
+        "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+        "body": null,
+        "channel": null,
+        "member": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+        "severity": "safety",
+        "note": "posting malware links",
+        "pattern": null,
+        "artifact": null
+      }
+    },
+    {
+      "name": "expel without a note",
+      "comment": "An omitted note is null, never an empty string: a UI can distinguish 'no reason given' from 'a reason was given and it was blank'.",
+      "input": {
+        "seq": 13,
+        "message": {
+          "type": "expel",
+          "member": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+          "severity": "timeout"
+        },
+        "envelope": {
+          "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP"
+        }
+      },
+      "expected": {
+        "seq": 13,
+        "kind": "expel",
+        "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+        "body": null,
+        "channel": null,
+        "member": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+        "severity": "timeout",
+        "note": null,
+        "pattern": null,
+        "artifact": null
+      }
+    },
+    {
+      "name": "artifact",
+      "comment": "`digest` and `sealed` are load-bearing and were being lost by one side: digest is how a client verifies fetched bytes, sealed is how it knows whether they need a room key to read.",
+      "input": {
+        "seq": 21,
+        "message": {
+          "type": "artifact",
+          "name": "minutes.md",
+          "version": "1",
+          "ref": "art_7f3a91",
+          "digest": "sha256-3b8f1c2d",
+          "media_type": "text/markdown",
+          "size": 4096,
+          "sealed": false
+        },
+        "envelope": {
+          "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP"
+        }
+      },
+      "expected": {
+        "seq": 21,
+        "kind": "artifact",
+        "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+        "body": null,
+        "channel": null,
+        "member": null,
+        "severity": null,
+        "note": null,
+        "pattern": null,
+        "artifact": {
+          "name": "minutes.md",
+          "version": "1",
+          "ref": "art_7f3a91",
+          "digest": "sha256-3b8f1c2d",
+          "media_type": "text/markdown",
+          "size": 4096,
+          "sealed": false,
+          "origin": null,
+          "external": null,
+          "role": null
+        }
+      }
+    },
+    {
+      "name": "artifact with optional fields absent",
+      "comment": "media_type and size are optional on the wire and become NULL here rather than disappearing, so the client's shape never changes. `sealed` is different and deliberately so: it is a boolean flag whose absence has a meaning - not sealed - whereas an absent media_type is genuinely unknown. So absent `sealed` surfaces as FALSE, not null. Getting this backwards would have a surface render 'encryption state unknown' for every artifact posted by an implementation that omits a false boolean.",
+      "input": {
+        "seq": 22,
+        "message": {
+          "type": "artifact",
+          "name": "blob.bin",
+          "version": "1",
+          "ref": "art_aa01",
+          "digest": "sha256-deadbeef"
+        },
+        "envelope": {
+          "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP"
+        }
+      },
+      "expected": {
+        "seq": 22,
+        "kind": "artifact",
+        "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+        "body": null,
+        "channel": null,
+        "member": null,
+        "severity": null,
+        "note": null,
+        "pattern": null,
+        "artifact": {
+          "name": "blob.bin",
+          "version": "1",
+          "ref": "art_aa01",
+          "digest": "sha256-deadbeef",
+          "media_type": null,
+          "size": null,
+          "sealed": false,
+          "origin": null,
+          "external": null,
+          "role": null
+        }
+      }
+    },
+    {
+      "name": "linked artifact, bytes held elsewhere",
+      "comment": "EXT-5 5.2. The room stores nothing: `external` says where the bytes are and `digest` is the announcing member's CLAIM about them, not a value any service computed. A surface must show this differently from a stored artifact - offering a download would be a control that cannot work, and reporting the fetch refusal as an error would blame the room for a policy it is stating. Note `sealed` is false: there are no bytes here for a room key to protect, and saying otherwise would tell a reader they are covered when they are not.",
+      "input": {
+        "seq": 23,
+        "message": {
+          "type": "artifact",
+          "name": "episode-04.mov",
+          "version": "1",
+          "ref": "mesh:rooms:r_9b41/link/7f3a91c2d4e6b8a0",
+          "digest": "sha256-9c8b7a6d",
+          "media_type": "video/quicktime",
+          "size": 4187593216,
+          "sealed": false,
+          "origin": "studio render queue, job 8814",
+          "external": "s3://studio-outputs/episode-04.mov"
+        },
+        "envelope": {
+          "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP"
+        }
+      },
+      "expected": {
+        "seq": 23,
+        "kind": "artifact",
+        "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+        "body": null,
+        "channel": null,
+        "member": null,
+        "severity": null,
+        "note": null,
+        "pattern": null,
+        "artifact": {
+          "name": "episode-04.mov",
+          "version": "1",
+          "ref": "mesh:rooms:r_9b41/link/7f3a91c2d4e6b8a0",
+          "digest": "sha256-9c8b7a6d",
+          "media_type": "video/quicktime",
+          "size": 4187593216,
+          "sealed": false,
+          "origin": "studio render queue, job 8814",
+          "external": "s3://studio-outputs/episode-04.mov",
+          "role": null
+        }
+      }
+    },
+    {
+      "name": "stored artifact carrying an origin claim",
+      "comment": "EXT-5 5.1. An agent contributing material it already held is stating history the room cannot see, and the difference between 'I made this here' and 'I brought this' is not otherwise recoverable from the record. `external` stays null: the bytes ARE on the drive.",
+      "input": {
+        "seq": 24,
+        "message": {
+          "type": "artifact",
+          "name": "brief.md",
+          "version": "1",
+          "ref": "art_bb02",
+          "digest": "sha256-c0ffee",
+          "origin": "git repo launch-plan@a41f2c"
+        },
+        "envelope": {
+          "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP"
+        }
+      },
+      "expected": {
+        "seq": 24,
+        "kind": "artifact",
+        "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+        "body": null,
+        "channel": null,
+        "member": null,
+        "severity": null,
+        "note": null,
+        "pattern": null,
+        "artifact": {
+          "name": "brief.md",
+          "version": "1",
+          "ref": "art_bb02",
+          "digest": "sha256-c0ffee",
+          "media_type": null,
+          "size": null,
+          "sealed": false,
+          "origin": "git repo launch-plan@a41f2c",
+          "external": null,
+          "role": null
+        }
+      }
+    },
+    {
+      "name": "genesis",
+      "comment": "The room's opening frame. Its descriptor is not surfaced: a client already has the descriptor it joined with, and the entry exists so the transcript starts where the room did. The descriptor here is COMPLETE on purpose - an abbreviated one fails to deserialize in a strongly typed implementation, which would make this case pass for the wrong reason (as `unknown`) instead of exercising genesis.",
+      "input": {
+        "seq": 1,
+        "message": {
+          "type": "genesis",
+          "descriptor": {
+            "rooms": "v1",
+            "room_id": "abc123",
+            "name": "design",
+            "channels": [
+              "main"
+            ],
+            "record": "mesh:rooms:abc123",
+            "policy": {},
+            "privacy": "acl",
+            "creator": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+            "created_at": "2026-07-30T00:00:00Z",
+            "sig": "not-verified-here"
+          }
+        },
+        "envelope": {
+          "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP"
+        }
+      },
+      "expected": {
+        "seq": 1,
+        "kind": "genesis",
+        "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+        "body": null,
+        "channel": null,
+        "member": null,
+        "severity": null,
+        "note": null,
+        "pattern": null,
+        "artifact": null
+      }
+    },
+    {
+      "name": "phase with a note",
+      "comment": "EXT-5 8.5. The room moved to another pattern. `pattern` carries where it moved to and `note` the facilitator's line about it; `body` stays null, because nobody said anything. Whether this move COUNTED is not reported here: only the facilitator's phase moves the room, and the client checks `from` against the descriptor it already holds.",
+      "input": {
+        "seq": 15,
+        "message": {
+          "type": "phase",
+          "pattern": "critique-circle",
+          "standard": "https://agentcollab.dev",
+          "note": "two rounds, then the author decides"
+        },
+        "envelope": {
+          "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP"
+        }
+      },
+      "expected": {
+        "seq": 15,
+        "kind": "phase",
+        "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+        "body": null,
+        "channel": null,
+        "member": null,
+        "severity": null,
+        "note": "two rounds, then the author decides",
+        "pattern": "critique-circle",
+        "artifact": null
+      }
+    },
+    {
+      "name": "phase naming a pattern this implementation has never heard of",
+      "comment": "The vocabulary belongs to the standard the descriptor names, not to this build. An unrecognized pattern is carried and displayed as written (EXT-5 8.5), exactly as it is in a descriptor's playbook: this is `phase`, NOT `unknown`, because the message type is understood perfectly well and only its payload names something newer.",
+      "input": {
+        "seq": 16,
+        "message": {
+          "type": "phase",
+          "pattern": "some-future-pattern"
+        },
+        "envelope": {
+          "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP"
+        }
+      },
+      "expected": {
+        "seq": 16,
+        "kind": "phase",
+        "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+        "body": null,
+        "channel": null,
+        "member": null,
+        "severity": null,
+        "note": null,
+        "pattern": "some-future-pattern",
+        "artifact": null
+      }
+    },
+    {
+      "name": "close",
+      "input": {
+        "seq": 40,
+        "message": {
+          "type": "close",
+          "reason": "work finished"
+        },
+        "envelope": {
+          "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP"
+        }
+      },
+      "expected": {
+        "seq": 40,
+        "kind": "close",
+        "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+        "body": null,
+        "channel": null,
+        "member": null,
+        "severity": null,
+        "note": null,
+        "pattern": null,
+        "artifact": null
+      }
+    },
+    {
+      "name": "unparseable message",
+      "comment": "A frame from a newer peer, or one that failed to decode. It MUST still appear: it holds a sequence number, and a client that never sees it has a gap it cannot distinguish from message loss.",
+      "input": {
+        "seq": 33,
+        "message": null,
+        "envelope": {
+          "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP"
+        }
+      },
+      "expected": {
+        "seq": 33,
+        "kind": "unknown",
+        "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+        "body": null,
+        "channel": null,
+        "member": null,
+        "severity": null,
+        "note": null,
+        "pattern": null,
+        "artifact": null
+      }
+    },
+    {
+      "name": "message of an unrecognized type",
+      "comment": "Distinct from the case above: the message parsed, but its `type` is one this implementation has no handler for. Same answer - `unknown`, never dropped, and no field borrowed from it.",
+      "input": {
+        "seq": 34,
+        "message": {
+          "type": "reaction",
+          "emoji": "thumbsup",
+          "body": "not a say"
+        },
+        "envelope": {
+          "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP"
+        }
+      },
+      "expected": {
+        "seq": 34,
+        "kind": "unknown",
+        "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+        "body": null,
+        "channel": null,
+        "member": null,
+        "severity": null,
+        "note": null,
+        "pattern": null,
+        "artifact": null
+      }
+    },
+    {
+      "name": "envelope with no author",
+      "comment": "Defensive: the SDK will not hand up an unsigned frame, so this should be unreachable. If it ever is reached, `from` is null and the UI shows no verified author, rather than a surface inventing one.",
+      "input": {
+        "seq": 50,
+        "message": {
+          "type": "say",
+          "channel": "main",
+          "in_reply_to": null,
+          "body": "who said this"
+        },
+        "envelope": {}
+      },
+      "expected": {
+        "seq": 50,
+        "kind": "say",
+        "from": null,
+        "body": "who said this",
+        "channel": "main",
+        "member": null,
+        "severity": null,
+        "note": null,
+        "pattern": null,
+        "artifact": null
+      }
+    },
+    {
+      "name": "artifact marked as the output",
+      "comment": "The explicit act hand-over reads: the author said this file is the thing the room exists to produce. A role is a declaration, so it survives to the view verbatim and is never synthesized from origin.",
+      "input": {
+        "seq": 26,
+        "message": {
+          "type": "artifact",
+          "name": "handbook-draft.md",
+          "version": "1",
+          "ref": "art_7f3a91",
+          "digest": "sha256-3b8f1c2d",
+          "media_type": "text/markdown",
+          "size": 4096,
+          "sealed": false,
+          "role": "output"
+        },
+        "envelope": {
+          "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP"
+        }
+      },
+      "expected": {
+        "seq": 26,
+        "kind": "artifact",
+        "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+        "body": null,
+        "channel": null,
+        "member": null,
+        "severity": null,
+        "note": null,
+        "pattern": null,
+        "artifact": {
+          "name": "handbook-draft.md",
+          "version": "1",
+          "ref": "art_7f3a91",
+          "digest": "sha256-3b8f1c2d",
+          "media_type": "text/markdown",
+          "size": 4096,
+          "sealed": false,
+          "origin": null,
+          "external": null,
+          "role": "output"
+        }
+      }
+    },
+    {
+      "name": "artifact with a role this implementation has never heard of",
+      "comment": "The vocabulary rule, again: role is a declared claim, and an implementation that drops or normalizes an unrecognized one is editing a signed statement. Carried as written.",
+      "input": {
+        "seq": 27,
+        "message": {
+          "type": "artifact",
+          "name": "minutes.md",
+          "version": "1",
+          "ref": "art_7f3a91",
+          "digest": "sha256-3b8f1c2d",
+          "media_type": "text/markdown",
+          "size": 4096,
+          "sealed": false,
+          "role": "appendix"
+        },
+        "envelope": {
+          "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP"
+        }
+      },
+      "expected": {
+        "seq": 27,
+        "kind": "artifact",
+        "from": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+        "body": null,
+        "channel": null,
+        "member": null,
+        "severity": null,
+        "note": null,
+        "pattern": null,
+        "artifact": {
+          "name": "minutes.md",
+          "version": "1",
+          "ref": "art_7f3a91",
+          "digest": "sha256-3b8f1c2d",
+          "media_type": "text/markdown",
+          "size": 4096,
+          "sealed": false,
+          "origin": null,
+          "external": null,
+          "role": "appendix"
+        }
+      }
+    }
+  ]
+}

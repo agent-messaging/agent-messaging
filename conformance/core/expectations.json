@@ -1,5 +1,6 @@
 {
   "c01": "pass",
+  "c01b": "pass",
   "c02": "pass",
   "c03": "pass",
   "c04": "pass",
@@ -15,5 +16,9 @@
   "c14": "pass",
   "c15": "pass",
   "c16": "pass",
-  "c17": "pass"
+  "c18": "pass",
+  "c19": "pass",
+  "c20": "pass",
+  "c21": "fail",
+  "c22": "pass"
 }

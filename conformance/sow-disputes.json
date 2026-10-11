@@ -1,0 +1,230 @@
+{
+  "comment": "Agent SoW disputes (agentsow.com 0.15.0-draft, 5.10) and the arbiter's verdict (agentroles.ai/arbiter.html, 4). Pins the branches where two implementations drift: the closed posture set (exactly one per clause), the flat 'evidence' grade (the enforced parts of 5.10 are ACTIONS clearing takes - the refund, the freeze, the split moving on a signature - never the clause's own grade), the arbiter binding that is REQUIRED under the arbiter posture (an arbiter posture naming no arbiter terms names no forum) and REFUSED under every other, the fallback that must be one of the OTHER three postures because a dispute with no working forum cannot land on the forum that just died, the verdict shape whose one load-bearing rule is that split.provider + split.client equals disputed.amount EXACTLY in whole units (both off-by-one boundary rows are pinned), the clause-side expectation check (a verdict about some other amount or currency divides nothing this dispute froze), and the signed bytes under the verdict's own tag - a REALLY SIGNED verdict both SDKs must verify, byte for byte. THE FIXTURE IS THE AUTHORITY: when a test against it fails, fix the implementation; when the fixture itself is believed wrong, change it only with a spec change alongside.",
+  "version": 1,
+  "spec": "Agent SoW 0.15.0-draft: 5.10, 5.10.1, 5.10.2; role contract agentroles.ai/arbiter.html 4",
+
+  "identities": {
+    "sender_seed": "SUAEGDPNTWXACIF45CA23BUY36RIMWZXW5LEHSEOK2ONS5JWJ7PBC2EWBA",
+    "sender": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+    "recipient": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+    "comment": "The same published test vectors sow-pricing.json, budget.json and signature-tags.json use, deliberately: they are not real identities and control nothing, and reusing them keeps any new private-key-shaped string out of the repository. Here the SENDER key plays the ARBITER - it signs the verdict below - and the recipient key plays the arbiter agent bound at formation in the clause examples."
+  },
+
+  "postures": {
+    "comment": "5.10: exactly one posture, chosen from a closed set. There is NO default for an absent clause - absent means the document has not said, and a reader MUST NOT invent a posture on its behalf. The grade is 'evidence', flatly: quality judgment is out of scope for the runtime and always will be; the arbiter posture does not change that - it names who judges, and what the machinery enforces is only what is mechanical about the naming and the outcome.",
+    "all": ["none", "refund_on_failed_task", "escalate_to_owners", "arbiter"],
+    "fees": ["split", "follows_finding"],
+    "role": "role-arbiter",
+    "role_why": "the standard registry's name for the published arbiter contract. The clause's role member is validated as a non-empty name, NOT pinned to this constant: a deployment may publish its own role registry.",
+    "grade": "evidence",
+    "grade_why": "the enforced parts of 5.10 are actions clearing takes - the refund where reversal is supported (8.2), the freeze on the disputed amount, the split moving on a verdict's signature the platform verifies mechanically - never the clause's own grade. No machine here judges whether work was good."
+  },
+
+  "clause": {
+    "comment": "The clause shape. The arbiter member is REQUIRED when the posture is 'arbiter' and REFUSED on any other posture. Inside it: role is a non-empty name up to 64 characters; agent is OPTIONAL (bound at formation both parties signed over the specific judge; absent, they appoint one when a dispute opens) and is checked as shape only - whether the key is real is the platform's problem; independence_days and deadline_days are positive whole days; fee comes from its closed set; fallback is one of the OTHER three postures and MUST NOT be 'arbiter'.",
+    "valid": [
+      { "posture": "none", "grade": "evidence" },
+      { "posture": "refund_on_failed_task", "grade": "evidence" },
+      { "posture": "escalate_to_owners", "grade": "evidence" },
+      {
+        "posture": "arbiter",
+        "arbiter": {
+          "role": "role-arbiter",
+          "agent": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+          "independence_days": 90,
+          "deadline_days": 14,
+          "fee": "split",
+          "fallback": "escalate_to_owners"
+        },
+        "grade": "evidence"
+      },
+      {
+        "posture": "arbiter",
+        "arbiter": {
+          "role": "role-arbiter",
+          "independence_days": 180,
+          "deadline_days": 21,
+          "fee": "follows_finding",
+          "fallback": "none"
+        },
+        "grade": "evidence"
+      }
+    ],
+    "invalid": [
+      { "case": "unknown_posture", "disputes": { "posture": "mediation", "grade": "evidence" }, "why": "the vocabulary is closed: none, refund_on_failed_task, escalate_to_owners, arbiter" },
+      { "case": "grade_enforced", "disputes": { "posture": "refund_on_failed_task", "grade": "enforced" }, "why": "the false enforcement claim: what is enforced under 5.10 is the actions clearing takes, never the clause's own grade - no machine here judges whether work was good" },
+      { "case": "grade_recorded", "disputes": { "posture": "escalate_to_owners", "grade": "recorded" }, "why": "understates what ships: the signed record a dispute is read against is exportable evidence, which is more than a record of the clause" },
+      { "case": "arbiter_without_terms", "disputes": { "posture": "arbiter", "grade": "evidence" }, "why": "an arbiter posture naming no arbiter terms names no forum: the binding is required when the posture is 'arbiter'" },
+      { "case": "binding_on_none", "disputes": { "posture": "none", "arbiter": { "role": "role-arbiter", "independence_days": 90, "deadline_days": 14, "fee": "split", "fallback": "escalate_to_owners" }, "grade": "evidence" }, "why": "only the arbiter posture carries the arbiter member: a clause naming a judge under a posture that never convenes one is two clauses disagreeing about which it is" },
+      { "case": "fallback_arbiter", "disputes": { "posture": "arbiter", "arbiter": { "role": "role-arbiter", "independence_days": 90, "deadline_days": 14, "fee": "split", "fallback": "arbiter" }, "grade": "evidence" }, "why": "a dead forum cannot land on itself: the fallback exists because an arbiter can decline, conflict out, or fall silent" },
+      { "case": "fallback_unknown", "disputes": { "posture": "arbiter", "arbiter": { "role": "role-arbiter", "independence_days": 90, "deadline_days": 14, "fee": "split", "fallback": "sue_them" }, "grade": "evidence" }, "why": "the fallback comes from the same closed posture set" },
+      { "case": "zero_days", "disputes": { "posture": "arbiter", "arbiter": { "role": "role-arbiter", "independence_days": 0, "deadline_days": 14, "fee": "split", "fallback": "none" }, "grade": "evidence" }, "why": "a zero-day independence window checks nothing" },
+      { "case": "negative_days", "disputes": { "posture": "arbiter", "arbiter": { "role": "role-arbiter", "independence_days": 90, "deadline_days": -14, "fee": "split", "fallback": "none" }, "grade": "evidence" }, "why": "a deadline does not run backwards" },
+      { "case": "fractional_days", "disputes": { "posture": "arbiter", "arbiter": { "role": "role-arbiter", "independence_days": 90, "deadline_days": 14.5, "fee": "split", "fallback": "none" }, "grade": "evidence" }, "why": "whole days only; a fractional deadline invites two implementations to round differently" },
+      { "case": "unknown_fee", "disputes": { "posture": "arbiter", "arbiter": { "role": "role-arbiter", "independence_days": 90, "deadline_days": 14, "fee": "loser_pays", "fallback": "none" }, "grade": "evidence" }, "why": "the fee vocabulary is closed: split or follows_finding" },
+      { "case": "blank_role", "disputes": { "posture": "arbiter", "arbiter": { "role": "   ", "independence_days": 90, "deadline_days": 14, "fee": "split", "fallback": "none" }, "grade": "evidence" }, "why": "the role names the published contract the serving agent must hold; blank names nothing" }
+    ]
+  },
+
+  "verdict": {
+    "comment": "The document an arbiter produces (arbiter.html 4). The one load-bearing rule: split.provider + split.client MUST equal disputed.amount exactly, in whole units - money divides one way in this family, by integers, with nothing left over and nothing invented, so BOTH off-by-one boundary rows are pinned. Rows carrying `expected` exercise the clause side of the check: the verdict must be about the amount and currency the dispute was opened against, because the parties' signatures granted authority over that money and nothing else. attribution comes from the Agent SoW failure vocabulary but is validated as a non-empty name, not a closed set - the vocabulary lives with the failure clauses. basis.ids_sha256 commits the verdict to the exact record set ruled from: sha256 over the JCS array of the record ids, sorted; excluded records are listed with reasons and are NOT in the hashed basis. heard carries BOTH booleans: silence from a party is recorded, never punished by inference.",
+    "valid": [
+      {
+        "name": "full verdict, exclusions named, checked against the clause's expectation",
+        "verdict": {
+          "verdict": "v1",
+          "role": "arbiter",
+          "engagement": "sow_9f4c1b02",
+          "dispute": "dsp_5e8a7c31",
+          "disputed": { "currency": "XCR", "amount": 5000000 },
+          "split": { "provider": 3000000, "client": 2000000 },
+          "attribution": "needs_not_furnished",
+          "basis": {
+            "count": 3,
+            "ids_sha256": "ae05bca4d877cf19be01435525fd52fa9b24122d530196711993cd999967a4d8",
+            "excluded": [{ "id": "rec_11", "why": "signature did not verify" }]
+          },
+          "heard": { "provider": true, "client": true },
+          "reasons": "The client's August inputs arrived four days after the declared window closed, and the record shows the provider raised it on arrival.",
+          "produced_at": "2026-08-09T16:40:00Z",
+          "by": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "signatures": []
+        },
+        "expected": { "disputed_amount": 5000000, "currency": "XCR" }
+      },
+      {
+        "name": "minimal verdict: nothing excluded, one party silent, full refund",
+        "verdict": {
+          "verdict": "v1",
+          "role": "arbiter",
+          "engagement": "sow_9f4c1b02",
+          "dispute": "dsp_77c210aa",
+          "disputed": { "currency": "XCR", "amount": 800000 },
+          "split": { "provider": 0, "client": 800000 },
+          "attribution": "deliverable_form",
+          "basis": {
+            "count": 2,
+            "ids_sha256": "ae05bca4d877cf19be01435525fd52fa9b24122d530196711993cd999967a4d8"
+          },
+          "heard": { "provider": false, "client": true },
+          "reasons": "The deliverable never took the declared form and the provider made no submission; the record decides, not the absence.",
+          "produced_at": "2026-08-09T17:05:00Z",
+          "by": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "signatures": []
+        }
+      }
+    ],
+    "invalid": [
+      {
+        "case": "split_one_over",
+        "verdict": { "verdict": "v1", "role": "arbiter", "engagement": "sow_9f4c1b02", "dispute": "dsp_5e8a7c31", "disputed": { "currency": "XCR", "amount": 5000000 }, "split": { "provider": 3000001, "client": 2000000 }, "attribution": "needs_not_furnished", "basis": { "count": 3, "ids_sha256": "ae05bca4d877cf19be01435525fd52fa9b24122d530196711993cd999967a4d8" }, "heard": { "provider": true, "client": true }, "reasons": "prose a person reads", "produced_at": "2026-08-09T16:40:00Z", "by": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP", "signatures": [] },
+        "why": "the HIGH boundary: 5000001 against 5000000 invents money; the sum must be exact"
+      },
+      {
+        "case": "split_one_under",
+        "verdict": { "verdict": "v1", "role": "arbiter", "engagement": "sow_9f4c1b02", "dispute": "dsp_5e8a7c31", "disputed": { "currency": "XCR", "amount": 5000000 }, "split": { "provider": 2999999, "client": 2000000 }, "attribution": "needs_not_furnished", "basis": { "count": 3, "ids_sha256": "ae05bca4d877cf19be01435525fd52fa9b24122d530196711993cd999967a4d8" }, "heard": { "provider": true, "client": true }, "reasons": "prose a person reads", "produced_at": "2026-08-09T16:40:00Z", "by": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP", "signatures": [] },
+        "why": "the LOW boundary: 4999999 against 5000000 leaves money over; the sum must be exact"
+      },
+      {
+        "case": "negative_split_member",
+        "verdict": { "verdict": "v1", "role": "arbiter", "engagement": "sow_9f4c1b02", "dispute": "dsp_5e8a7c31", "disputed": { "currency": "XCR", "amount": 5000000 }, "split": { "provider": 5000001, "client": -1 }, "attribution": "needs_not_furnished", "basis": { "count": 3, "ids_sha256": "ae05bca4d877cf19be01435525fd52fa9b24122d530196711993cd999967a4d8" }, "heard": { "provider": true, "client": true }, "reasons": "prose a person reads", "produced_at": "2026-08-09T16:40:00Z", "by": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP", "signatures": [] },
+        "why": "the sum is right but a negative share is authority nobody granted: the answer runs from full release to full refund, and each member is a non-negative integer"
+      },
+      {
+        "case": "wrong_currency_vs_expected",
+        "verdict": { "verdict": "v1", "role": "arbiter", "engagement": "sow_9f4c1b02", "dispute": "dsp_5e8a7c31", "disputed": { "currency": "USD", "amount": 5000000 }, "split": { "provider": 3000000, "client": 2000000 }, "attribution": "needs_not_furnished", "basis": { "count": 3, "ids_sha256": "ae05bca4d877cf19be01435525fd52fa9b24122d530196711993cd999967a4d8" }, "heard": { "provider": true, "client": true }, "reasons": "prose a person reads", "produced_at": "2026-08-09T16:40:00Z", "by": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP", "signatures": [] },
+        "expected": { "disputed_amount": 5000000, "currency": "XCR" },
+        "why": "a well-formed verdict in some other money divides nothing this clause froze; the clause side of the check refuses it"
+      },
+      {
+        "case": "amount_mismatch_vs_expected",
+        "verdict": { "verdict": "v1", "role": "arbiter", "engagement": "sow_9f4c1b02", "dispute": "dsp_5e8a7c31", "disputed": { "currency": "XCR", "amount": 4000000 }, "split": { "provider": 2400000, "client": 1600000 }, "attribution": "needs_not_furnished", "basis": { "count": 3, "ids_sha256": "ae05bca4d877cf19be01435525fd52fa9b24122d530196711993cd999967a4d8" }, "heard": { "provider": true, "client": true }, "reasons": "prose a person reads", "produced_at": "2026-08-09T16:40:00Z", "by": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP", "signatures": [] },
+        "expected": { "disputed_amount": 5000000, "currency": "XCR" },
+        "why": "internally consistent, but not about the amount the dispute was opened against; the parties' signatures granted authority over that amount and nothing else"
+      },
+      {
+        "case": "heard_missing_member",
+        "verdict": { "verdict": "v1", "role": "arbiter", "engagement": "sow_9f4c1b02", "dispute": "dsp_5e8a7c31", "disputed": { "currency": "XCR", "amount": 5000000 }, "split": { "provider": 3000000, "client": 2000000 }, "attribution": "needs_not_furnished", "basis": { "count": 3, "ids_sha256": "ae05bca4d877cf19be01435525fd52fa9b24122d530196711993cd999967a4d8" }, "heard": { "provider": true }, "reasons": "prose a person reads", "produced_at": "2026-08-09T16:40:00Z", "by": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP", "signatures": [] },
+        "why": "the verdict MUST say whether EACH submission was received: an absent boolean is not a recorded silence, it is a verdict that did not say"
+      },
+      {
+        "case": "ids_sha256_wrong_length",
+        "verdict": { "verdict": "v1", "role": "arbiter", "engagement": "sow_9f4c1b02", "dispute": "dsp_5e8a7c31", "disputed": { "currency": "XCR", "amount": 5000000 }, "split": { "provider": 3000000, "client": 2000000 }, "attribution": "needs_not_furnished", "basis": { "count": 3, "ids_sha256": "ae05bca4d877cf19be01435525fd52fa9b24122d530196711993cd999967a4d" }, "heard": { "provider": true, "client": true }, "reasons": "prose a person reads", "produced_at": "2026-08-09T16:40:00Z", "by": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP", "signatures": [] },
+        "why": "63 hex characters; a truncated commitment commits to nothing a verifier can recompute"
+      },
+      {
+        "case": "ids_sha256_uppercase",
+        "verdict": { "verdict": "v1", "role": "arbiter", "engagement": "sow_9f4c1b02", "dispute": "dsp_5e8a7c31", "disputed": { "currency": "XCR", "amount": 5000000 }, "split": { "provider": 3000000, "client": 2000000 }, "attribution": "needs_not_furnished", "basis": { "count": 3, "ids_sha256": "AE05BCA4D877CF19BE01435525FD52FA9B24122D530196711993CD999967A4D8" }, "heard": { "provider": true, "client": true }, "reasons": "prose a person reads", "produced_at": "2026-08-09T16:40:00Z", "by": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP", "signatures": [] },
+        "why": "the digest is lowercase hex and comparison is exact: two spellings of one digest is how two verifiers disagree about the same basis"
+      },
+      {
+        "case": "blank_attribution",
+        "verdict": { "verdict": "v1", "role": "arbiter", "engagement": "sow_9f4c1b02", "dispute": "dsp_5e8a7c31", "disputed": { "currency": "XCR", "amount": 5000000 }, "split": { "provider": 3000000, "client": 2000000 }, "attribution": "   ", "basis": { "count": 3, "ids_sha256": "ae05bca4d877cf19be01435525fd52fa9b24122d530196711993cd999967a4d8" }, "heard": { "provider": true, "client": true }, "reasons": "prose a person reads", "produced_at": "2026-08-09T16:40:00Z", "by": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP", "signatures": [] },
+        "why": "the attribution is one of the two operative parts; blank attributes the failure to nobody"
+      },
+      {
+        "case": "blank_excluded_why",
+        "verdict": { "verdict": "v1", "role": "arbiter", "engagement": "sow_9f4c1b02", "dispute": "dsp_5e8a7c31", "disputed": { "currency": "XCR", "amount": 5000000 }, "split": { "provider": 3000000, "client": 2000000 }, "attribution": "needs_not_furnished", "basis": { "count": 3, "ids_sha256": "ae05bca4d877cf19be01435525fd52fa9b24122d530196711993cd999967a4d8", "excluded": [{ "id": "rec_11", "why": "   " }] }, "heard": { "provider": true, "client": true }, "reasons": "prose a person reads", "produced_at": "2026-08-09T16:40:00Z", "by": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP", "signatures": [] },
+        "why": "an exclusion carries its reason; excluded and unexplained is indistinguishable from suppressed"
+      },
+      {
+        "case": "excluded_empty",
+        "verdict": { "verdict": "v1", "role": "arbiter", "engagement": "sow_9f4c1b02", "dispute": "dsp_5e8a7c31", "disputed": { "currency": "XCR", "amount": 5000000 }, "split": { "provider": 3000000, "client": 2000000 }, "attribution": "needs_not_furnished", "basis": { "count": 3, "ids_sha256": "ae05bca4d877cf19be01435525fd52fa9b24122d530196711993cd999967a4d8", "excluded": [] }, "heard": { "provider": true, "client": true }, "reasons": "prose a person reads", "produced_at": "2026-08-09T16:40:00Z", "by": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP", "signatures": [] },
+        "why": "an empty excluded list declares nothing, which OMITTING the member already means; two spellings of one state is how implementations come to disagree about which is which"
+      }
+    ]
+  },
+
+  "signing": {
+    "comment": "Two byte contracts. The CLAUSE sits inside the engagement's signed bytes under the agent-sow-v1 tag, like every other clause: `canonical` is what the TypeScript SDK produced for `document`, and Rust must reproduce it exactly. The VERDICT is its own signed document under its own tag: the ASCII prefix agent-arbiter-verdict-v1, one newline, then the JCS canonical JSON of the verdict with `signatures` removed. `verdict` below is REALLY SIGNED by the published sender seed playing the arbiter, and both SDKs must verify the same base64url signature over the same `verdict_canonical` bytes. basis.ids_sha256 is honestly derived: sha256 over the JCS array of the ruled-from record ids, sorted - [\"rec_04\",\"rec_07\",\"rec_12\"] - with rec_11 excluded from the basis and therefore NOT in the hash.",
+    "signed_bytes_prefix": "agent-sow-v1\n",
+    "verdict_signed_bytes_prefix": "agent-arbiter-verdict-v1\n",
+    "basis_record_ids": ["rec_04", "rec_07", "rec_12"],
+    "document": {
+      "disputes": {
+        "posture": "arbiter",
+        "arbiter": {
+          "role": "role-arbiter",
+          "agent": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+          "independence_days": 90,
+          "deadline_days": 14,
+          "fee": "split",
+          "fallback": "escalate_to_owners"
+        },
+        "grade": "evidence"
+      },
+      "scope": "keep the books current"
+    },
+    "canonical": "{\"disputes\":{\"arbiter\":{\"agent\":\"UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A\",\"deadline_days\":14,\"fallback\":\"escalate_to_owners\",\"fee\":\"split\",\"independence_days\":90,\"role\":\"role-arbiter\"},\"grade\":\"evidence\",\"posture\":\"arbiter\"},\"scope\":\"keep the books current\"}",
+    "verdict": {
+      "verdict": "v1",
+      "role": "arbiter",
+      "engagement": "sow_9f4c1b02",
+      "dispute": "dsp_5e8a7c31",
+      "disputed": { "currency": "XCR", "amount": 5000000 },
+      "split": { "provider": 3000000, "client": 2000000 },
+      "attribution": "needs_not_furnished",
+      "basis": {
+        "count": 3,
+        "ids_sha256": "ae05bca4d877cf19be01435525fd52fa9b24122d530196711993cd999967a4d8",
+        "excluded": [{ "id": "rec_11", "why": "signature did not verify" }]
+      },
+      "heard": { "provider": true, "client": true },
+      "reasons": "The client's August inputs arrived four days after the declared window closed, and the record shows the provider raised it on arrival.",
+      "produced_at": "2026-08-09T16:40:00Z",
+      "by": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+      "signatures": [
+        {
+          "key": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "signed_at": "2026-08-09T16:41:22Z",
+          "sig": "GcF1P8EaPbNW8chPNkL47fNuoz1spk6Dw61UehDCXo5IAObLzwZ3UR4XeuEnNYG4aO5Pqpyrbd1ukBWAra2CAA"
+        }
+      ]
+    },
+    "verdict_canonical": "{\"attribution\":\"needs_not_furnished\",\"basis\":{\"count\":3,\"excluded\":[{\"id\":\"rec_11\",\"why\":\"signature did not verify\"}],\"ids_sha256\":\"ae05bca4d877cf19be01435525fd52fa9b24122d530196711993cd999967a4d8\"},\"by\":\"UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP\",\"dispute\":\"dsp_5e8a7c31\",\"disputed\":{\"amount\":5000000,\"currency\":\"XCR\"},\"engagement\":\"sow_9f4c1b02\",\"heard\":{\"client\":true,\"provider\":true},\"produced_at\":\"2026-08-09T16:40:00Z\",\"reasons\":\"The client's August inputs arrived four days after the declared window closed, and the record shows the provider raised it on arrival.\",\"role\":\"arbiter\",\"split\":{\"client\":2000000,\"provider\":3000000},\"verdict\":\"v1\"}",
+    "tamper": {
+      "comment": "SEMANTIC, no re-signing: change any one of these inside the signed verdict above and the signature MUST stop verifying. The split and the attribution are listed because they are the operative parts money moves on.",
+      "fields": ["split.provider", "attribution", "disputed.amount", "basis.ids_sha256"]
+    }
+  }
+}

@@ -3,11 +3,11 @@
 // broker revokes the scoped credential and the expelled member can no longer
 // post. Promotes the in-memory rooms unit tests to the real broker, where
 // the ACL is actually the NATS account permission, not an app-level check.
-import { jwtAuthenticator, nkeys } from "../../peering/lib/mesh.mjs";
+import { jwtAuthenticator } from "../../peering/lib/mesh.mjs";
 import { sdkModule as sdk } from "../../peering/lib/sdk.mjs";
+import { seedFor } from "../lib/test-agents.mjs";
 
 const te = new TextEncoder();
-const td = new TextDecoder();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export default {
@@ -18,14 +18,16 @@ export default {
     if (!env.creds) throw new Error("env-skip: MESH_CREDS_FILE (durable NATS creds) required");
     const auth = () => jwtAuthenticator(env.creds.jwt, te.encode(env.creds.seed));
     const { AgentMesh } = sdk;
-    const fresh = () => td.decode(nkeys.createUser().getSeed());
 
     // ACL rooms require the creator to reverse-resolve to a PAN handle
     // (an email-verified operator), so the host uses the paired conformance
     // key; without it there is no way to create the room — env-skip.
     if (!env.roomsCreatorSeed) throw new Error("env-skip: MESH_ROOMS_CREATOR_SEED (a PAN-handle-paired key) required for ACL rooms");
-    const host = await AgentMesh.connect(env.meshWsUrl, { authenticator: auth(), nkeySeed: env.roomsCreatorSeed });
-    const guest = await AgentMesh.connect(env.meshWsUrl, { authenticator: auth(), nkeySeed: fresh() });
+    const host = await AgentMesh.connect(env.meshWsUrl, { requireNamed: false, authenticator: auth(), nkeySeed: env.roomsCreatorSeed });
+    // The guest is a standing test agent, c10-guest.test@agentmesh.ai
+    // (lib/test-agents.mjs), so the registry sees a named agent rather than a
+    // new unnamed one each night. Without the file, a key minted for the run.
+    const guest = await AgentMesh.connect(env.meshWsUrl, { requireNamed: false, authenticator: auth(), nkeySeed: seedFor(env, "c10-guest") });
     const fails = [];
     let room = null;
     try {

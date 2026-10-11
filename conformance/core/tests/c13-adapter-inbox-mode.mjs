@@ -7,8 +7,16 @@
 // the sender gets an immediate "queued" acknowledgement rather than an answer,
 // the message is retrievable through the session API, a reply sent from the
 // session reaches the original sender, and acked messages leave the queue.
+//
+// Reply-path note (0.3): both delivery expectations here survive the §6.5
+// cutover unchanged - the queued ack is a node-level delivery-status signal
+// and stays on the transport reply subject (§6.4a, §18.7), and the session's
+// real reply was already asserted at the sender's own inbox. The adapter is
+// rebuilt for 0.3 in the same release wave as this suite change.
 import { connect, jwtAuthenticator, nkeys } from "../../peering/lib/mesh.mjs";
 import { createEnvelope, signEnvelope } from "../../peering/lib/sdk.mjs";
+import { deregisterAdapter } from "../lib/deregister.mjs";
+import { plantAdapterIdentity } from "../lib/test-agents.mjs";
 import { spawn } from "node:child_process";
 import { mkdtempSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -30,6 +38,8 @@ export default {
     if (!existsSync(ADAPTER)) throw new Error("env-skip: mesh-adapter.mjs not found (set RESOLVER_MJS)");
 
     const state = mkdtempSync(join(tmpdir(), "c13-inbox-"));
+    // The standing test agent c13-inbox.test@agentmesh.ai (lib/test-agents.mjs).
+    plantAdapterIdentity(state, env, "c13-inbox");
     const credsFile = join(state, "mesh.creds");
     writeFileSync(credsFile,
       `-----BEGIN NATS USER JWT-----\n${env.creds.jwt}\n------END NATS USER JWT------\n\n` +
@@ -144,6 +154,8 @@ export default {
       if (/mode\s+pipe/.test(log)) fails.push("inbox-mode adapter reported pipe mode");
       subS.unsubscribe();
     } finally {
+      // Off the registry first, or the mesh keeps one more c13-inbox forever.
+      if (nc) await deregisterAdapter(nc, state);
       child.kill();
       await nc?.close().catch(() => {});
     }

@@ -610,7 +610,7 @@
       },
       {
         "id": "structured_input_untouched",
-        "comment": "an ACCEPT case: a frame is prose for a model, and stringifying an object into one would break every structured skill contract there is",
+        "comment": "an ACCEPT case: a frame is prose for a model, and stringifying an object into one would break every structured offering contract there is",
         "input": {
           "room_id": "r1",
           "limit": 5
@@ -757,7 +757,7 @@
     "signed_bytes_prefix": "agentmesh-envelope-v1\n",
     "addressed_to_recipient": {
       "comment": "the normal case, and the envelope the accept-side addressing and duplicate cases are built on",
-      "canonical": "{\"from\":\"UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP\",\"id\":\"019894f0-0000-7000-8000-000000000001\",\"payload\":{\"input\":{\"text\":\"hello\"},\"skill\":\"chat\"},\"to\":\"UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A\",\"trace\":{\"span_id\":\"00f067aa0ba902b7\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\"},\"ts\":\"2026-07-26T12:00:00.000Z\",\"type\":\"request\",\"v\":\"0.2.0\"}",
+      "canonical": "{\"from\":\"UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP\",\"id\":\"019894f0-0000-7000-8000-000000000001\",\"payload\":{\"input\":{\"text\":\"hello\"},\"offering\":\"chat\"},\"to\":\"UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A\",\"trace\":{\"span_id\":\"00f067aa0ba902b7\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\"},\"ts\":\"2026-07-26T12:00:00.000Z\",\"type\":\"request\",\"v\":\"0.2.0\"}",
       "envelope": {
         "v": "0.2.0",
         "id": "019894f0-0000-7000-8000-000000000001",
@@ -770,17 +770,17 @@
         },
         "to": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
         "payload": {
-          "skill": "chat",
+          "offering": "chat",
           "input": {
             "text": "hello"
           }
         },
-        "sig": "_p8C86Qoi7Gh7t33YaUX4Ok9hUQrbjaIR4tg28r60VyaQ2ZZWqsOOrxu_c9dEzyRfC7Ip7MAx5miobvK2ecuDQ"
+        "sig": "p-AMEZitesIWDHNirx4zz8gytHn4hFqDE6NlNxl_sHwYTC88ZOKOq8Nauxj0NSXj8xQInu2yPPmJ-e9ZIGRtAQ"
       }
     },
     "addressed_to_a_third_party": {
       "comment": "a replay onto the recipient's inbox: genuinely signed by the sender, genuinely intended for somebody else. Every agent the sender ever messaged holds one of these and could aim it here",
-      "canonical": "{\"from\":\"UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP\",\"id\":\"019894f0-0000-7000-8000-000000000002\",\"payload\":{\"input\":{\"text\":\"hello\"},\"skill\":\"chat\"},\"to\":\"UBZM2TEHNKQ7RTPRPYO6TYZZZ4XRCYSVUNTLMX763XGEN65Z2RNURY2R\",\"trace\":{\"span_id\":\"00f067aa0ba902b7\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\"},\"ts\":\"2026-07-26T12:00:00.000Z\",\"type\":\"request\",\"v\":\"0.2.0\"}",
+      "canonical": "{\"from\":\"UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP\",\"id\":\"019894f0-0000-7000-8000-000000000002\",\"payload\":{\"input\":{\"text\":\"hello\"},\"offering\":\"chat\"},\"to\":\"UBZM2TEHNKQ7RTPRPYO6TYZZZ4XRCYSVUNTLMX763XGEN65Z2RNURY2R\",\"trace\":{\"span_id\":\"00f067aa0ba902b7\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\"},\"ts\":\"2026-07-26T12:00:00.000Z\",\"type\":\"request\",\"v\":\"0.2.0\"}",
       "envelope": {
         "v": "0.2.0",
         "id": "019894f0-0000-7000-8000-000000000002",
@@ -793,17 +793,17 @@
         },
         "to": "UBZM2TEHNKQ7RTPRPYO6TYZZZ4XRCYSVUNTLMX763XGEN65Z2RNURY2R",
         "payload": {
-          "skill": "chat",
+          "offering": "chat",
           "input": {
             "text": "hello"
           }
         },
-        "sig": "DFq04786e0vBPp1HyVN1dg-stS6CchIViAGnMb8-aeb8CWrr_eBOXtsWE9Ri-sduo-OyGxlOgHLk1uBDmRCwDQ"
+        "sig": "RnumeFAQpxv4YjsVhmCy4LxPNCUajl5uwjAlJCOaED6ncTnd5wE0XKFWiPN-pUhBfEW0C4wCNET4MWIOAvb6Ag"
       }
     },
     "no_to_field": {
       "comment": "an absent `to` is legitimate — service calls omit it — so this MUST BE ACCEPTED. Note what that means: the addressing check refuses a WRONG destination, it does not require a stated one",
-      "canonical": "{\"from\":\"UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP\",\"id\":\"019894f0-0000-7000-8000-000000000003\",\"payload\":{\"input\":{\"text\":\"hello\"},\"skill\":\"chat\"},\"trace\":{\"span_id\":\"00f067aa0ba902b7\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\"},\"ts\":\"2026-07-26T12:00:00.000Z\",\"type\":\"request\",\"v\":\"0.2.0\"}",
+      "canonical": "{\"from\":\"UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP\",\"id\":\"019894f0-0000-7000-8000-000000000003\",\"payload\":{\"input\":{\"text\":\"hello\"},\"offering\":\"chat\"},\"trace\":{\"span_id\":\"00f067aa0ba902b7\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\"},\"ts\":\"2026-07-26T12:00:00.000Z\",\"type\":\"request\",\"v\":\"0.2.0\"}",
       "envelope": {
         "v": "0.2.0",
         "id": "019894f0-0000-7000-8000-000000000003",
@@ -815,17 +815,17 @@
           "span_id": "00f067aa0ba902b7"
         },
         "payload": {
-          "skill": "chat",
+          "offering": "chat",
           "input": {
             "text": "hello"
           }
         },
-        "sig": "teV0_v_AJk7qoyq3fnyLcLRIBDuowESDy0GmMQGywM6hRbhEuDIg8_Ri-2iR-EiKB3nDaEi5vMVJ4jd0hlnMAw"
+        "sig": "fhieFN20O3NKK1NjEbDG-PwClmxswF4kv-u3ll79elnrLW8fBEPkXN6AI36aA4K4R0jHM4DiBIWB-GC9TjnKCA"
       }
     },
     "to_differs_only_by_case": {
       "comment": "the last character of the recipient's key lowercased. Refused: an agent id is compared byte for byte, never case-folded or normalised. An implementation that case-folds accepts an envelope addressed to a key that does not exist",
-      "canonical": "{\"from\":\"UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP\",\"id\":\"019894f0-0000-7000-8000-000000000004\",\"payload\":{\"input\":{\"text\":\"hello\"},\"skill\":\"chat\"},\"to\":\"UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5a\",\"trace\":{\"span_id\":\"00f067aa0ba902b7\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\"},\"ts\":\"2026-07-26T12:00:00.000Z\",\"type\":\"request\",\"v\":\"0.2.0\"}",
+      "canonical": "{\"from\":\"UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP\",\"id\":\"019894f0-0000-7000-8000-000000000004\",\"payload\":{\"input\":{\"text\":\"hello\"},\"offering\":\"chat\"},\"to\":\"UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5a\",\"trace\":{\"span_id\":\"00f067aa0ba902b7\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\"},\"ts\":\"2026-07-26T12:00:00.000Z\",\"type\":\"request\",\"v\":\"0.2.0\"}",
       "envelope": {
         "v": "0.2.0",
         "id": "019894f0-0000-7000-8000-000000000004",
@@ -838,17 +838,17 @@
         },
         "to": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5a",
         "payload": {
-          "skill": "chat",
+          "offering": "chat",
           "input": {
             "text": "hello"
           }
         },
-        "sig": "fKxCXqYYSGJ_eKUdZPykRUZhoh_ftnh2CUrHl94waxDLYewmAdcDerpOMzTzh19CWQdP2MAenQQKN2UEZm_lCQ"
+        "sig": "72ZHhRnfVOcUKDQ6rx1LiNtumTzuJ_fotZoBn7W5FeNcZGcJhgrU30u1V1K-u0QnNrogc2eJWvyl4W7NHYhoBQ"
       }
     },
     "stale_by_two_hours": {
       "comment": "used by the ordering case: refused on the live path for age, and MUST still be remembered by the dedup memory",
-      "canonical": "{\"from\":\"UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP\",\"id\":\"019894f0-0000-7000-8000-000000000005\",\"payload\":{\"input\":{\"text\":\"hello\"},\"skill\":\"chat\"},\"to\":\"UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A\",\"trace\":{\"span_id\":\"00f067aa0ba902b7\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\"},\"ts\":\"2026-07-26T10:00:00.000Z\",\"type\":\"request\",\"v\":\"0.2.0\"}",
+      "canonical": "{\"from\":\"UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP\",\"id\":\"019894f0-0000-7000-8000-000000000005\",\"payload\":{\"input\":{\"text\":\"hello\"},\"offering\":\"chat\"},\"to\":\"UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A\",\"trace\":{\"span_id\":\"00f067aa0ba902b7\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\"},\"ts\":\"2026-07-26T10:00:00.000Z\",\"type\":\"request\",\"v\":\"0.2.0\"}",
       "envelope": {
         "v": "0.2.0",
         "id": "019894f0-0000-7000-8000-000000000005",
@@ -861,17 +861,17 @@
         },
         "to": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
         "payload": {
-          "skill": "chat",
+          "offering": "chat",
           "input": {
             "text": "hello"
           }
         },
-        "sig": "TlRyPl-dFoYwWI82NqqFaFzj5txM3Nf-4qElnG_GtFgw_vPraTWyAbwgGFF84i6GpU-J2xGXoGD5fBlzlGRQDQ"
+        "sig": "aExW2GQKEqZAdxsXWkcXOgpUOBkr0DpLPWZJhMpItZpK-uhrL6F27NZ76OeVqi-zNQpltgqCPYqgHloELLUuAw"
       }
     },
     "hops_over_the_relay_bound": {
       "comment": "meta.hops above the §21 relay bound. Included so the addressing fixture is not read as the only meta-level drop",
-      "canonical": "{\"from\":\"UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP\",\"id\":\"019894f0-0000-7000-8000-000000000006\",\"meta\":{\"hops\":4},\"payload\":{\"input\":{\"text\":\"hello\"},\"skill\":\"chat\"},\"to\":\"UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A\",\"trace\":{\"span_id\":\"00f067aa0ba902b7\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\"},\"ts\":\"2026-07-26T12:00:00.000Z\",\"type\":\"request\",\"v\":\"0.2.0\"}",
+      "canonical": "{\"from\":\"UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP\",\"id\":\"019894f0-0000-7000-8000-000000000006\",\"meta\":{\"hops\":4},\"payload\":{\"input\":{\"text\":\"hello\"},\"offering\":\"chat\"},\"to\":\"UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A\",\"trace\":{\"span_id\":\"00f067aa0ba902b7\",\"trace_id\":\"4bf92f3577b34da6a3ce929d0e0e4736\"},\"ts\":\"2026-07-26T12:00:00.000Z\",\"type\":\"request\",\"v\":\"0.2.0\"}",
       "envelope": {
         "v": "0.2.0",
         "id": "019894f0-0000-7000-8000-000000000006",
@@ -887,12 +887,12 @@
           "hops": 4
         },
         "payload": {
-          "skill": "chat",
+          "offering": "chat",
           "input": {
             "text": "hello"
           }
         },
-        "sig": "uGrUiSjixLvFmniDLKLiBlQNIep9W9z4cxDMyvmGwVJjWGDJhyIoBRAwDYUUPPCMvzrw8x3DnXapIyrVAzjpDw"
+        "sig": "9Jwx7Z70RajzAo2qusq6N-ZHWBQfQDfeGhNSvDKv9VS866gx-2aeY48t2jNxT7_cgCvV50RE-nQ2msmac-vVAA"
       }
     }
   },

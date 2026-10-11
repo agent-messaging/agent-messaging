@@ -66,6 +66,12 @@ export function loadEnv() {
     // an email-verified operator). Just the seed; the connection still uses the
     // operator NATS creds above.
     roomsCreatorSeed: null,
+    // The core suite's standing test agents (conformance/core/lib/
+    // test-agents.mjs): name → { seed, public_key }, one stable key each,
+    // named once as <name>.test@agentmesh.ai. Absent: those tests fall back
+    // to a key minted per run, which the registry refuses once
+    // MESH_REQUIRE_NAMES is on.
+    testAgents: null,
     // Variable name → what went wrong reading a credential file that WAS
     // configured (explicit env var, or the default path exists). The runners
     // upgrade env-skips that name these variables to not-validated: the
@@ -97,6 +103,18 @@ export function loadEnv() {
       if (!seed) throw new Error("file is empty");
       return seed;
     }, (v) => { env.roomsCreatorSeed = v; });
+  loadCredential("MESH_CONFORMANCE_AGENTS_FILE", join(homedir(), ".agentmesh", "conformance-agents.json"),
+    (p) => {
+      const doc = JSON.parse(readFileSync(p, "utf8"));
+      const agents = doc?.agents;
+      if (!agents || typeof agents !== "object") throw new Error("no \"agents\" object in the file");
+      for (const [name, a] of Object.entries(agents)) {
+        if (typeof a?.seed !== "string" || !/^SU[A-Z2-7]{56}$/.test(a.seed) || typeof a?.public_key !== "string") {
+          throw new Error(`entry "${name}" needs a user seed and its public_key`);
+        }
+      }
+      return agents;
+    }, (v) => { env.testAgents = v; });
 
   // Name every value that fell back to the reference deployment. Without
   // this, a third-party operator who forgets one export silently tests OUR

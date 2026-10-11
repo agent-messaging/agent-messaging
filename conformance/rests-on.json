@@ -1,0 +1,160 @@
+{
+  "comment": "What a statement rested on (SPEC.md 5.6), and the freshness verdict a verifier computes from it. Pins the bytes and the branches where two implementations drift: the digest format, the entry shape, which faults are refusals, and above all the FOUR-WAY verdict - fresh, stale, unchecked, undeclared - plus the not_applicable branch for a countersigned agreement. The distinction that matters most is stale versus everything else: stale means the statement was true when made and its inputs have since moved, and an implementation that reports it as a signature failure, or that reports an unreachable input as agreement, is wrong in the direction that accuses somebody. THE FIXTURE IS THE AUTHORITY: when a test against it fails, fix the implementation, and when the fixture itself is believed wrong, change it only with a spec change alongside.",
+  "version": 1,
+  "spec": "SPEC.md 5.6 (what a statement rests on), 7.5.1 (refs and digests), 13 (usage receipt)",
+
+  "digest": {
+    "comment": "5.6: `sha256:<64 lowercase hex>`, the same spelling 7.5.1 uses for a ref digest. Case matters: a comparison that lowercased first would make two different declared strings equal, and the declared string is inside the signed bytes.",
+    "valid": [
+      "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    ],
+    "invalid": [
+      { "value": "sha256:E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855", "why": "uppercase hex; the spelling is lowercase and comparison is exact" },
+      { "value": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85", "why": "63 hex characters" },
+      { "value": "sha1:da39a3ee5e6b4b0d3255bfef95601890afd80709", "why": "sha-1 is not an accepted algorithm" },
+      { "value": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "why": "no algorithm prefix" },
+      { "value": "sha256:", "why": "prefix with no digest" },
+      { "value": "", "why": "empty" }
+    ]
+  },
+
+  "entries": {
+    "comment": "One entry names one thing the statement rested on. `digest` is the only required member. `ref` is what makes the entry CHECKABLE - a verifier resolves it to get the bytes - so an entry without one is legal and weaker, exactly as 7.5.1 says a ref without a digest is legal and weaker. `name` and `role` are for the reader.",
+    "max_entries": 64,
+    "max_entries_why": "A verifier may have to fetch every one of these, so an unbounded list is a way to spend a stranger's bandwidth. 64 is far above any honest statement and far below a useful attack.",
+    "valid": [
+      { "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "ref": "mesh:artifacts:01J8Z2K9Q0", "name": "invoices-q3.zip", "role": "input" },
+      { "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000", "ref": "mesh:artifacts:01J8Z2K9Q1" },
+      { "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "role": "rate-schedule" }
+    ],
+    "invalid": [
+      { "case": "not_an_array", "rests_on": { "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" }, "why": "rests_on is a list, even with one entry" },
+      { "case": "empty_array", "rests_on": [], "why": "an empty list declares nothing, which is what OMITTING the member already means; two spellings of one state is how implementations come to disagree about which is which" },
+      { "case": "entry_not_an_object", "rests_on": ["sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"], "why": "a bare digest string is not an entry" },
+      { "case": "missing_digest", "rests_on": [{ "ref": "mesh:artifacts:01J8Z2K9Q0", "name": "x" }], "why": "digest is REQUIRED; an entry without one names something the reader cannot check at all" },
+      { "case": "bad_digest", "rests_on": [{ "digest": "sha256:nope" }], "why": "digest must match the 5.6 format" },
+      { "case": "empty_ref", "rests_on": [{ "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "ref": "" }], "why": "present and empty is not the same as absent, and an empty ref resolves to nothing" },
+      { "case": "ref_not_a_string", "rests_on": [{ "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "ref": 7 }], "why": "a ref is an opaque URI string (7.5.1)" },
+      { "case": "name_not_a_string", "rests_on": [{ "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "name": 7 }], "why": "name is a string when present" },
+      { "case": "role_not_a_string", "rests_on": [{ "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "role": true }], "why": "role is a string when present" },
+      {
+        "case": "same_ref_two_digests",
+        "rests_on": [
+          { "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "ref": "mesh:artifacts:01J8Z2K9Q0" },
+          { "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222", "ref": "mesh:artifacts:01J8Z2K9Q0" }
+        ],
+        "why": "one reference cannot have rested on two different sets of bytes; the statement contradicts itself and no verdict over it would mean anything"
+      }
+    ]
+  },
+
+  "freshness": {
+    "comment": "The verdict a verifier computes by comparing the declared entries against what it can see. Four states, and the reason there are four rather than two is that 'I looked and it changed', 'I could not look', and 'nothing was declared' are three different facts, and collapsing any of them into 'fine' or into 'bad' is how a reader ends up either trusting a stale statement or accusing an honest one. In the cases below, `observed` maps a ref to the digest the verifier sees now; `null` means the verifier could not obtain those bytes. An entry carrying no `ref` is never observable and is always counted unreachable.",
+    "states": {
+      "fresh": "every declared entry was observed and every digest matched",
+      "stale": "at least one declared entry was observed with a DIFFERENT digest; the statement was true when made and is no longer a safe basis for a decision. NOT a signature failure and NOT evidence of bad faith.",
+      "unchecked": "nothing was observed to have changed, but at least one entry could not be obtained. Absent evidence is not agreement (7.5.1: unverifiable, never verified).",
+      "undeclared": "the statement declared nothing about what it rested on. Reads as unverifiable, never as 'it rested on nothing' and never as fresh.",
+      "not_applicable": "the statement is a countersigned agreement, which 5.6 excludes from this rule entirely"
+    },
+    "precedence": "stale beats unchecked: one input positively known to have changed is a fact, and it is not weakened by a second input the verifier happened not to reach.",
+    "cases": [
+      {
+        "name": "everything matched",
+        "declared": [
+          { "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "ref": "a" },
+          { "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222", "ref": "b" }
+        ],
+        "observed": {
+          "a": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "b": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "expected": { "state": "fresh", "changed": [], "unreachable": [] }
+      },
+      {
+        "name": "one input moved",
+        "declared": [
+          { "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "ref": "a" },
+          { "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222", "ref": "b" }
+        ],
+        "observed": {
+          "a": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "b": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "expected": { "state": "stale", "changed": ["b"], "unreachable": [] }
+      },
+      {
+        "name": "stale beats unchecked",
+        "comment": "The precedence rule. An implementation that reported unchecked here would let a producer hide a known change behind an unreachable second input.",
+        "declared": [
+          { "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "ref": "a" },
+          { "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222", "ref": "b" }
+        ],
+        "observed": { "a": "sha256:9999999999999999999999999999999999999999999999999999999999999999", "b": null },
+        "expected": { "state": "stale", "changed": ["a"], "unreachable": ["b"] }
+      },
+      {
+        "name": "could not reach one of them",
+        "declared": [
+          { "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "ref": "a" },
+          { "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222", "ref": "b" }
+        ],
+        "observed": { "a": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "b": null },
+        "expected": { "state": "unchecked", "changed": [], "unreachable": ["b"] }
+      },
+      {
+        "name": "could not reach any of them",
+        "comment": "The ordinary federated case (21): the inputs live in a store this verifier does not reach. It is NOT fresh.",
+        "declared": [{ "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "ref": "a" }],
+        "observed": { "a": null },
+        "expected": { "state": "unchecked", "changed": [], "unreachable": ["a"] }
+      },
+      {
+        "name": "an entry with no ref is never observable",
+        "comment": "Nothing to resolve, so nothing to compare. Legal, and weaker, and it must not be counted as agreement.",
+        "declared": [{ "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "role": "rate-schedule" }],
+        "observed": {},
+        "expected": { "state": "unchecked", "changed": [], "unreachable": [null] }
+      },
+      {
+        "name": "an unparseable observation is unreachable, never stale",
+        "comment": "The verifier's own fault, or its store's. Calling the statement stale on the strength of a value we could not parse would accuse the producer of something the evidence does not show, which is the failure direction 5.6 names.",
+        "declared": [{ "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "ref": "a" }],
+        "observed": { "a": "not-a-digest" },
+        "expected": { "state": "unchecked", "changed": [], "unreachable": ["a"] }
+      },
+      {
+        "name": "case differs, so it did not match",
+        "comment": "Comparison is exact. The declared string is inside the signed bytes; normalising before comparing would make two different signed statements equal.",
+        "declared": [{ "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "ref": "a" }],
+        "observed": { "a": "SHA256:1111111111111111111111111111111111111111111111111111111111111111" },
+        "expected": { "state": "unchecked", "changed": [], "unreachable": ["a"] }
+      },
+      {
+        "name": "nothing declared",
+        "declared": null,
+        "observed": {},
+        "expected": { "state": "undeclared", "changed": [], "unreachable": [] }
+      },
+      {
+        "name": "a countersigned agreement is out of scope entirely",
+        "comment": "5.6 excludes agreements normatively. The verifier does not compare, and MUST NOT: an undertaking that voided when one side edited a file is one neither party could rely on, and either could escape by touching it. Implementations MUST NOT even resolve the declared refs here - see observe_must_not_be_called.",
+        "countersigned": true,
+        "declared": [{ "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "ref": "a" }],
+        "observed": { "a": "sha256:9999999999999999999999999999999999999999999999999999999999999999" },
+        "expected": { "state": "not_applicable", "changed": [], "unreachable": [] },
+        "observe_must_not_be_called": true
+      }
+    ]
+  },
+
+  "carriage": {
+    "comment": "5.6: where the member rides today. Named here so that a third site does not appear without a spec change. It is deliberately NOT an envelope field - a message is not a claim about other bytes - and putting it there would invite it onto traffic with nothing to declare.",
+    "sites": [
+      { "where": "artifact.rests_on", "spec": "7.5", "what": "a deliverable, and the inputs it was computed from" },
+      { "where": "payload.rests_on", "spec": "13", "what": "a usage receipt, and the rate schedule or meter definition it was priced against" }
+    ],
+    "not_sites": ["envelope.rests_on", "manifest.rests_on", "task.rests_on"]
+  }
+}

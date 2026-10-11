@@ -216,6 +216,7 @@ async function launchInProcess(env, opts) {
   const a = await AgentMesh.connect(env.meshWsUrl, {
     authenticator: jwtAuthenticator(env.creds.jwt, te.encode(env.creds.seed)),
     nkeySeed: opts.seed,
+    requireNamed: false, // a conformance throwaway identity, exempt from the naming rule
   });
   const handled = [];
   return {
@@ -363,11 +364,21 @@ async function launchSubprocess(env, opts, backend) {
  * `opts.seed` fixes the identity; omitted, a fresh one is minted here so the
  * harness (not the agent) owns the identity in every implementation.
  */
+/**
+ * Every agent key this harness has minted or been handed in this process, so
+ * run.mjs can declare them to the deployment as test agents once the run is
+ * over (POST /v1/operator/test-agents): the daily digest then leaves their
+ * registrations and requests out of its growth counts. Public keys only; a
+ * seed never leaves the launcher.
+ */
+export const mintedAgentKeys = new Set();
+
 export async function launchAgent(env, opts = {}) {
   if (!env.creds) throw new Error("env-skip: MESH_CREDS_FILE (durable NATS creds) required");
   const id = agentSdkId();
   const backend = BACKENDS[id];
   const seed = opts.seed ?? td.decode(nkeys.createUser().getSeed());
+  try { mintedAgentKeys.add(nkeys.fromSeed(te.encode(seed)).getPublicKey()); } catch { /* a malformed seed fails loudly below, on connect */ }
   return backend.inProcess
     ? launchInProcess(env, { ...opts, seed })
     : launchSubprocess(env, { ...opts, seed }, backend);

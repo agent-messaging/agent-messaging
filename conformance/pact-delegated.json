@@ -1,0 +1,282 @@
+{
+  "comment": "PACT Delegated conformance suite (PACT 1.0, spec section 5, on top of conformance/pact-identity.json), for both roles: a Provider that acts as each business's OAuth authorization server and a personal-agent platform that is the OAuth client. Every requirement is one MUST, MUST NOT, SHOULD or MAY line of https://openpactprotocol.org/spec.md section 5, quoted in `rule`, with a `check` a program can run. The token vectors carry their own `now`. THE FIXTURE IS THE AUTHORITY for AgentMesh's code: when a test against it fails, fix the code, and change the fixture only with the spec. PACT's reference Delegated suite (e2e/delegated.test.ts at 838c6bd) runs only against the reference Skyline brand, so this suite does not copy its Skyline-specific checks; docs/pact-working-group-notes.md says why.",
+  "version": 1,
+  "spec": "PACT 1.0, https://openpactprotocol.org/spec.md section 5 (profile PACT Delegated, section 7); RFC 8628; RFC 8414; RFC 6749 section 5.2",
+  "profile": "PACT Delegated",
+  "builds_on": "conformance/pact-identity.json",
+  "roles": ["provider", "personal_agent"],
+  "requirements": [
+    {
+      "id": "PD-C1",
+      "role": "provider",
+      "section": "5.1",
+      "level": "MUST",
+      "rule": "A Brand that supports delegation adds an `oauth2SecurityScheme` with a `deviceCode` flow (`deviceAuthorizationUrl`, `tokenUrl`, `scopes`) and `oauth2MetadataUrl`, and a second `securityRequirements` entry naming both schemes.",
+      "check": "The card of a delegating brand has both schemes and two securityRequirements entries: the identity scheme alone, and the identity scheme with the delegation scheme."
+    },
+    {
+      "id": "PD-C2",
+      "role": "provider",
+      "section": "5.1",
+      "level": "MUST",
+      "rule": "The entry that needs only the personal-agent JWT MUST stay. A personal agent MAY always talk with section 3 alone.",
+      "check": "A delegating brand answers message:send with a personal-agent JWT and no delegation header."
+    },
+    {
+      "id": "PD-C3",
+      "role": "provider",
+      "section": "5.1",
+      "level": "MUST",
+      "rule": "`oauth2MetadataUrl` MUST serve RFC 8414 metadata; its `jwks_uri` publishes the keys that sign delegation tokens and receipts.",
+      "check": "The metadata has issuer, device_authorization_endpoint and token_endpoint equal to the card's URLs, grant_types_supported with the device_code grant, and a jwks_uri whose keys verify a delegation token and a receipt from this provider."
+    },
+    {
+      "id": "PD-C4",
+      "role": "provider",
+      "section": "5",
+      "level": "MUST",
+      "rule": "Providers that don't offer delegation omit section 5.1 from their cards.",
+      "check": "The card of a brand with no delegation set up has the identity scheme only and one securityRequirements entry."
+    },
+    {
+      "id": "PD-S1",
+      "role": "provider",
+      "section": "5.2",
+      "level": "MUST",
+      "rule": "A scope is `{ id, description }`. Each Brand defines its own and PACT reserves no ids. Providers show descriptions to the User verbatim on consent.",
+      "check": "The consent page shows each requested scope's description exactly as the card lists it, HTML-escaped and otherwise unchanged."
+    },
+    {
+      "id": "PD-S2",
+      "role": "personal_agent",
+      "section": "5.2",
+      "level": "MUST",
+      "rule": "Personal agents pick scopes by reading the descriptions and MUST request only ids on the card.",
+      "check": "The personal agent refuses, before any request, to ask for a scope id the card does not list."
+    },
+    {
+      "id": "PD-D1",
+      "role": "both",
+      "section": "5.3",
+      "level": "MUST",
+      "rule": "The OAuth client is the personal agent, authenticated with its section 3 JWT on every call including the token call; `client_id` is its issuer URL.",
+      "check": "Provider: device_authorization and token with no PA JWT are 401 (section 3.4); with client_id different from the JWT's iss they are 401 invalid_client. Personal agent: both calls carry Authorization: Bearer <pa-jwt> and client_id equal to its issuer."
+    },
+    {
+      "id": "PD-D2",
+      "role": "provider",
+      "section": "5.3",
+      "level": "MUST",
+      "rule": "An unknown scope id gets OAuth `invalid_scope`.",
+      "check": "device_authorization with scope \"no:such\" is 400 {error:\"invalid_scope\"}; with no scope at all, the same."
+    },
+    {
+      "id": "PD-D3",
+      "role": "provider",
+      "section": "5.3",
+      "level": "MUST",
+      "rule": "The device authorization answers RFC 8628 fields: `device_code`, `user_code`, `verification_uri`, `verification_uri_complete`, `expires_in`, `interval`.",
+      "check": "All six are present; expires_in is at most 600; interval is a positive whole number."
+    },
+    {
+      "id": "PD-D4",
+      "role": "personal_agent",
+      "section": "5.3",
+      "level": "MUST NOT",
+      "rule": "The personal agent shows the User `verification_uri_complete`. It MUST NOT proxy, frame, or observe the login.",
+      "check": "The personal agent hands the person the link to open themselves; it fetches nothing at that link and never puts it in a frame."
+    },
+    {
+      "id": "PD-D5",
+      "role": "provider",
+      "section": "5.3",
+      "level": "MUST",
+      "rule": "The link opens the Brand's login. The Brand authenticates the User and returns the User to the Provider with a single-use assertion bound to the `user_code`, sent by `POST`, not a credential from another channel.",
+      "check": "The assertion arrives by POST; a second POST of the same assertion is refused; an assertion for another user_code is refused; an assertion the Brand did not sign is refused.",
+      "agentmesh": "The real path is OpenID Connect with response_mode=form_post: the authorization code arrives by POST with a state bound to the user_code and is exchanged once. The reference stack's signed assertion is accepted only on dev, behind a test-only setting that is off by default and refused on prod (BRIDGE-A2A.md section 15.8)."
+    },
+    {
+      "id": "PD-D6",
+      "role": "provider",
+      "section": "5.3",
+      "level": "MUST",
+      "rule": "The Provider then shows consent as the logged-in User: the personal agent's issuer origin, the Brand, and each scope as a checkbox the User MAY uncheck. Login comes first so the grant is bound to a verified account.",
+      "check": "The consent page names the issuer's origin and the brand, has one checkbox per requested scope, and cannot be reached without a verified login for its user_code."
+    },
+    {
+      "id": "PD-D7",
+      "role": "provider",
+      "section": "5.3",
+      "level": "MAY",
+      "rule": "Consent MAY be skipped when an unexpired grant for `(User, personal agent)` already covers the request.",
+      "check": "AgentMesh always shows consent. The check is that it does."
+    },
+    {
+      "id": "PD-D8",
+      "role": "provider",
+      "section": "5.3",
+      "level": "MUST",
+      "rule": "Until approval the token endpoint answers `authorization_pending`, `slow_down`, `access_denied`, or `expired_token` per RFC 8628.",
+      "check": "Polling before approval is authorization_pending; polling faster than interval is slow_down; after Deny it is access_denied; after expires_in it is expired_token; a used device_code is invalid_grant."
+    },
+    {
+      "id": "PD-D9",
+      "role": "provider",
+      "section": "5.3",
+      "level": "MUST",
+      "rule": "The token response carries `token_type: \"Bearer\"`, `access_token`, `expires_in`, `scope`; `scope` is what the User approved, which may be less than requested.",
+      "check": "Asking for two scopes and approving one gives scope with that one only."
+    },
+    {
+      "id": "PD-D10",
+      "role": "personal_agent",
+      "section": "5.3",
+      "level": "MUST",
+      "rule": "`scope` is what the User approved. The personal agent MUST read it.",
+      "check": "The personal agent records the granted scopes from the token response, not the requested ones, and shows the person those."
+    },
+    {
+      "id": "PD-T1",
+      "role": "provider",
+      "section": "5.4",
+      "level": "MUST",
+      "rule": "`access_token` is a JWT signed by the Provider (`ES256`/`RS256`; keys at the `jwks_uri` from section 5.1), with `iss` (the Brand's authorization server), `aud` (the Brand's interface URL, one Brand per token), `sub` (the User's id at the Brand), `client_id` (the personal agent's issuer), `scope`, `grant_id`, `iat`, `exp`.",
+      "check": "The token verifies against the metadata's jwks_uri and carries all eight claims with those values."
+    },
+    {
+      "id": "PD-T2",
+      "role": "provider",
+      "section": "5.4",
+      "level": "SHOULD",
+      "rule": "Lifetime SHOULD be at most 1 h. Refresh within the grant's lifetime.",
+      "check": "exp minus iat is at most 3600; a refresh within the grant's life gives a new token with the same scope."
+    },
+    {
+      "id": "PD-U1",
+      "role": "both",
+      "section": "5.5",
+      "level": "MUST",
+      "rule": "Both tokens go on the request: `Authorization: Bearer <pa-jwt>` and `X-A2A-User-Delegation: Bearer <delegation-token>`.",
+      "check": "Personal agent: a delegated send carries both headers. Provider: a delegation header with no personal-agent JWT is 401."
+    },
+    {
+      "id": "PD-U2",
+      "role": "provider",
+      "section": "5.5",
+      "level": "MUST",
+      "rule": "The Provider MUST (1) verify the personal-agent JWT; (2) verify the delegation token's signature, `aud`, `exp`, that `client_id` equals the personal agent's `iss`, and that the grant is not revoked; (3) run the agent as Brand user `sub`, limited to `scope`.",
+      "check": "delegation_vectors refuse cases are refused; accept cases reach the agent with the grant's sub and scopes and nothing more."
+    },
+    {
+      "id": "PD-U3",
+      "role": "provider",
+      "section": "5.5",
+      "level": "MUST",
+      "rule": "A bad delegation token gets `401` with `WWW-Authenticate: Bearer realm=\"a2a\", error=\"invalid_token\"`, no A2A body.",
+      "check": "Each refused delegation vector is exactly that response."
+    },
+    {
+      "id": "PD-U4",
+      "role": "provider",
+      "section": "5.5",
+      "level": "MAY",
+      "rule": "`contextId` rules are unchanged. A context started under section 3 MAY continue under delegation.",
+      "check": "A context begun without a delegation token continues when the next message carries one."
+    },
+    {
+      "id": "PD-U5",
+      "role": "provider",
+      "section": "5.5",
+      "level": "MUST",
+      "rule": "Once a context has run as one `sub`, a token for a different `sub` gets `INVALID_PARAMS`.",
+      "check": "A context that ran under a token for brand user A answers INVALID_PARAMS to a token for brand user B."
+    },
+    {
+      "id": "PD-P1",
+      "role": "provider",
+      "section": "5.5",
+      "level": "MUST NOT",
+      "rule": "If a turn needs a scope the token lacks, the Provider MUST NOT fail it. It returns a task in `TASK_STATE_AUTH_REQUIRED` with the missing ids and a new link; the conversation stays open.",
+      "check": "A turn needing an ungranted scope is 200 {task:{status:{state:\"TASK_STATE_AUTH_REQUIRED\", message}, contextId, metadata:{\"pact.missingScopes\":[...], \"pact.verificationUriComplete\":\"...\"}}}; the same contextId takes the next message.",
+      "reference_differs": "The reference mints the link from a device authorization the personal agent never receives the device_code for. AgentMesh's link is the brand's code-entry page (the RFC 8628 verification_uri, with the missing permissions named on it). It starts nothing by itself: the personal agent repeats section 5.3, and the person enters there the code the personal agent shows, or opens the personal agent's own complete link. docs/pact-working-group-notes.md question 3."
+    },
+    {
+      "id": "PD-P2",
+      "role": "personal_agent",
+      "section": "5.5",
+      "level": "MUST",
+      "rule": "The personal agent repeats section 5.3 for the missing scopes, gets a new token, and re-sends with the same `contextId`.",
+      "check": "After an auth-required reply the personal agent starts a device authorization that asks for the missing scopes (together with the scopes it already holds at that business), shows the person the link, and after approval sends again with the same contextId.",
+      "agentmesh": "One request carries one delegation token, so a grant for the missing scopes alone would leave the personal agent holding two grants it cannot combine. AgentMesh asks for the missing scopes and the ones it already holds in one authorization; the person sees all of them on the consent page and may untick any. docs/pact-working-group-notes.md, difference 14."
+    },
+    {
+      "id": "PD-P3",
+      "role": "provider",
+      "section": "5.5",
+      "level": "MAY",
+      "rule": "The step-up task MAY be ephemeral; `tasks/{id}` MAY return `TASK_NOT_FOUND` for it.",
+      "check": "AgentMesh keeps no step-up tasks: GET tasks/{id} for one is TASK_NOT_FOUND."
+    },
+    {
+      "id": "PD-R1",
+      "role": "provider",
+      "section": "5.6",
+      "level": "MUST",
+      "rule": "Every `message:send` served under a delegation token MUST include in the reply's `metadata` a receipt signed with the same keys as the token: `pact.receipt` = `{ jws, claims }`, claims `grantId`, `user`, `pa`, `brand`, `scopesUsed`, `actions`, `ts`. `jws` is the compact JWS of `claims`.",
+      "check": "Every delegated reply carries pact.receipt; its jws verifies against the metadata's jwks_uri; the JWS payload equals claims; grantId, user and pa match the token; brand is the interface URL; scopesUsed is a subset of the token's scope."
+    },
+    {
+      "id": "PD-R2",
+      "role": "personal_agent",
+      "section": "5.6",
+      "level": "SHOULD",
+      "rule": "Personal agents SHOULD verify and keep receipts.",
+      "check": "The personal agent verifies each receipt against the brand's jwks_uri and stores it in the person's record; a receipt that does not verify is kept marked as not verified and the person is told."
+    },
+    {
+      "id": "PD-E1",
+      "role": "provider",
+      "section": "6",
+      "level": "MUST",
+      "rule": "OAuth endpoint errors follow RFC 6749 section 5.2 and RFC 8628.",
+      "check": "Every OAuth error body is {error, error_description?} with the RFC's status: 400 for invalid_scope, invalid_grant, unsupported_grant_type, authorization_pending, slow_down, access_denied, expired_token; 401 for invalid_client."
+    }
+  ],
+  "delegation_vectors": {
+    "comment": "Checks for section 5.5 (2). The runner holds a provider signing key and a grant (`pactgrant_test1`, brand user `brand-user-1`, scopes orders:read and orders:cancel, client https://pa.test.invalid). Each case is signed with the provider key unless it says otherwise, and is sent with a valid personal-agent JWT from https://pa.test.invalid.",
+    "now": 1791000000,
+    "interface_url": "https://provider.test.invalid/a2a/brand-1",
+    "issuer": "https://provider.test.invalid/a2a/brand-1/oauth",
+    "base": {
+      "header": { "alg": "ES256", "typ": "at+jwt" },
+      "claims": { "iss": "https://provider.test.invalid/a2a/brand-1/oauth", "aud": "https://provider.test.invalid/a2a/brand-1", "sub": "brand-user-1", "client_id": "https://pa.test.invalid", "scope": "orders:read orders:cancel", "grant_id": "pactgrant_test1", "iat": 1791000000, "exp": 1791003600 }
+    },
+    "accept": [
+      { "case": "valid" },
+      { "case": "narrower_scope", "claims": { "scope": "orders:read" } }
+    ],
+    "refuse": [
+      { "case": "aud_other_brand", "claims": { "aud": "https://provider.test.invalid/a2a/brand-2" } },
+      { "case": "expired", "claims": { "iat": 1790996000, "exp": 1790999000 } },
+      { "case": "client_id_not_pa_iss", "claims": { "client_id": "https://other.test.invalid" } },
+      { "case": "grant_revoked", "revoke_grant_first": true },
+      { "case": "grant_unknown", "claims": { "grant_id": "pactgrant_nope" } },
+      { "case": "signed_by_other_key", "sign": "other_key" },
+      { "case": "tampered", "tamper": "flip_last_signature_byte" },
+      { "case": "alg_hs256", "sign": "hs256", "header": { "alg": "HS256" } },
+      { "case": "not_bearer", "header_value": "Basic abc" }
+    ]
+  },
+  "receipt_vector": {
+    "comment": "A receipt's claims, in the order the spec lists them. The JWS payload is the UTF-8 JSON of claims; a verifier compares the decoded payload with claims as JSON values, not as strings, so key order does not matter.",
+    "claims": {
+      "grantId": "pactgrant_test1",
+      "user": "brand-user-1",
+      "pa": "https://pa.test.invalid",
+      "brand": "https://provider.test.invalid/a2a/brand-1",
+      "scopesUsed": ["orders:read", "orders:cancel"],
+      "actions": [{ "tool": "lookup_orders" }, { "tool": "cancel_order", "argsHash": "c2hhMjU2LW9mLXRoZS1hcmdz" }],
+      "ts": "2026-09-30T12:00:00Z"
+    }
+  }
+}

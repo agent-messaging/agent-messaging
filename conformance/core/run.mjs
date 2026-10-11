@@ -32,7 +32,46 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { loadEnv } from "../peering/lib/env.mjs";
 import { sdkUnderTest } from "../peering/lib/sdk.mjs";
-import { agentSdkLabel } from "./lib/agent-under-test.mjs";
+import { agentSdkLabel, mintedAgentKeys } from "./lib/agent-under-test.mjs";
+import { standingKeys } from "./lib/test-agents.mjs";
+import { nameStandingAgents } from "./lib/name-test-agents.mjs";
+import { nkeys } from "../peering/lib/mesh.mjs";
+
+/**
+ * Tell the deployment which agent keys this run used, so its daily digest can
+ * leave them out of the growth counts (services/src/api/daily-stats.ts). It
+ * needs the same operator key the workflow uses to report the verdict, and
+ * does nothing without one: a local run pointed at someone else's mesh has no
+ * business declaring anything there. Never fails the run — a digest that
+ * counts one night's agents is a smaller wrong than a red nightly over it.
+ */
+async function declareTestAgents(env) {
+  const base = process.env.MESH_API_BASE?.replace(/\/$/, "");
+  const key = process.env.MESH_OPERATOR_KEY;
+  const keys = new Set(mintedAgentKeys);
+  // The standing test agents (lib/test-agents.mjs) are the harness's too.
+  for (const { key: k } of standingKeys(env)) keys.add(k);
+  // c10's rooms creator is a stable key handed to the harness, not minted by
+  // it; the rooms it makes are the harness's too.
+  if (env.roomsCreatorSeed) {
+    try { keys.add(nkeys.fromSeed(new TextEncoder().encode(env.roomsCreatorSeed)).getPublicKey()); } catch { /* an unusable seed already env-skipped c10 */ }
+  }
+  if (!base || !key || !keys.size) return;
+  try {
+    const res = await fetch(`${base}/v1/operator/test-agents`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
+      body: JSON.stringify({ agents: [...keys] }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    const text = (await res.text()).slice(0, 200);
+    console.log(res.ok
+      ? `\ndeclared ${keys.size} test agent key(s) to ${base}: ${text}`
+      : `\nwarning: could not declare test agents to ${base}: HTTP ${res.status} ${text}`);
+  } catch (e) {
+    console.log(`\nwarning: could not declare test agents to ${base}: ${String(e?.message ?? e)}`);
+  }
+}
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -41,6 +80,11 @@ const ci = args.includes("--ci");
 const update = args.includes("--update");
 
 const env = loadEnv();
+// The standing test agents are named once (setup-test-agents.mjs); asking
+// again is a no-op, and asking before the tests means the first night after
+// the keys are installed registers named agents, not unnamed ones. Never
+// fails the run, and does nothing without MESH_API_BASE and MESH_OPERATOR_KEY.
+await nameStandingAgents(env, { quiet: true });
 const files = readdirSync(join(HERE, "tests")).filter((f) => f.endsWith(".mjs")).sort();
 const results = [];
 
@@ -92,6 +136,8 @@ if (notValidated.length) {
   console.error(`\nNOT VALIDATED — something the operator asked for (a credential, an SDK) could not be used; these tests did not run and this run cannot vouch for what they cover:`);
   for (const r of notValidated) console.error(`  ${r.id}  ${r.detail}`);
 }
+
+await declareTestAgents(env);
 
 const expectationsPath = join(HERE, "expectations.json");
 if (update) {

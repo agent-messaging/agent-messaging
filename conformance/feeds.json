@@ -1,0 +1,171 @@
+{
+  "comment": "Feeds (SPEC §6.6a, §14.1, §18.3): the owner-rooted event channel. THE FIXTURE IS THE AUTHORITY for the shapes that must agree byte-for-byte across the TypeScript SDK, the Rust SDK, the adapter, and the platform: the subject grammar (exactly four tokens, owner nkey then a single topic token), the feed emit payload ({topic, kind, data} — NOT the {domain, event_type, data} of a domain emit), the state-feed KV key ({agent_id}.{topic}), and the current-value lookup on mesh.feed.get ({agent, topic} in, {found, envelope} out). Divergences here are one-byte ones: a dot that splits a topic, an owner token in the wrong position, a payload keyed domain instead of topic. Tests iterate the case arrays; a new row must run without touching any test.",
+  "version": "1.0.0",
+  "spec": "SPEC.md §6.6a, §14.1, §18.3",
+  "identities": {
+    "owner": "UD3IZ2TLL7SK4WO7QRHMZS3IEUBPSN5XDCQOFB2XR2HG2PCMQBW2PDVF",
+    "comment": "A published test-vector user nkey (public half only; no case here signs)."
+  },
+  "subjects": {
+    "comment": "The grammar: mesh.feed.{owner nkey}.{topic}, exactly four tokens; the topic is ONE token of [A-Za-z0-9_-]{1,128}. The lookup subject mesh.feed.get has three tokens and is therefore never a feed. Builders MUST refuse invalid topics rather than emit a subject that the transport grant (mesh.feed.<own key>.*) would reject or that would smuggle extra tokens.",
+    "lookup_subject": "mesh.feed.get",
+    "build_cases": [
+      {
+        "id": "s01",
+        "comment": "the ordinary case",
+        "agent": "UD3IZ2TLL7SK4WO7QRHMZS3IEUBPSN5XDCQOFB2XR2HG2PCMQBW2PDVF",
+        "topic": "status",
+        "verdict": "accept",
+        "subject": "mesh.feed.UD3IZ2TLL7SK4WO7QRHMZS3IEUBPSN5XDCQOFB2XR2HG2PCMQBW2PDVF.status"
+      },
+      {
+        "id": "s02",
+        "comment": "underscore and dash are token characters",
+        "agent": "UD3IZ2TLL7SK4WO7QRHMZS3IEUBPSN5XDCQOFB2XR2HG2PCMQBW2PDVF",
+        "topic": "open-calls_v1",
+        "verdict": "accept",
+        "subject": "mesh.feed.UD3IZ2TLL7SK4WO7QRHMZS3IEUBPSN5XDCQOFB2XR2HG2PCMQBW2PDVF.open-calls_v1"
+      },
+      {
+        "id": "s03",
+        "comment": "a dotted topic would smuggle a fifth token — refused at the builder, never split",
+        "agent": "UD3IZ2TLL7SK4WO7QRHMZS3IEUBPSN5XDCQOFB2XR2HG2PCMQBW2PDVF",
+        "topic": "a.b",
+        "verdict": "refuse"
+      },
+      {
+        "id": "s04",
+        "comment": "empty topic",
+        "agent": "UD3IZ2TLL7SK4WO7QRHMZS3IEUBPSN5XDCQOFB2XR2HG2PCMQBW2PDVF",
+        "topic": "",
+        "verdict": "refuse"
+      },
+      {
+        "id": "s05",
+        "comment": "a wildcard is not a topic",
+        "agent": "UD3IZ2TLL7SK4WO7QRHMZS3IEUBPSN5XDCQOFB2XR2HG2PCMQBW2PDVF",
+        "topic": "*",
+        "verdict": "refuse"
+      },
+      {
+        "id": "s06",
+        "comment": "129 characters is over the token bound",
+        "agent": "UD3IZ2TLL7SK4WO7QRHMZS3IEUBPSN5XDCQOFB2XR2HG2PCMQBW2PDVF",
+        "topic": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "verdict": "refuse"
+      },
+      {
+        "id": "s07",
+        "comment": "a space is not a token character",
+        "agent": "UD3IZ2TLL7SK4WO7QRHMZS3IEUBPSN5XDCQOFB2XR2HG2PCMQBW2PDVF",
+        "topic": "bad topic",
+        "verdict": "refuse"
+      }
+    ],
+    "parse_cases": [
+      {
+        "id": "p01",
+        "comment": "the ordinary case parses to its parts",
+        "subject": "mesh.feed.UD3IZ2TLL7SK4WO7QRHMZS3IEUBPSN5XDCQOFB2XR2HG2PCMQBW2PDVF.status",
+        "verdict": "accept",
+        "agent": "UD3IZ2TLL7SK4WO7QRHMZS3IEUBPSN5XDCQOFB2XR2HG2PCMQBW2PDVF",
+        "topic": "status"
+      },
+      {
+        "id": "p02",
+        "comment": "the lookup subject has three tokens and is not a feed",
+        "subject": "mesh.feed.get",
+        "verdict": "refuse"
+      },
+      {
+        "id": "p03",
+        "comment": "five tokens is not a feed",
+        "subject": "mesh.feed.UD3IZ2TLL7SK4WO7QRHMZS3IEUBPSN5XDCQOFB2XR2HG2PCMQBW2PDVF.a.b",
+        "verdict": "refuse"
+      },
+      {
+        "id": "p04",
+        "comment": "the owner position must hold a user nkey",
+        "subject": "mesh.feed.notankey.status",
+        "verdict": "refuse"
+      },
+      {
+        "id": "p05",
+        "comment": "the event family is not the feed family",
+        "subject": "mesh.event.UD3IZ2TLL7SK4WO7QRHMZS3IEUBPSN5XDCQOFB2XR2HG2PCMQBW2PDVF.status",
+        "verdict": "refuse"
+      }
+    ]
+  },
+  "payload": {
+    "comment": "A feed publish is an ordinary emit envelope (type 'emit', §6.6 — no new envelope fields) whose payload is {topic, kind, data}. NOT {domain, event_type, data}: a feed topic is a single token and must never be split on dots the way a domain-event topic is. 'kind' is 'state' or 'stream' (§6.6a), carried in-band so the platform and subscribers learn it from traffic without a manifest read.",
+    "shape_cases": [
+      {
+        "id": "y01",
+        "comment": "state feed payload, canonical member set",
+        "topic": "status",
+        "kind": "state",
+        "data": { "level": "ok", "note": "all quiet" },
+        "payload": {
+          "topic": "status",
+          "kind": "state",
+          "data": { "level": "ok", "note": "all quiet" }
+        }
+      },
+      {
+        "id": "y02",
+        "comment": "stream feed payload",
+        "topic": "changes",
+        "kind": "stream",
+        "data": { "seq": 7 },
+        "payload": {
+          "topic": "changes",
+          "kind": "stream",
+          "data": { "seq": 7 }
+        }
+      }
+    ],
+    "kind_cases": [
+      { "id": "k01", "kind": "state", "verdict": "accept" },
+      { "id": "k02", "kind": "stream", "verdict": "accept" },
+      { "id": "k03", "kind": "latest", "verdict": "refuse", "comment": "not a §6.6a kind" },
+      { "id": "k04", "kind": "", "verdict": "refuse" }
+    ]
+  },
+  "state_binding": {
+    "comment": "§18.3: the platform records the LATEST emit envelope per feed under KV key {agent_id}.{topic}, and serves it over request-reply on mesh.feed.get. The lookup request payload is {agent, topic}; the response payload is {found: true, envelope: <the stored emit envelope>} or {found: false, envelope: null}. Subscribe-before-snapshot (§9.6) is the CALLER's obligation and is behavioural, not byte-pinnable — it is asserted in each SDK's own tests, not here.",
+    "kv_key_cases": [
+      {
+        "id": "v01",
+        "agent": "UD3IZ2TLL7SK4WO7QRHMZS3IEUBPSN5XDCQOFB2XR2HG2PCMQBW2PDVF",
+        "topic": "status",
+        "key": "UD3IZ2TLL7SK4WO7QRHMZS3IEUBPSN5XDCQOFB2XR2HG2PCMQBW2PDVF.status"
+      }
+    ],
+    "lookup_request_cases": [
+      {
+        "id": "g01",
+        "comment": "the request names the feed, nothing else",
+        "agent": "UD3IZ2TLL7SK4WO7QRHMZS3IEUBPSN5XDCQOFB2XR2HG2PCMQBW2PDVF",
+        "topic": "status",
+        "payload": {
+          "agent": "UD3IZ2TLL7SK4WO7QRHMZS3IEUBPSN5XDCQOFB2XR2HG2PCMQBW2PDVF",
+          "topic": "status"
+        }
+      }
+    ],
+    "lookup_response_members": {
+      "found": "boolean — whether the feed has ever published",
+      "envelope": "the stored emit envelope when found is true; null when false"
+    }
+  },
+  "separation": {
+    "comment": "Feed deliveries are AMBIENT: they route to the event handler (onEvent), never to the mail path, never into inbox or waiting counts, and are never sealed (§6.6 — events are open broadcast; content that requires sealing travels in a request). Behavioural; asserted per implementation.",
+    "never": ["mail", "inbox_count", "waiting_digest", "sealing"]
+  },
+  "not_covered": [
+    "owner-only publish at the transport (a credential grant, minted and asserted in services/src/api/cred-template.ts and its tests)",
+    "the platform writer's from-check (services feed-state tests)",
+    "interest-retention capture timing (§18.3 prose; live-broker behaviour)"
+  ]
+}

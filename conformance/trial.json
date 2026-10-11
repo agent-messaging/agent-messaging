@@ -1,0 +1,83 @@
+{
+  "comment": "Trials conformance fixture (Common Agent 7.7, with 7.5's trial allowance scope). Pins where two node implementations drift: which trial declarations a registry refuses, the admission order and its first-failure answer, the TRIAL_REFUSED fields (reason, limit, resets_at, quote), what a node measures at admission (characters and bytes of what was sent) and what it hands to the work (pages, seconds, items), and that only admitted trials are counted. THE FIXTURE IS THE AUTHORITY: when a test against it fails, fix the implementation; change the fixture only with a spec change alongside.",
+  "version": 1,
+  "spec": "docs/common-agent-spec-draft.md 7.7 (trials), 7.5 (allowance trial scope), 4.7 (refusals)",
+  "code": "TRIAL_REFUSED",
+  "reasons": ["budget", "not_offered", "not_eligible", "input", "requester_day", "day", "requester_ever", "funds"],
+  "offering": {
+    "id": "make-an-explainer",
+    "inputs": [{ "name": "brief" }, { "name": "focus" }, { "name": "customer web address" }],
+    "outputs": [{ "name": "explainer page" }, { "name": "thumbnail" }]
+  },
+  "declarations": {
+    "valid": [
+      {
+        "case": "explainer",
+        "trial": {
+          "who": "signed_in",
+          "shape": {
+            "inputs": [
+              { "name": "focus", "limit": { "max_chars": 500 } },
+              { "name": "customer web address", "limit": { "max_pages": 10 } }
+            ],
+            "live_seconds": 180,
+            "keeps_days": 7,
+            "marked": true
+          },
+          "limits": { "per_requester_per_day": 2, "per_day": 50, "per_requester_ever": 5 }
+        }
+      },
+      { "case": "one_count_only", "trial": { "who": "anyone", "limits": { "per_day": 10 } } },
+      { "case": "omits_a_declared_output", "trial": { "who": "verified", "shape": { "omits": ["thumbnail"] }, "limits": { "per_requester_ever": 1 } } }
+    ],
+    "invalid": [
+      { "case": "no_limits", "trial": { "who": "anyone" }, "why": "a trial with no count is not bounded" },
+      { "case": "empty_limits", "trial": { "who": "anyone", "limits": {} }, "why": "a trial with no count is not bounded" },
+      { "case": "money_in_limits", "trial": { "who": "anyone", "limits": { "per_day": 3, "usd_per_day": 5 } }, "why": "limits are counts, never money" },
+      { "case": "fractional_count", "trial": { "who": "anyone", "limits": { "per_day": 2.5 } }, "why": "a count is a whole number" },
+      { "case": "unknown_who", "trial": { "who": "friends", "limits": { "per_day": 3 } }, "why": "who is a closed enum" },
+      { "case": "undeclared_input", "trial": { "who": "anyone", "limits": { "per_day": 3 }, "shape": { "inputs": [{ "name": "nope", "limit": { "max_chars": 5 } }] } }, "why": "a shape names only declared inputs" },
+      { "case": "unknown_limit_key", "trial": { "who": "anyone", "limits": { "per_day": 3 }, "shape": { "inputs": [{ "name": "focus", "limit": { "max_words": 5 } }] } }, "why": "a limit is one of max_chars, max_bytes, max_pages, max_seconds, max_items" },
+      { "case": "undeclared_omit", "trial": { "who": "anyone", "limits": { "per_day": 3 }, "shape": { "omits": ["poster"] } }, "why": "omits names only declared outputs" }
+    ]
+  },
+  "admission": {
+    "comment": "Each case runs the declaration 'explainer' above unless it says trial: null. now is fixed; quote is the flat price of 5 USD. counts are the trials already counted before this request. funds is the trial ceiling's answer: room, full, or none (no trial ceiling set). expect.ok true means admitted; otherwise expect names the refusal's reason and, where they apply, limit and resets_at (a refusal with no resets_at must carry none). Every refusal carries the quote.",
+    "now": "2026-10-05T03:00:00.000Z",
+    "quote": { "amount_micro": 5000000, "currency": "USD" },
+    "cases": [
+      { "case": "fits", "requester": { "kind": "account", "signed_in": true, "verified": false }, "inputs": { "brief": "Explain trials" }, "counts": [0, 0, 0], "funds": "room", "expect": { "ok": true } },
+      { "case": "budget_first", "has_budget": true, "trial": null, "requester": { "kind": "visitor", "signed_in": false, "verified": false }, "inputs": {}, "counts": [9, 99, 9], "funds": "none", "expect": { "ok": false, "reason": "budget" } },
+      { "case": "not_offered", "trial": null, "requester": { "kind": "account", "signed_in": true, "verified": false }, "inputs": {}, "counts": [0, 0, 0], "funds": "room", "expect": { "ok": false, "reason": "not_offered" } },
+      { "case": "visitor_under_signed_in", "requester": { "kind": "visitor", "signed_in": false, "verified": false }, "inputs": {}, "counts": [0, 0, 0], "funds": "room", "expect": { "ok": false, "reason": "not_eligible" } },
+      { "case": "input_over_chars", "requester": { "kind": "account", "signed_in": true, "verified": false }, "inputs": { "focus": "500+1" }, "counts": [0, 0, 0], "funds": "room", "expect": { "ok": false, "reason": "input", "input": "focus" } },
+      { "case": "pages_not_measured_at_admission", "requester": { "kind": "account", "signed_in": true, "verified": false }, "inputs": { "customer web address": "https://agentmesh.ai/" }, "counts": [0, 0, 0], "funds": "room", "expect": { "ok": true } },
+      { "case": "requester_day", "requester": { "kind": "account", "signed_in": true, "verified": false }, "inputs": {}, "counts": [2, 2, 2], "funds": "room", "expect": { "ok": false, "reason": "requester_day", "limit": 2, "resets_at": "2026-10-06T00:00:00.000Z" } },
+      { "case": "day", "requester": { "kind": "account", "signed_in": true, "verified": false }, "inputs": {}, "counts": [0, 50, 0], "funds": "room", "expect": { "ok": false, "reason": "day", "limit": 50, "resets_at": "2026-10-06T00:00:00.000Z" } },
+      { "case": "requester_ever", "requester": { "kind": "account", "signed_in": true, "verified": false }, "inputs": {}, "counts": [0, 0, 5], "funds": "room", "expect": { "ok": false, "reason": "requester_ever", "limit": 5 } },
+      { "case": "no_trial_ceiling", "requester": { "kind": "account", "signed_in": true, "verified": false }, "inputs": {}, "counts": [0, 0, 0], "funds": "none", "expect": { "ok": false, "reason": "funds", "resets_at": "2026-10-06T00:00:00.000Z" } },
+      { "case": "trial_ceiling_full", "requester": { "kind": "account", "signed_in": true, "verified": false }, "inputs": {}, "counts": [0, 0, 0], "funds": "full", "expect": { "ok": false, "reason": "funds", "resets_at": "2026-10-06T00:00:00.000Z" } }
+    ],
+    "input_note": "The string \"500+1\" in a case stands for a string of 501 characters; an implementation's test expands it."
+  },
+  "counting": {
+    "comment": "Three requests from one requester against per_requester_per_day 2, all fitting: the first two admitted and counted, the third refused requester_day and NOT counted. After it, the counts are [2, 2, 2]. On the next UTC day the requester's day count is 0 and the ever count stays 2.",
+    "requests": 3,
+    "admitted": 2,
+    "counts_after": [2, 2, 2],
+    "next_day_requester_day": 0
+  },
+  "allowance": {
+    "comment": "7.5: the trial scope is a ceiling on what trial work may cost per UTC day. Trial spend counts against the trial ceiling AND every wider ceiling (day, context, task). Ordinary work never counts against the trial ceiling. A document with no trial ceiling answers trial work funds: none. The scope joins the closed enum, which stays closed: an unknown scope is still rejected.",
+    "scopes": ["task", "context", "day", "trial"],
+    "ceilings": [{ "scope": "day", "amount_micro": 10000000 }, { "scope": "trial", "amount_micro": 5000000 }],
+    "steps": [
+      { "spend_micro": 4000000, "trial": true, "then": { "trial_remaining": 1000000, "day_remaining": 6000000 } },
+      { "estimate_micro": 2000000, "trial": true, "expect": "full" },
+      { "estimate_micro": 2000000, "trial": false, "expect": "room" },
+      { "spend_micro": 5000000, "trial": false, "then": { "trial_remaining": 1000000, "day_remaining": 1000000 } },
+      { "estimate_micro": 1000000, "trial": true, "expect": "room" }
+    ],
+    "no_trial_ceiling": { "ceilings": [{ "scope": "day", "amount_micro": 10000000 }], "trial_answer": "none" }
+  }
+}

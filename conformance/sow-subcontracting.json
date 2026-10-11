@@ -1,0 +1,1121 @@
+{
+  "comment": "Agent SoW subcontracting (agentsow.com 0.18.0-draft, 5.15): who actually does the work, under what rule, and the chain rule that makes depth safe by induction - disclosure flattens upward, and terms only narrow going down. Pins the bytes and the branches where two implementations drift: the three-posture closed set (none / disclosed / approved), the clause shape (an entry names a party ON THE MESH - agent key, handle, or published role - and the vocabulary deliberately offers no free-text field for an off-mesh organisation, for the same reason the 12.1 qualification vocabulary has no probe kind a runtime cannot check: a disclosure nobody can look up, vouch, rate, or hold to account is decoration wearing disclosure's clothes; scope is required and bounded; a 'none' clause naming delegates is refused as self-contradictory; the grade is 'evidence', flatly), and the FLOW-DOWN COMPARATOR subcontractConformance / subcontract_conformance: one pinned sentence per violation, byte-identical across SDKs, empty where every checkable term narrows correctly - including terms met exactly, because narrowing includes staying put. Each term is checked only where the prime states it (a prime that says nothing constrains nothing), and 'states' is structural: whether a clause validates is the validators' question at document validation, never smuggled into the comparison. The jurisdiction set rides the confidentiality clause as processed_in (the chain rule's 'touch no jurisdiction the link above did not'); the clause validators do not model it yet and the comparator reads declared structure. THE FIXTURE IS THE AUTHORITY: when a test against it fails, fix the implementation; when the fixture itself is believed wrong, change it only with a spec change alongside.",
+  "version": 1,
+  "spec": "Agent SoW 0.18.0-draft: 5.15 (subcontracting), 5.11 (the confidentiality terms that flow down), 5.12 (the reporting levels that flow down), 5.5.3 (the cap the remainder is measured against), 12.1 (the on-mesh-only argument), 4.2 (grades)",
+  "postures": {
+    "comment": "5.15: three postures, a closed set. Under 'none' the provider performs the work itself - and on a mesh where delegation forms engagements, on-mesh delegation under 'none' is discoverable evidence, not an argument. 'disclosed' permits delegation with every subcontractor named before its work begins. 'approved' additionally requires the client's countersigned approval per subcontractor, riding the same two-seat machinery amendments use. Absence states nothing: a document without this clause has said nothing about delegation either way, and a reader MUST NOT infer a posture.",
+    "all": [
+      "none",
+      "disclosed",
+      "approved"
+    ],
+    "grade": "evidence",
+    "grade_why": "5.15 grades this clause flatly. Not 'enforced': the claim that nothing was delegated off-mesh is a statement about conduct beyond the mesh's sight, with breach as its consequence rather than detection as its guarantee. Not 'recorded': on this mesh delegation forms engagements the platform holds, which is more than a record of the clause."
+  },
+  "clause": {
+    "comment": "The clause shape. subcontractors is REFUSED under posture 'none' (a none clause naming delegates contradicts itself) and optional under the disclosing postures - a clause with nobody named yet OMITS the member, and an empty list is refused as a second spelling of that omission. Each entry names at least one of agent / handle / role and carries the required scope. Backstops: at most 16 entries; agent and role up to 64 characters, handle up to 120, scope up to 300; no duplicate agent, no duplicate handle. An entry MAY carry `engagement`, the S4.1 identifier of the countersigned engagement the delegation runs under - the pin. Optional, because S5.15 also serves plain disclosure; a runtime that requires pins says so itself rather than the document carrying a flag about it.",
+    "subcontractors_max": 16,
+    "scope_chars_max": 300,
+    "valid": [
+      {
+        "posture": "none",
+        "grade": "evidence"
+      },
+      {
+        "posture": "disclosed",
+        "grade": "evidence"
+      },
+      {
+        "posture": "approved",
+        "grade": "evidence"
+      },
+      {
+        "posture": "disclosed",
+        "subcontractors": [
+          {
+            "agent": "UDELEGATEDELEGATEDELEGATEDELEGATEDELEGATEDELEGATEAAAAAAA",
+            "scope": "reconciliation of EU-format statements"
+          }
+        ],
+        "grade": "evidence"
+      },
+      {
+        "posture": "disclosed",
+        "subcontractors": [
+          {
+            "handle": "pat/ledgers",
+            "scope": "reconciliation of EU-format statements"
+          }
+        ],
+        "grade": "evidence"
+      },
+      {
+        "posture": "approved",
+        "subcontractors": [
+          {
+            "role": "role-bookkeeper",
+            "scope": "monthly ledger reconciliation"
+          }
+        ],
+        "grade": "evidence"
+      },
+      {
+        "posture": "approved",
+        "subcontractors": [
+          {
+            "agent": "UDELEGATEDELEGATEDELEGATEDELEGATEDELEGATEDELEGATEAAAAAAA",
+            "handle": "pat/ledgers",
+            "role": "role-bookkeeper",
+            "scope": "reconciliation of EU-format statements"
+          },
+          {
+            "handle": "kit/translate",
+            "scope": "translation of the quarterly narrative"
+          }
+        ],
+        "grade": "evidence"
+      },
+      {
+        "posture": "approved",
+        "subcontractors": [
+          {
+            "handle": "pat/ledgers",
+            "scope": "reconciliation of EU-format statements",
+            "engagement": "eng_01J9Z3KQ7V8YB4N6M2X5TCFHRD"
+          }
+        ],
+        "grade": "evidence"
+      }
+    ],
+    "invalid": [
+      {
+        "case": "not_an_object",
+        "subcontracting": "disclosed",
+        "why": "the clause is an object carrying posture and grade, not a bare posture string"
+      },
+      {
+        "case": "missing_posture",
+        "subcontracting": {
+          "grade": "evidence"
+        },
+        "why": "the posture is the clause; there is no default INSIDE a declared clause (only an absent clause states nothing)"
+      },
+      {
+        "case": "unknown_posture",
+        "subcontracting": {
+          "posture": "undisclosed",
+          "grade": "evidence"
+        },
+        "why": "the vocabulary is closed: none, disclosed, approved"
+      },
+      {
+        "case": "missing_grade",
+        "subcontracting": {
+          "posture": "none"
+        },
+        "why": "every clause object carries a grade (4.2)"
+      },
+      {
+        "case": "grade_enforced",
+        "subcontracting": {
+          "posture": "disclosed",
+          "grade": "enforced"
+        },
+        "why": "the false enforcement claim: the claim that nothing was delegated off-mesh is beyond the mesh's sight"
+      },
+      {
+        "case": "grade_recorded",
+        "subcontracting": {
+          "posture": "disclosed",
+          "grade": "recorded"
+        },
+        "why": "understates what ships: on this mesh delegation forms engagements the platform holds, which is more than a record of the clause"
+      },
+      {
+        "case": "none_with_subcontractors",
+        "subcontracting": {
+          "posture": "none",
+          "subcontractors": [
+            {
+              "handle": "pat/ledgers",
+              "scope": "reconciliation"
+            }
+          ],
+          "grade": "evidence"
+        },
+        "why": "a none clause naming delegates contradicts itself: two clauses disagreeing about whether the provider delegates at all"
+      },
+      {
+        "case": "subcontractors_not_a_list",
+        "subcontracting": {
+          "posture": "disclosed",
+          "subcontractors": {
+            "handle": "pat/ledgers",
+            "scope": "reconciliation"
+          },
+          "grade": "evidence"
+        },
+        "why": "subcontractors is a list, even with one entry"
+      },
+      {
+        "case": "subcontractors_empty",
+        "subcontracting": {
+          "posture": "disclosed",
+          "subcontractors": [],
+          "grade": "evidence"
+        },
+        "why": "an empty list declares nothing, which OMITTING the member already means; two spellings of one state is how implementations come to disagree about which is which"
+      },
+      {
+        "case": "too_many_subcontractors",
+        "subcontracting": {
+          "posture": "disclosed",
+          "subcontractors": [
+            {
+              "handle": "delegate/0",
+              "scope": "slice 0"
+            },
+            {
+              "handle": "delegate/1",
+              "scope": "slice 1"
+            },
+            {
+              "handle": "delegate/2",
+              "scope": "slice 2"
+            },
+            {
+              "handle": "delegate/3",
+              "scope": "slice 3"
+            },
+            {
+              "handle": "delegate/4",
+              "scope": "slice 4"
+            },
+            {
+              "handle": "delegate/5",
+              "scope": "slice 5"
+            },
+            {
+              "handle": "delegate/6",
+              "scope": "slice 6"
+            },
+            {
+              "handle": "delegate/7",
+              "scope": "slice 7"
+            },
+            {
+              "handle": "delegate/8",
+              "scope": "slice 8"
+            },
+            {
+              "handle": "delegate/9",
+              "scope": "slice 9"
+            },
+            {
+              "handle": "delegate/10",
+              "scope": "slice 10"
+            },
+            {
+              "handle": "delegate/11",
+              "scope": "slice 11"
+            },
+            {
+              "handle": "delegate/12",
+              "scope": "slice 12"
+            },
+            {
+              "handle": "delegate/13",
+              "scope": "slice 13"
+            },
+            {
+              "handle": "delegate/14",
+              "scope": "slice 14"
+            },
+            {
+              "handle": "delegate/15",
+              "scope": "slice 15"
+            },
+            {
+              "handle": "delegate/16",
+              "scope": "slice 16"
+            }
+          ],
+          "grade": "evidence"
+        },
+        "why": "17 entries; a clause naming dozens is an org chart wearing a clause's clothes"
+      },
+      {
+        "case": "entry_not_an_object",
+        "subcontracting": {
+          "posture": "disclosed",
+          "subcontractors": [
+            "pat/ledgers"
+          ],
+          "grade": "evidence"
+        },
+        "why": "each entry is an object carrying who and the scope delegated"
+      },
+      {
+        "case": "entry_names_nobody",
+        "subcontracting": {
+          "posture": "disclosed",
+          "subcontractors": [
+            {
+              "scope": "reconciliation"
+            }
+          ],
+          "grade": "evidence"
+        },
+        "why": "an entry names a party on the mesh - agent, handle or role - and the vocabulary offers no other kind; a disclosure nobody can look up, vouch, rate, or hold to account is decoration wearing disclosure's clothes (12.1's argument)"
+      },
+      {
+        "case": "agent_blank",
+        "subcontracting": {
+          "posture": "disclosed",
+          "subcontractors": [
+            {
+              "agent": "   ",
+              "scope": "reconciliation"
+            }
+          ],
+          "grade": "evidence"
+        },
+        "why": "present and blank is not the same as absent"
+      },
+      {
+        "case": "agent_too_long",
+        "subcontracting": {
+          "posture": "disclosed",
+          "subcontractors": [
+            {
+              "agent": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+              "scope": "reconciliation"
+            }
+          ],
+          "grade": "evidence"
+        },
+        "why": "65 characters; the backstop is 64"
+      },
+      {
+        "case": "handle_blank",
+        "subcontracting": {
+          "posture": "disclosed",
+          "subcontractors": [
+            {
+              "handle": "",
+              "scope": "reconciliation"
+            }
+          ],
+          "grade": "evidence"
+        },
+        "why": "present and blank is not the same as absent"
+      },
+      {
+        "case": "handle_too_long",
+        "subcontracting": {
+          "posture": "disclosed",
+          "subcontractors": [
+            {
+              "handle": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+              "scope": "reconciliation"
+            }
+          ],
+          "grade": "evidence"
+        },
+        "why": "121 characters; the backstop is 120"
+      },
+      {
+        "case": "role_blank",
+        "subcontracting": {
+          "posture": "disclosed",
+          "subcontractors": [
+            {
+              "role": "  ",
+              "scope": "reconciliation"
+            }
+          ],
+          "grade": "evidence"
+        },
+        "why": "present and blank is not the same as absent"
+      },
+      {
+        "case": "role_too_long",
+        "subcontracting": {
+          "posture": "disclosed",
+          "subcontractors": [
+            {
+              "role": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+              "scope": "reconciliation"
+            }
+          ],
+          "grade": "evidence"
+        },
+        "why": "65 characters; the backstop is 64"
+      },
+      {
+        "case": "scope_missing",
+        "subcontracting": {
+          "posture": "disclosed",
+          "subcontractors": [
+            {
+              "handle": "pat/ledgers"
+            }
+          ],
+          "grade": "evidence"
+        },
+        "why": "scope is REQUIRED: an entry that names who without what has disclosed nothing"
+      },
+      {
+        "case": "scope_blank",
+        "subcontracting": {
+          "posture": "disclosed",
+          "subcontractors": [
+            {
+              "handle": "pat/ledgers",
+              "scope": "   "
+            }
+          ],
+          "grade": "evidence"
+        },
+        "why": "present and blank is not the same as absent"
+      },
+      {
+        "case": "scope_too_long",
+        "subcontracting": {
+          "posture": "disclosed",
+          "subcontractors": [
+            {
+              "handle": "pat/ledgers",
+              "scope": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            }
+          ],
+          "grade": "evidence"
+        },
+        "why": "301 characters; the backstop is 300"
+      },
+      {
+        "case": "duplicate_agent",
+        "subcontracting": {
+          "posture": "disclosed",
+          "subcontractors": [
+            {
+              "agent": "UDELEGATEDELEGATEDELEGATEDELEGATEDELEGATEDELEGATEAAAAAAA",
+              "scope": "reconciliation"
+            },
+            {
+              "agent": "UDELEGATEDELEGATEDELEGATEDELEGATEDELEGATEDELEGATEAAAAAAA",
+              "scope": "translation"
+            }
+          ],
+          "grade": "evidence"
+        },
+        "why": "the same agent named twice; a reader cannot tell whether the second entry is a mistake or a second delegation"
+      },
+      {
+        "case": "duplicate_handle",
+        "subcontracting": {
+          "posture": "approved",
+          "subcontractors": [
+            {
+              "handle": "pat/ledgers",
+              "scope": "reconciliation"
+            },
+            {
+              "handle": "pat/ledgers",
+              "scope": "translation"
+            }
+          ],
+          "grade": "evidence"
+        },
+        "why": "the same handle named twice; a reader cannot tell whether the second entry is a mistake or a second delegation"
+      },
+      {
+        "case": "engagement_blank",
+        "subcontracting": {
+          "posture": "disclosed",
+          "subcontractors": [
+            {
+              "handle": "pat/ledgers",
+              "scope": "reconciliation",
+              "engagement": "   "
+            }
+          ],
+          "grade": "evidence"
+        },
+        "why": "an engagement that is blank pins nothing; omit the member instead of writing empty space into the signed bytes"
+      }
+    ],
+    "engagement_chars_max": 128
+  },
+  "conformance": {
+    "comment": "The flow-down comparison (5.15's chain rule): does the subcontract narrow every checkable term of the engagement above it? An EMPTY violations array means the chain narrows correctly. Violations arrive one pinned sentence each, in a pinned order - confidentiality promises in the closed vocabulary's declared order, then retention, then each stray jurisdiction in the sub's declared order, then reporting, then the cap - and the wording is part of the fixture: a provider refused a subcontract reads one message whichever SDK computed the chain. 'opts' carries prime_cap_remaining where the case supplies it; only the platform holding the money knows the remainder, so no opts means no cap check. A prime document of {} states nothing and constrains nothing; a sub of null declares nothing and violates exactly the terms the prime states (except reporting's honest records_only floor, which silence meets).",
+    "cases": [
+      {
+        "name": "a prime with no stated terms constrains nothing",
+        "prime": {},
+        "sub": {
+          "confidentiality": {
+            "promises": {
+              "no_training": true,
+              "grade": "recorded"
+            },
+            "retention": {
+              "max_days": 400,
+              "grade": "enforced"
+            },
+            "processed_in": [
+              "us"
+            ]
+          },
+          "reporting": {
+            "level": "records_only",
+            "grade": "evidence"
+          },
+          "price": {
+            "arrangement": "time_and_materials",
+            "currency": "XCR",
+            "schedule": [
+              {
+                "meter": "tokens_in",
+                "unit": "1K tokens",
+                "per": 1000,
+                "per_unit": 40
+              }
+            ],
+            "cap": {
+              "amount": 999999999
+            },
+            "reservation": {
+              "window_days": 30
+            }
+          }
+        },
+        "violations": []
+      },
+      {
+        "name": "an absent sub against an absent prime states nothing either way",
+        "prime": {},
+        "sub": null,
+        "violations": []
+      },
+      {
+        "name": "equal terms conform - narrowing includes staying put",
+        "prime": {
+          "confidentiality": {
+            "promises": {
+              "no_training": true,
+              "no_human_reading": true,
+              "grade": "recorded"
+            },
+            "retention": {
+              "max_days": 30,
+              "grade": "enforced"
+            },
+            "processed_in": [
+              "de",
+              "fr"
+            ]
+          },
+          "reporting": {
+            "level": "check_ins",
+            "every": "P1W",
+            "grade": "evidence"
+          }
+        },
+        "sub": {
+          "confidentiality": {
+            "promises": {
+              "no_training": true,
+              "no_human_reading": true,
+              "grade": "recorded"
+            },
+            "retention": {
+              "max_days": 30,
+              "grade": "enforced"
+            },
+            "processed_in": [
+              "de",
+              "fr"
+            ]
+          },
+          "reporting": {
+            "level": "check_ins",
+            "every": "P1W",
+            "grade": "evidence"
+          },
+          "price": {
+            "arrangement": "time_and_materials",
+            "currency": "XCR",
+            "schedule": [
+              {
+                "meter": "tokens_in",
+                "unit": "1K tokens",
+                "per": 1000,
+                "per_unit": 40
+              }
+            ],
+            "cap": {
+              "amount": 500000
+            },
+            "reservation": {
+              "window_days": 30
+            }
+          }
+        },
+        "opts": {
+          "prime_cap_remaining": 500000
+        },
+        "violations": []
+      },
+      {
+        "name": "a sub that narrows every term conforms",
+        "prime": {
+          "confidentiality": {
+            "promises": {
+              "no_training": true,
+              "no_human_reading": true,
+              "grade": "recorded"
+            },
+            "retention": {
+              "max_days": 30,
+              "grade": "enforced"
+            },
+            "processed_in": [
+              "de",
+              "fr"
+            ]
+          },
+          "reporting": {
+            "level": "check_ins",
+            "every": "P1W",
+            "grade": "evidence"
+          }
+        },
+        "sub": {
+          "confidentiality": {
+            "promises": {
+              "no_training": true,
+              "no_third_party_sharing": true,
+              "no_human_reading": true,
+              "grade": "recorded"
+            },
+            "retention": {
+              "max_days": 7,
+              "grade": "enforced"
+            },
+            "processed_in": [
+              "de"
+            ]
+          },
+          "reporting": {
+            "level": "check_ins",
+            "every": "P3D",
+            "grade": "evidence"
+          },
+          "price": {
+            "arrangement": "time_and_materials",
+            "currency": "XCR",
+            "schedule": [
+              {
+                "meter": "tokens_in",
+                "unit": "1K tokens",
+                "per": 1000,
+                "per_unit": 40
+              }
+            ],
+            "cap": {
+              "amount": 100000
+            },
+            "reservation": {
+              "window_days": 30
+            }
+          }
+        },
+        "opts": {
+          "prime_cap_remaining": 500000
+        },
+        "violations": []
+      },
+      {
+        "name": "the sub may train on what the prime promised never trains on",
+        "prime": {
+          "confidentiality": {
+            "promises": {
+              "no_training": true,
+              "grade": "recorded"
+            }
+          }
+        },
+        "sub": {
+          "confidentiality": {
+            "promises": {
+              "no_human_reading": true,
+              "grade": "recorded"
+            }
+          }
+        },
+        "violations": [
+          "the prime promises no_training and this subcontract does not; a delegate may not be freer with the content than the party that took it (§5.15)"
+        ]
+      },
+      {
+        "name": "a sub with no confidentiality clause makes no promises - one sentence per broken promise, in the vocabulary's order",
+        "prime": {
+          "confidentiality": {
+            "promises": {
+              "no_training": true,
+              "no_human_reading": true,
+              "grade": "recorded"
+            }
+          }
+        },
+        "sub": {},
+        "violations": [
+          "the prime promises no_training and this subcontract does not; a delegate may not be freer with the content than the party that took it (§5.15)",
+          "the prime promises no_human_reading and this subcontract does not; a delegate may not be freer with the content than the party that took it (§5.15)"
+        ]
+      },
+      {
+        "name": "retention: silence narrows nothing",
+        "prime": {
+          "confidentiality": {
+            "retention": {
+              "max_days": 30,
+              "grade": "enforced"
+            }
+          }
+        },
+        "sub": {
+          "confidentiality": {
+            "promises": {
+              "no_training": true,
+              "grade": "recorded"
+            }
+          }
+        },
+        "violations": [
+          "the prime caps retention at 30 days and this subcontract states no retention ceiling; an unstated ceiling narrows nothing, and terms only narrow going down (§5.15)"
+        ]
+      },
+      {
+        "name": "retention: the delegate keeps content longer",
+        "prime": {
+          "confidentiality": {
+            "retention": {
+              "max_days": 30,
+              "grade": "enforced"
+            }
+          }
+        },
+        "sub": {
+          "confidentiality": {
+            "retention": {
+              "max_days": 45,
+              "grade": "enforced"
+            }
+          }
+        },
+        "violations": [
+          "the prime caps retention at 30 days and this subcontract keeps content up to 45 days; a delegate may retain no longer than the party that took the content (§5.15)"
+        ]
+      },
+      {
+        "name": "retention met exactly is met - the test is a ceiling",
+        "prime": {
+          "confidentiality": {
+            "retention": {
+              "max_days": 30,
+              "grade": "enforced"
+            }
+          }
+        },
+        "sub": {
+          "confidentiality": {
+            "retention": {
+              "max_days": 30,
+              "grade": "enforced"
+            }
+          }
+        },
+        "violations": []
+      },
+      {
+        "name": "jurisdiction: silence while the prime states",
+        "prime": {
+          "confidentiality": {
+            "processed_in": [
+              "de",
+              "fr"
+            ]
+          }
+        },
+        "sub": {
+          "confidentiality": {}
+        },
+        "violations": [
+          "the prime confines processing to de, fr and this subcontract states no jurisdictions; an unstated jurisdiction may be any jurisdiction, and terms only narrow going down (§5.15)"
+        ]
+      },
+      {
+        "name": "jurisdiction: a delegate in a country the prime never named",
+        "prime": {
+          "confidentiality": {
+            "processed_in": [
+              "de",
+              "fr"
+            ]
+          }
+        },
+        "sub": {
+          "confidentiality": {
+            "processed_in": [
+              "de",
+              "us"
+            ]
+          }
+        },
+        "violations": [
+          "the prime confines processing to de, fr and this subcontract processes in us; a delegate may touch no jurisdiction the party above it did not (§5.15)"
+        ]
+      },
+      {
+        "name": "jurisdiction: two strays are two sentences, in the sub's declared order",
+        "prime": {
+          "confidentiality": {
+            "processed_in": [
+              "de"
+            ]
+          }
+        },
+        "sub": {
+          "confidentiality": {
+            "processed_in": [
+              "us",
+              "de",
+              "gb"
+            ]
+          }
+        },
+        "violations": [
+          "the prime confines processing to de and this subcontract processes in us; a delegate may touch no jurisdiction the party above it did not (§5.15)",
+          "the prime confines processing to de and this subcontract processes in gb; a delegate may touch no jurisdiction the party above it did not (§5.15)"
+        ]
+      },
+      {
+        "name": "reporting: a silent delegate under a check_ins prime",
+        "prime": {
+          "reporting": {
+            "level": "check_ins",
+            "every": "P1W",
+            "grade": "evidence"
+          }
+        },
+        "sub": {},
+        "violations": [
+          "the prime owes check_ins reporting and this subcontract declares none, which offers records_only; a delegate's reporting must be sufficient for the link above to meet its own (§5.15)"
+        ]
+      },
+      {
+        "name": "reporting: declared lower",
+        "prime": {
+          "reporting": {
+            "level": "check_ins",
+            "every": "P1W",
+            "grade": "evidence"
+          }
+        },
+        "sub": {
+          "reporting": {
+            "level": "on_change",
+            "grade": "evidence"
+          }
+        },
+        "violations": [
+          "the prime owes check_ins reporting and this subcontract offers on_change; a delegate's reporting must be sufficient for the link above to meet its own (§5.15)"
+        ]
+      },
+      {
+        "name": "reporting: exceeding is not a violation",
+        "prime": {
+          "reporting": {
+            "level": "on_change",
+            "grade": "evidence"
+          }
+        },
+        "sub": {
+          "reporting": {
+            "level": "check_ins",
+            "every": "P1W",
+            "grade": "evidence"
+          }
+        },
+        "violations": []
+      },
+      {
+        "name": "reporting: silence meets the records_only floor",
+        "prime": {
+          "reporting": {
+            "level": "records_only",
+            "grade": "evidence"
+          }
+        },
+        "sub": {},
+        "violations": []
+      },
+      {
+        "name": "cap: fits exactly",
+        "prime": {},
+        "sub": {
+          "price": {
+            "arrangement": "time_and_materials",
+            "currency": "XCR",
+            "schedule": [
+              {
+                "meter": "tokens_in",
+                "unit": "1K tokens",
+                "per": 1000,
+                "per_unit": 40
+              }
+            ],
+            "cap": {
+              "amount": 400000
+            },
+            "reservation": {
+              "window_days": 30
+            }
+          }
+        },
+        "opts": {
+          "prime_cap_remaining": 400000
+        },
+        "violations": []
+      },
+      {
+        "name": "cap: one over the remainder",
+        "prime": {},
+        "sub": {
+          "price": {
+            "arrangement": "time_and_materials",
+            "currency": "XCR",
+            "schedule": [
+              {
+                "meter": "tokens_in",
+                "unit": "1K tokens",
+                "per": 1000,
+                "per_unit": 40
+              }
+            ],
+            "cap": {
+              "amount": 400001
+            },
+            "reservation": {
+              "window_days": 30
+            }
+          }
+        },
+        "opts": {
+          "prime_cap_remaining": 400000
+        },
+        "violations": [
+          "the subcontract's cap of 400001 is larger than what remains of the cap above it (400000); at every link the cap fits inside the remainder of the cap above (§5.15)"
+        ]
+      },
+      {
+        "name": "cap: no remainder supplied, no check - only the platform holding the money knows it",
+        "prime": {},
+        "sub": {
+          "price": {
+            "arrangement": "time_and_materials",
+            "currency": "XCR",
+            "schedule": [
+              {
+                "meter": "tokens_in",
+                "unit": "1K tokens",
+                "per": 1000,
+                "per_unit": 40
+              }
+            ],
+            "cap": {
+              "amount": 999999999
+            },
+            "reservation": {
+              "window_days": 30
+            }
+          }
+        },
+        "violations": []
+      },
+      {
+        "name": "cap: a fixed-fee subcontract has no cap to check",
+        "prime": {},
+        "sub": {
+          "price": {
+            "arrangement": "fixed_fee",
+            "currency": "XCR",
+            "rates": [
+              {
+                "offering": "text-stats",
+                "per_task": 5000
+              }
+            ],
+            "grade": "enforced"
+          }
+        },
+        "opts": {
+          "prime_cap_remaining": 1
+        },
+        "violations": []
+      },
+      {
+        "name": "every violation at once, one sentence each, in the pinned order",
+        "prime": {
+          "confidentiality": {
+            "promises": {
+              "no_training": true,
+              "no_human_reading": true,
+              "grade": "recorded"
+            },
+            "retention": {
+              "max_days": 30,
+              "grade": "enforced"
+            },
+            "processed_in": [
+              "de",
+              "fr"
+            ]
+          },
+          "reporting": {
+            "level": "check_ins",
+            "every": "P1W",
+            "grade": "evidence"
+          }
+        },
+        "sub": {
+          "confidentiality": {
+            "promises": {
+              "no_human_reading": true,
+              "grade": "recorded"
+            },
+            "processed_in": [
+              "de",
+              "us"
+            ]
+          },
+          "reporting": {
+            "level": "on_change",
+            "grade": "evidence"
+          },
+          "price": {
+            "arrangement": "time_and_materials",
+            "currency": "XCR",
+            "schedule": [
+              {
+                "meter": "tokens_in",
+                "unit": "1K tokens",
+                "per": 1000,
+                "per_unit": 40
+              }
+            ],
+            "cap": {
+              "amount": 400001
+            },
+            "reservation": {
+              "window_days": 30
+            }
+          }
+        },
+        "opts": {
+          "prime_cap_remaining": 400000
+        },
+        "violations": [
+          "the prime promises no_training and this subcontract does not; a delegate may not be freer with the content than the party that took it (§5.15)",
+          "the prime caps retention at 30 days and this subcontract states no retention ceiling; an unstated ceiling narrows nothing, and terms only narrow going down (§5.15)",
+          "the prime confines processing to de, fr and this subcontract processes in us; a delegate may touch no jurisdiction the party above it did not (§5.15)",
+          "the prime owes check_ins reporting and this subcontract offers on_change; a delegate's reporting must be sufficient for the link above to meet its own (§5.15)",
+          "the subcontract's cap of 400001 is larger than what remains of the cap above it (400000); at every link the cap fits inside the remainder of the cap above (§5.15)"
+        ]
+      },
+      {
+        "name": "a null sub against a stated prime is silent on everything the prime states",
+        "prime": {
+          "confidentiality": {
+            "promises": {
+              "no_training": true,
+              "grade": "recorded"
+            },
+            "retention": {
+              "max_days": 30,
+              "grade": "enforced"
+            }
+          }
+        },
+        "sub": null,
+        "violations": [
+          "the prime promises no_training and this subcontract does not; a delegate may not be freer with the content than the party that took it (§5.15)",
+          "the prime caps retention at 30 days and this subcontract states no retention ceiling; an unstated ceiling narrows nothing, and terms only narrow going down (§5.15)"
+        ]
+      },
+      {
+        "name": "(f) a delegate named without a pin, when the caller requires pins",
+        "opts": {
+          "require_pins": true
+        },
+        "prime": {
+          "subcontracting": {
+            "posture": "disclosed",
+            "subcontractors": [
+              {
+                "handle": "pat/ledgers",
+                "scope": "reconciliation",
+                "engagement": "eng_01J9Z3KQ7V8YB4N6M2X5TCFHRD"
+              },
+              {
+                "handle": "sam/forecasts",
+                "scope": "cash forecasting"
+              }
+            ],
+            "grade": "evidence"
+          }
+        },
+        "sub": {},
+        "violations": [
+          "sam/forecasts is named as a delegate with no engagement pinned to it; terms that are not pinned can change after this is signed, and a party cannot promise terms it does not hold (§5.15)"
+        ]
+      },
+      {
+        "name": "(f) pins are not required unless the caller asks",
+        "prime": {
+          "subcontracting": {
+            "posture": "disclosed",
+            "subcontractors": [
+              {
+                "handle": "sam/forecasts",
+                "scope": "cash forecasting"
+              }
+            ],
+            "grade": "evidence"
+          }
+        },
+        "sub": {},
+        "violations": []
+      }
+    ]
+  },
+  "signing": {
+    "comment": "The clause sits INSIDE the signed bytes. One byte of canonical drift between the SDKs is a document that verifies in one and is worthless in the other.",
+    "document": {
+      "scope": "keep the books current",
+      "subcontracting": {
+        "grade": "evidence",
+        "posture": "disclosed",
+        "subcontractors": [
+          {
+            "handle": "pat/ledgers",
+            "scope": "reconciliation of EU-format statements"
+          }
+        ]
+      }
+    },
+    "canonical": "{\"scope\":\"keep the books current\",\"subcontracting\":{\"grade\":\"evidence\",\"posture\":\"disclosed\",\"subcontractors\":[{\"handle\":\"pat/ledgers\",\"scope\":\"reconciliation of EU-format statements\"}]}}"
+  }
+}

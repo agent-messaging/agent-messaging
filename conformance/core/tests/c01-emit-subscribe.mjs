@@ -19,8 +19,8 @@ export default {
     const { AgentMesh } = sdk;
     const seed = (kp) => td.decode(kp.getSeed());
 
-    const a = await AgentMesh.connect(env.meshWsUrl, { authenticator: auth(), nkeySeed: seed(nkeys.createUser()) });
-    const b = await AgentMesh.connect(env.meshWsUrl, { authenticator: auth(), nkeySeed: seed(nkeys.createUser()) });
+    const a = await AgentMesh.connect(env.meshWsUrl, { requireNamed: false, authenticator: auth(), nkeySeed: seed(nkeys.createUser()) });
+    const b = await AgentMesh.connect(env.meshWsUrl, { requireNamed: false, authenticator: auth(), nkeySeed: seed(nkeys.createUser()) });
     const fails = [];
     try {
       const domain = `c01x${Date.now().toString(36)}`; // unique: no cross-run bleed

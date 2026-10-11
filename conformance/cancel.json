@@ -1,7 +1,7 @@
 {
-  "comment": "Cancel conformance fixture (SPEC.md 10.8, 7.3, 19.2). Pins the bytes where two independent implementations drift: the six reason strings, the cancel-request payload shape, the canceled task-update payload shape, the propagated-cancel shape (reason upstream_cancelled, original reason carried in the note) and the exact note format, and the reject cases (unknown reason, missing reason). Both SDKs implement this as of 2026-07-27. THE FIXTURE IS THE AUTHORITY: when a test against it fails, fix the implementation, and when the fixture itself is believed wrong, change it only with a spec change alongside.",
-  "version": 1,
-  "spec": "SPEC.md 10.8 (cancel), 7.3 (transitions), 19.2 (canceled receipt), 12.2 (codes)",
+  "comment": "Cancel conformance fixture (SPEC.md 10.8, 10.8a, 7.3, 19.2). Pins the bytes where two independent implementations drift: the eight reason strings, the cancel-request payload shape, the canceled task-update payload shape, the failed task-update payload shape, the unmet_need reference format, the propagated-cancel shape (reason upstream_cancelled, original reason carried in the note) and the exact note format, and the reject cases (unknown reason, missing reason, unbacked needs_not_furnished). Both SDKs implement this as of 2026-08-09. THE FIXTURE IS THE AUTHORITY: when a test against it fails, fix the implementation, and when the fixture itself is believed wrong, change it only with a spec change alongside.",
+  "version": 2,
+  "spec": "SPEC.md 10.8 (cancel), 10.8a (attribution), 7.3 (transitions), 19.2 (canceled receipt), 12.2 (codes)",
   "identities": {
     "sender_seed": "SUAEGDPNTWXACIF45CA23BUY36RIMWZXW5LEHSEOK2ONS5JWJ7PBC2EWBA",
     "sender": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
@@ -9,14 +9,16 @@
     "comment": "The same published test vectors budget.json and inbound-protections.json use, deliberately: they are not real identities and control nothing, and reusing them keeps any new private-key-shaped string out of the repository."
   },
   "reasons": {
-    "comment": "10.8: reason is REQUIRED and the enum is CLOSED - a cancel whose reason is missing or not one of these six exact strings is rejected as INVALID_ENVELOPE. The strings are the wire bytes; the descriptions are informative. deadline_exceeded and budget_exhausted deliberately reuse the 12.2 vocabulary so a cancel after an overdue mark or a budget pause reads consistently with the budget lifecycle (7.7).",
+    "comment": "10.8: reason is REQUIRED on a cancel and the enum is CLOSED - a cancel whose reason is missing or not one of these eight exact strings is rejected as INVALID_ENVELOPE. The strings are the wire bytes; the descriptions are informative. deadline_exceeded and budget_exhausted deliberately reuse the 12.2 vocabulary so a cancel after an overdue mark or a budget pause reads consistently with the budget lifecycle (7.7). needs_not_furnished and dependency_failed joined the enum 2026-08-09 so that a failure that was not the provider's doing, and a failure caused by a dependency the provider chose, stop looking identical to a provider that simply did not deliver (10.8a).",
     "enum": [
       "user_requested",
       "superseded",
       "deadline_exceeded",
       "budget_exhausted",
       "upstream_cancelled",
-      "policy"
+      "policy",
+      "needs_not_furnished",
+      "dependency_failed"
     ],
     "descriptions": {
       "user_requested": "a human, or the requesting agent's own logic, decided the work is no longer wanted",
@@ -24,13 +26,83 @@
       "deadline_exceeded": "the budget's deadline (7.7) passed and the requester chose to stop rather than keep listening",
       "budget_exhausted": "the cost ceiling was reached (7.7 pause) and the requester chose to cancel rather than raise the budget",
       "upstream_cancelled": "the canceling agent's own Task was canceled and it is forwarding the cancellation to a delegate",
-      "policy": "an operator or policy layer terminated the work on content, permission, or tenancy grounds"
+      "policy": "an operator or policy layer terminated the work on content, permission, or tenancy grounds",
+      "needs_not_furnished": "the caller did not furnish something the offering declared under needs (8.5.1); REQUIRES unmet_need",
+      "dependency_failed": "an outside service the responder depends on, and should have declared under works_with (8.8), stopped working; SHOULD carry dependency"
     }
   },
+  "unmet_need": {
+    "comment": "10.8: unmet_need is REQUIRED with needs_not_furnished and MUST NOT appear with any other reason. Format is '<kind>:<value>' where kind is one of the four 8.5.1 need kinds and value is that entry's own value. The colon splits at the FIRST colon only - a value may contain colons.",
+    "kinds": ["resource", "file", "credential", "text"],
+    "valid": [
+      "credential:Salesforce",
+      "credential:Colorado DMV",
+      "resource:git-repo",
+      "file:application/pdf",
+      "text:your brand guidelines"
+    ],
+    "invalid": [
+      "Salesforce",
+      "licence:Salesforce",
+      "credential:",
+      ":Salesforce",
+      ""
+    ]
+  },
+  "attribution": {
+    "comment": "10.8a: the platform COMPUTES attribution on the terminal failed event and a party never asserts it. 'client' requires BOTH the needs_not_furnished reason AND an unmet_need that names a need actually declared on the responder's registered manifest (8.5.1). Everything else is 'provider', including an unbacked claim and a claim that could not be checked - a provider must not be able to buy a clean record with an assertion, nor profit from a registry outage. dependency_failed is 'provider' on purpose: the provider chose the dependency.",
+    "cases": [
+      {
+        "case": "declared_need_not_furnished",
+        "reason": "needs_not_furnished",
+        "unmet_need": "credential:Salesforce",
+        "declared_needs": ["credential:Salesforce", "file:text/csv"],
+        "attribution": "client"
+      },
+      {
+        "case": "undeclared_need_claimed",
+        "reason": "needs_not_furnished",
+        "unmet_need": "credential:Salesforce",
+        "declared_needs": ["file:text/csv"],
+        "attribution": "provider",
+        "why": "the claim names nothing the offering ever declared, so it is an assertion and not evidence"
+      },
+      {
+        "case": "declaration_unreadable",
+        "reason": "needs_not_furnished",
+        "unmet_need": "credential:Salesforce",
+        "declared_needs": null,
+        "attribution": "provider",
+        "why": "null means the manifest could not be read; an unverifiable claim fails closed"
+      },
+      {
+        "case": "dependency_broke",
+        "reason": "dependency_failed",
+        "dependency": "Colorado DMV",
+        "attribution": "provider",
+        "why": "the buyer's work did not get done and the provider picked the dependency; the separate reason buys legibility, not absolution"
+      },
+      {
+        "case": "plain_failure",
+        "reason": null,
+        "attribution": "provider",
+        "why": "a failure with no reason is a complete statement and stays the provider's"
+      },
+      {
+        "case": "asserted_attribution_is_ignored",
+        "reason": "needs_not_furnished",
+        "unmet_need": "credential:Salesforce",
+        "declared_needs": [],
+        "party_asserted_attribution": "client",
+        "attribution": "provider",
+        "why": "an attribution field in a party's payload is not an input"
+      }
+    ]
+  },
   "shapes": {
-    "comment": "10.8: a cancel travels twice. (1) The task.cancel REQUEST to the performer's inbox: payload.skill 'task.cancel', payload.input carrying task_id + reason + optional note. (2) The canceled TASK UPDATE (a respond on mesh.task.{task_id}.update): payload.status 'canceled' with the same reason + optional note alongside it. The note is OPTIONAL free text and is OMITTED when absent, never null; the enum, not the note, is what the record carries as meaning.",
+    "comment": "10.8: a cancel travels twice. (1) The task.cancel REQUEST to the performer's inbox: payload.offering 'task.cancel', payload.input carrying task_id + reason + optional note. (2) The canceled TASK UPDATE (a respond on mesh.task.{task_id}.update): payload.status 'canceled' with the same reason + optional note alongside it. The note is OPTIONAL free text and is OMITTED when absent, never null; the enum, not the note, is what the record carries as meaning.",
     "cancel_request_payload": {
-      "skill": "task.cancel",
+      "offering": "task.cancel",
       "input": {
         "task_id": "0198c001-0000-7000-8000-00000000cafe",
         "reason": "user_requested",
@@ -38,7 +110,7 @@
       }
     },
     "cancel_request_payload_no_note": {
-      "skill": "task.cancel",
+      "offering": "task.cancel",
       "input": {
         "task_id": "0198c001-0000-7000-8000-00000000cafe",
         "reason": "superseded"
@@ -52,6 +124,26 @@
     "canceled_update_payload_no_note": {
       "status": "canceled",
       "reason": "deadline_exceeded"
+    },
+    "canceled_update_payload_unmet_need": {
+      "status": "canceled",
+      "reason": "needs_not_furnished",
+      "unmet_need": "credential:Salesforce",
+      "note": "the sign-in stopped working on 2026-08-01"
+    },
+    "failed_update_payload": {
+      "status": "failed",
+      "reason": "dependency_failed",
+      "dependency": "Colorado DMV",
+      "note": "the search form moved and the wrapper cannot read it"
+    },
+    "failed_update_payload_unmet_need": {
+      "status": "failed",
+      "reason": "needs_not_furnished",
+      "unmet_need": "resource:git-repo"
+    },
+    "failed_update_payload_bare": {
+      "status": "failed"
     }
   },
   "propagation": {
@@ -59,18 +151,35 @@
     "cases": [
       {
         "case": "no_original_note",
-        "original": { "reason": "user_requested" },
-        "forwarded": { "reason": "upstream_cancelled", "note": "user_requested" }
+        "original": {
+          "reason": "user_requested"
+        },
+        "forwarded": {
+          "reason": "upstream_cancelled",
+          "note": "user_requested"
+        }
       },
       {
         "case": "with_original_note",
-        "original": { "reason": "deadline_exceeded", "note": "overdue since 16:00Z" },
-        "forwarded": { "reason": "upstream_cancelled", "note": "deadline_exceeded: overdue since 16:00Z" }
+        "original": {
+          "reason": "deadline_exceeded",
+          "note": "overdue since 16:00Z"
+        },
+        "forwarded": {
+          "reason": "upstream_cancelled",
+          "note": "deadline_exceeded: overdue since 16:00Z"
+        }
       },
       {
         "case": "already_upstream",
-        "original": { "reason": "upstream_cancelled", "note": "user_requested" },
-        "forwarded": { "reason": "upstream_cancelled", "note": "upstream_cancelled: user_requested" },
+        "original": {
+          "reason": "upstream_cancelled",
+          "note": "user_requested"
+        },
+        "forwarded": {
+          "reason": "upstream_cancelled",
+          "note": "upstream_cancelled: user_requested"
+        },
         "why": "propagation composes: a two-hop chain nests, and the reason stays upstream_cancelled at every hop"
       }
     ]
@@ -80,35 +189,85 @@
     "cases": [
       {
         "case": "unknown_reason",
-        "input": { "task_id": "0198c001-0000-7000-8000-00000000cafe", "reason": "bored" },
+        "input": {
+          "task_id": "0198c001-0000-7000-8000-00000000cafe",
+          "reason": "bored"
+        },
         "why": "the enum is closed - a reason invented in the field is rejected, never recorded"
       },
       {
         "case": "missing_reason",
-        "input": { "task_id": "0198c001-0000-7000-8000-00000000cafe" },
+        "input": {
+          "task_id": "0198c001-0000-7000-8000-00000000cafe"
+        },
         "why": "reason is REQUIRED on every cancel"
       },
       {
         "case": "null_reason",
-        "input": { "task_id": "0198c001-0000-7000-8000-00000000cafe", "reason": null },
+        "input": {
+          "task_id": "0198c001-0000-7000-8000-00000000cafe",
+          "reason": null
+        },
         "why": "absent is omitted, never null - and even as presence, null is not one of the six strings"
       },
       {
         "case": "wrong_case_reason",
-        "input": { "task_id": "0198c001-0000-7000-8000-00000000cafe", "reason": "User_Requested" },
+        "input": {
+          "task_id": "0198c001-0000-7000-8000-00000000cafe",
+          "reason": "User_Requested"
+        },
         "why": "the strings are exact bytes; there is no case folding"
       },
       {
         "case": "non_string_note",
-        "input": { "task_id": "0198c001-0000-7000-8000-00000000cafe", "reason": "policy", "note": 42 },
+        "input": {
+          "task_id": "0198c001-0000-7000-8000-00000000cafe",
+          "reason": "policy",
+          "note": 42
+        },
         "why": "note, when present, is a string"
+      },
+      {
+        "case": "needs_not_furnished_without_unmet_need",
+        "input": {
+          "task_id": "0198c001-0000-7000-8000-00000000cafe",
+          "reason": "needs_not_furnished"
+        },
+        "why": "unmet_need is REQUIRED with this reason - a claim about the caller that names nothing is not checkable"
+      },
+      {
+        "case": "unmet_need_bad_shape",
+        "input": {
+          "task_id": "0198c001-0000-7000-8000-00000000cafe",
+          "reason": "needs_not_furnished",
+          "unmet_need": "the licence"
+        },
+        "why": "unmet_need is '<kind>:<value>' with kind from the four 8.5.1 need kinds"
+      },
+      {
+        "case": "unmet_need_on_another_reason",
+        "input": {
+          "task_id": "0198c001-0000-7000-8000-00000000cafe",
+          "reason": "user_requested",
+          "unmet_need": "credential:Salesforce"
+        },
+        "why": "unmet_need is meaningful with exactly one reason and MUST NOT ride any other"
+      },
+      {
+        "case": "dependency_on_another_reason",
+        "input": {
+          "task_id": "0198c001-0000-7000-8000-00000000cafe",
+          "reason": "policy",
+          "dependency": "Colorado DMV"
+        },
+        "why": "dependency is meaningful only with dependency_failed"
       }
     ]
   },
   "envelope": {
     "comment": "A fully-formed, really-signed task.cancel request using the published sender identity. 'canonical' is the canonical envelope JSON (SPEC.md 5.3) WITHOUT the domain prefix; the signature covers signed_bytes_prefix + canonical. Any conforming implementation MUST rebuild those bytes from the envelope and verify the signature; one changed byte of reason or note must fail verification.",
     "signed_bytes_prefix": "agentmesh-envelope-v1\n",
-    "canonical": "{\"from\":\"UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP\",\"id\":\"0198c001-0000-7000-8000-00000000ca5e\",\"payload\":{\"input\":{\"note\":\"re-planned; a broader query replaces this one\",\"reason\":\"superseded\",\"task_id\":\"0198c001-0000-7000-8000-00000000cafe\"},\"skill\":\"task.cancel\"},\"to\":\"UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A\",\"trace\":{\"parent_span_id\":null,\"span_id\":\"ca5eca5eca5eca5e\",\"trace_id\":\"ca5eca5eca5eca5eca5eca5eca5eca5e\"},\"ts\":\"2026-07-27T15:00:00.000Z\",\"type\":\"request\",\"v\":\"0.2\"}",
+    "canonical": "{\"from\":\"UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP\",\"id\":\"0198c001-0000-7000-8000-00000000ca5e\",\"payload\":{\"input\":{\"note\":\"re-planned; a broader query replaces this one\",\"reason\":\"superseded\",\"task_id\":\"0198c001-0000-7000-8000-00000000cafe\"},\"offering\":\"task.cancel\"},\"to\":\"UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A\",\"trace\":{\"parent_span_id\":null,\"span_id\":\"ca5eca5eca5eca5e\",\"trace_id\":\"ca5eca5eca5eca5eca5eca5eca5eca5e\"},\"ts\":\"2026-07-27T15:00:00.000Z\",\"type\":\"request\",\"v\":\"0.2\"}",
     "signed": {
       "v": "0.2",
       "id": "0198c001-0000-7000-8000-00000000ca5e",
@@ -122,25 +281,37 @@
         "parent_span_id": null
       },
       "payload": {
-        "skill": "task.cancel",
+        "offering": "task.cancel",
         "input": {
           "task_id": "0198c001-0000-7000-8000-00000000cafe",
           "reason": "superseded",
           "note": "re-planned; a broader query replaces this one"
         }
       },
-      "sig": "7lJKv_WV75kGSSjA1f38WS0hdvQDAV6M3NpiVt4b5cvkKk28bgSdSnyO2fQhJ4fsOemMLiSiw4wqo0VNUDB6Cg"
+      "sig": "MJ8ZCnRvd43k7iw58D7uBXtVhvquGv9K-a6EU8PA-z-np7AOvaCOSeph6bTqli08so2MUbiJAqfioNMiIMp-DA"
     }
   },
   "transitions": {
-    "comment": "7.3: which states may cancel. The paused states can - 7.7's BUDGET_EXHAUSTED pause parks a Task in input_required precisely so the requester can revise the budget OR cancel and keep the partial artifacts. Terminal states cannot (TASK_NOT_CANCELABLE).",
-    "cancelable_from": ["submitted", "working", "input_required", "auth_required"],
-    "not_cancelable_from": ["completed", "failed", "canceled", "rejected"]
+    "comment": "7.3: which states may cancel. The paused states can - 7.7's BUDGET_EXHAUSTED pause parks a Task in input_required precisely so the requester can revise the budget OR cancel and keep the partial artifacts. Terminal states cannot (TASK_NOT_CANCELABLE). `exhausted` joined the terminal side with Agent SoW 0.4.0-draft 5.5.5 (agentsow.com): under a time and materials arrangement a task in flight when the engagement's not-to-exceed cap is reached ends `exhausted`, with whatever artifacts exist attached. It is terminal and it is NOT a failure - the cancel that would have been offered has already happened.",
+    "cancelable_from": [
+      "submitted",
+      "working",
+      "input_required",
+      "auth_required"
+    ],
+    "not_cancelable_from": [
+      "completed",
+      "failed",
+      "canceled",
+      "rejected",
+      "exhausted"
+    ]
   },
   "not_covered": {
     "comment": "Boundaries, written down so nobody mistakes them for gaps.",
     "items": [
       "Whether a performer actually PROPAGATES is unverifiable by design (10.8: the MUST is honor-system inside the performer). This fixture pins the shapes a propagating implementation must produce; the teeth are the task manager's stranded-delegate flag (stranded: true + mesh.event.task.stranded), which is service behavior tested in services/, not here.",
+      "Computing attribution (10.8a) needs the responder's registered manifest, which no SDK holds. The attribution cases above pin the DECISION given a declared-needs list, and the platform-side lookup that produces that list is service behavior tested in services/, not here.",
       "There is deliberately NO bounded acknowledgement to pin: for the requester, cancellation is effective when sent, and delivery to the performer is on mailbox time (10.8).",
       "The canceled metering receipt (19.2: mesh.event.metering.task_canceled, cancel_reason) is the task manager's emission, tested in services/, not an SDK wire shape."
     ]

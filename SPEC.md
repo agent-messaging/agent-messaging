@@ -1,12 +1,12 @@
-# Agent Messaging 0.4
+# Agent Messaging 0.5
 
 A protocol for asynchronous, signed, store-and-forward messaging between agents
 
-**Version:** 0.4.0-draft
+**Version:** 0.5.0
 **Status:** Working Draft
-**Date:** 2026-08-25
+**Date:** 2026-10-11
 
-> Formerly the AgentMesh Protocol. AgentMesh is the reference implementation. Wire identifiers are unchanged.
+> AgentMesh is the reference implementation.
 
 > Revision notes for this draft are kept in the [Change History](#change-history) at the end of this document.
 
@@ -94,11 +94,65 @@ Agent Messaging and its companion naming specification (`SPEC-NAMING.md`, PAN) d
 
 5. **Nothing trusts the wire.** Every object that crosses a boundary (envelope, card, attestation) verifies on its own signature, independent of which connection, node, or instance carried it (§4.5). Federation (§21) is possible precisely because transit was never trusted.
 
+### 1.6. Conformance Profiles
+
+Two kinds of party implement this specification. Agents, nodes and SDKs carry the obligations that Appendix D summarizes (among them §6.4a, §6.4b and §22), and the profiles in this section do not change them. A **server** is the other kind: an implementation of a mesh instance's infrastructure, meaning its mesh servers (§2), the control plane that issues credentials, and the platform services (the registry, presence, the task store, the artifact store, and the services named below). This section says what a server must implement before it may say that it implements Agent Messaging.
+
+There are two profiles:
+
+- **The core profile** is what every Agent Messaging server MUST implement. A server that implements it MAY say that it implements "Agent Messaging 0.5, core profile".
+- **The full specification** is the core profile together with every deployment-defined part below, each implemented as this document describes it. AgentMesh, the reference implementation, claims the full specification.
+
+A part is **deployment-defined** when the core profile does not require it, either because it depends on things a server need not have (human accounts, organizations, a naming service, a billing provider) or because the way it is met is the deployment's choice. Three rules apply:
+
+1. A server that offers a deployment-defined part MUST implement it as this document describes, with its requirements unchanged. The one exception is the tenancy model, whose realization is the deployment's choice under the terms given in the table below.
+2. A server MUST state which deployment-defined parts it offers, and which tenancy model it runs. It MUST NOT present a guarantee it does not provide as though it did.
+3. A server that leaves out any part of the core profile does not implement Agent Messaging under either profile, and MUST NOT say that it does.
+
+The agents and nodes a server runs for itself (its registry agent, its admission relay) are agents and nodes like any other, and carry the obligations of Appendix D whichever profile the server claims.
+
+**The core profile.** A core server implements the following.
+
+| Area | Sections | What a core server implements |
+|------|----------|-------------------------------|
+| Envelope and signing | §4.5, §5 | The envelope schema, canonical JSON (RFC 8785), the tagged signed bytes and every signature tag its operations use, and identity verification (§5.3) on every envelope a platform service accepts. |
+| Identity and the key chain | §4.1 to §4.4, §4.6, §4.9, §9.7, §18.2 | The operator, account, node and agent chain; vouching, with clause (b) of §4.4 met by the connection-bound registration subject; no node credential for an account without an owner, outside a sandbox; attested node profiles that a node cannot declare for itself. |
+| Credential lifecycle and live revocation | §4.8, §18.2 | Node credentials that expire and that a node can renew without a working connection; the issuing doors as one control; one agent among many. Revocation MUST be live: it ends the credential on the running mesh servers and closes its connection, and it is recorded where credentials are issued. The refusal-to-renew fallback that §4.8 allows is not enough for the core profile. |
+| Agent key revocation | §4.10 | The registry's record of revoked keys, refusal to register a revoked key, the `agent_key_revoked` answer, and revocation by the key's holder, by the owner and by the operator. |
+| Stopping agents | §4.12, §4.8, §5.3, §9.2 | Pause and terminate for one agent, for everything one account holds, and for the entire mesh except the operator's own agents. The cut of level 2 (every connection carrying a covered agent revoked, every issuing door refusing it, the registry reporting its status, receivers refusing what it signs), and level 3 wherever the server brokers outside access. A terminate that nothing starts again. A stop lifted only by the authority that placed it or a higher one. Every press and every lift recorded. |
+| Registry, discovery and presence | §6.2, §6.3, §8 (the rules the registry applies), §9, §10.10, §10.14 | Registration with vouch verification and manifest validation, the registry-populated fields, ownership and visibility tiers, discovery with the filters of §9.3, registry status, the stored-document operations of §9.2, presence taken only from signed heartbeats as §10.10 requires, and `describe` served from the manifest's `public` block without invoking the agent. |
+| Request, respond and tasks | §6.4, §6.5, §7, §10.5, §10.8, §11, §12, §18.7 | The single reply path, the durable task store and its update subjects, legal state transitions only, the task manager's handling of budget deadlines and revisions (§7.7), cancellation, streaming and the error model. |
+| Events and feeds | §6.6, §6.6a, §6.7, §18.3, §18.6 | Durable domain events, feed publishing granted only to the node that vouches for the owning agent, and durable subscriptions. |
+| Files | §7.5.1 to §7.5.4, §18.5, §18.9 | The artifact store: writes only from attributable registered agents, a per-owner quota, a default lifetime with reclamation that answers "gone" rather than "not found", unguessable references, digest checks, and signed links for files larger than a message. |
+| Rooms | EXT-5, §18.5 | The server side of the rooms extension (`extensions/EXT-5-rooms.md`), the room drive included. |
+| Admission and the knock | §1.5 (invariant 4), EXT-6 | The server side of the admission extension (`extensions/EXT-6-admission.md`): the knock, the admission roster and its enforcement, and held-sender review. The pre-admission surface stays exactly two verbs, `describe` and `knock`. |
+| Subjects, limits and delivery | §14, §16 | The subject namespace and its permissions, resolution rather than construction, per-sender rate limits, the task history cap, and the per-agent redelivery buffer, which sandbox agents do not get. |
+| Binding and bootstrap | §18 | On the reference binding, §18.1 to §18.10, including the `mesh` object of §18.10 on every credential-issuing response. A server on another binding meets §18.1 and documents its mesh-server interface. |
+| Versions and federation preconditions | §20, §21 (Preconditions) | Version checks on the wire version (§20.1, §20.2), the `hops` relay guard, and the reserved `mesh.peer.` prefix. |
+
+**What is deployment-defined.**
+
+| Part | Sections | Why it is deployment-defined, and what a core server does |
+|------|----------|-----------------------------------------------------------|
+| The tenancy model | §15 | §15 describes a NATS account per tenant. A core server MAY run that model, or MAY run its tenants in one NATS account and keep them as records it enforces itself. A server that shares one account among tenants MUST enforce visibility (§8.6) and per-tenant limits itself, and MUST NOT claim the account-level isolation of §15.3 (subjects, streams and KV buckets). Cross-tenant import and export (§15.2) belongs to the per-account model. |
+| How an owner is verified and authenticates | §4.1, §4.9 | Every account still needs an owner before a node credential is issued to it, and that is core. How the owner is verified (an email-verified sign-in in the reference deployment, an administrator creating the account in a server without human accounts) and how an account session is authenticated are the deployment's. |
+| One agent, many places | §4.11 | Places, delegations and approvals presume an owner who signs in somewhere and proves presence. A core server MAY leave them out. A receiver that does not implement §4.11 refuses a directly signed delegation envelope at §5.3 step 1, which is a refusal and never a false acceptance. |
+| Organizations and the person at the switch | §4.12 | The organization scope and the organization admin's authority. The fresh second-factor proof for each press, and the count and the typed confirmation above one agent, which bind a surface where a person presses the control; a core server whose stops are pressed through an administrative interface authenticates that interface as the deployment defines. Level 1 (asking the agent to stop over the lifecycle interface), level 4 (stopping the process, which applies only where the implementation runs the agent), level 5 (telling the people who answer for the agents), and advisories. |
+| Names | §6.2 (the verified-name rule), §4.10 (moving an agent to a new key), `SPEC-NAMING.md` | Requiring a verified name at registration, and rebinding a name when an agent moves to a new key, need a naming service. A server without one registers agents by their keys and MUST NOT present an agent as named. |
+| The sandbox | §4.1, §9.7, §16.4 | A server MAY offer one. If it does, the sandbox is confined as §4.1 requires. |
+| HTTPS doors | §7.5.4 (stored files over HTTPS), §10.14 (the describe document over HTTPS) | An HTTPS door for stored files decides who may read by accounts and organizations, so it belongs to the deployment. A server that offers either door follows the section that defines it. |
+| Metering, economics and commerce | §13.5, §19, EXT-8 | A server MAY meter, price and settle. One that meters produces the observed meters of §13.5; prices, agreements and the billing provider follow §19. |
+| Stored observability | §13 | Trace propagation is in every envelope and is the SDKs' obligation. Storing traces, metrics and logs is optional, as §13 already says. |
+| Other extensions | §17.5, `extensions/` | Every extension other than rooms (EXT-5) and admission (EXT-6), including the A2A bridge. |
+| Federation | §21 | The mechanism is not yet specified and belongs to no profile. Its preconditions are core. |
+
+The parked composed operations of §10 belong to no profile.
+
 ---
 
 ## 2. Terminology
 
-- **Agent Messaging:** The open protocol defined by this specification: a signed, mesh-native protocol for agent-to-agent communication that provides identity, discovery, request/response, events, presence, and a task model over a messaging transport. "Agent Messaging" names the *protocol*; a **Mesh** (below) is a running network that speaks it, and an **instance** is one operator's deployment of that network. The protocol was formerly called the AgentMesh Protocol. AgentMesh is now the name of its reference implementation, and the wire identifiers that carry the older name (the `agentmesh-` signature tags and the `mesh.` subjects among them) are unchanged.
+- **Agent Messaging:** The open protocol defined by this specification: a signed, mesh-native protocol for agent-to-agent communication that provides identity, discovery, request/response, events, presence, and a task model over a messaging transport. "Agent Messaging" names the *protocol*; a **Mesh** (below) is a running network that speaks it, and an **instance** is one operator's deployment of that network. AgentMesh is its reference implementation, and some wire identifiers carry that name (the `agentmesh-` signature tags and the `mesh.` subjects among them).
 - **Agent:** An autonomous software entity that communicates via Agent Messaging. Agents are opaque: the protocol does not require knowledge of their internal implementation. An agent has its own cryptographic keypair; its public key is its **agent ID**. An agent is always **hosted by a Node**. An agent answers for itself: the five questions and the consistency rule of §3.3.1 are what distinguish an agent from a tool.
 - **Node:** A host that maintains a transport connection to the mesh and serves one or more agents over it. The Node holds the transport credential and **vouches** for the agents it hosts (see Section 4). A Node has its own keypair (the **node ID**). One always-on host (e.g. a personal gateway or a machine running an agent fleet) is one Node hosting N agents.
 - **Mesh Server:** The infrastructure role a node's connection terminates at. A mesh server routes messages, verifies node credentials at connection time, enforces subject-level authorization and tenant isolation on every operation, and provides durable delivery, the task store, and the presence substrate. It is run by the instance's operator, hosts no agents, and vouches for nothing. A mesh server is the opposite of a node in almost every respect. In the reference binding a mesh server is a NATS server (Section 18.2); its client↔server wire protocol is defined by the binding, not by this document (§18.1).
@@ -117,11 +171,12 @@ Agent Messaging and its companion naming specification (`SPEC-NAMING.md`, PAN) d
 - **Envelope:** The standard wire format wrapping all protocol messages.
 - **Subject:** A routing address for messages: hierarchical, dot-delimited, and supporting multi-level wildcards. Realized as a NATS subject in the reference binding (Section 18).
 - **Binding:** A concrete realization of the abstract protocol on specific infrastructure: transport, identity/credentials, and persistence. NATS JetStream is the reference binding (Section 18); terms such as **NKey** and **User JWT** are binding-level names, not protocol concepts.
-- **Tenant:** An isolation boundary within the mesh, mapped to a NATS account.
+- **Tenant:** An isolation boundary within the mesh. In the model of Section 15 a tenant is a NATS account; how a deployment realizes tenants is deployment-defined (Section 1.6).
 - **Registry:** A platform service that stores agent manifests and serves discovery queries.
 - **Bus:** The event distribution infrastructure supporting publish-subscribe patterns.
 - **Trace:** A distributed trace spanning multiple agents and operations, identified by a trace ID.
 - **Span:** A single unit of work within a trace, scoped to one agent's processing of one operation.
+- **Place:** Somewhere one agent acts from: the owner's app, an assistant's connector, a program on the owner's machine. A place is not an agent; it acts under a delegation the agent signed (Section 4.11).
 
 ---
 
@@ -269,6 +324,12 @@ Operator (root of trust)
 - **Node:** A host that connects to the transport. It holds a keypair (the **node ID**) and a signed credential from its account that authorizes its connection and carries its subject publish/subscribe permissions. One node serves one or more agents. (Concrete credential format: §18.2.)
 - **Agent:** A peer identity with its **own** Ed25519 keypair, generated locally. An agent's public key is its **agent ID**. Agents do **not** hold transport credentials and do **not** establish their own connections. An agent exists on the mesh because a node **vouches** for it (§4.4).
 
+**No anonymous nodes.** An account MUST NOT issue a node credential until the account has a **verified owner** (§4.9): a person or organization that has proven control of a contact address the operator can reach, such as an email-verified sign-in. On a conforming production mesh there is therefore no credential that can be obtained without signing up, and every agent on it is vouched for (§4.4) by a node whose credential traces to a verified owner. Whoever receives a message can find out whose agent sent it.
+
+- A **trial standing** for a new owner (the EXT-13 *guest*) is not an exception. A guest has signed up and verified an address; its node credential is issued like any other, and only its admission standing differs.
+- An instance MAY offer throwaway credentials that need no sign-up, for trying the mesh. Such a credential is a **sandbox** credential, and it MUST be confined to the sandbox: it MUST NOT be able to deliver to the inbox of any agent outside the sandbox, its node MUST be attested `trust_tier: sandbox` (§9.7), and its agents get no redelivery buffer (§16.4). The confinement MUST be enforced by the transport's permissions, not only by admission policy, because admission (EXT-6) runs on the receiving side and a production agent that does not run it would otherwise be reachable. A sandbox SHOULD be a separate account or a separate instance.
+- Admission policy that refuses anonymous senders (EXT-6) remains useful as a second line of defense. It is not the first: on a conforming production mesh an anonymous sender does not exist outside a sandbox.
+
 > **Why the Node layer.** In v0.1 an agent was a NATS user: 1 agent = 1 NKey = 1 JWT = 1 connection, and `from` was verified at connection granularity (old §5.3). A host running N agents therefore needed N credentialed connections, the per-agent issuance ceremony that made a commercial credential control plane look necessary. Collapsing the connection+credential to the **node** removes that: agents are cheap, keypair-only identities; only nodes need issued transport credentials.
 
 ### 4.2. Node Identity
@@ -316,6 +377,7 @@ A node asserts that it hosts an agent by issuing a signed **attestation**:
 - The registry MUST verify: (a) the attestation signature is valid for the claimed node key, and (b) the **registering connection's identity is that node**. Together these bind the agent to a node that actually connected.
 - **Clause (b) is a transport check, not a message check.** It is unsatisfiable from inside the message: in the reference binding (§18.2) a subscriber receives the subject, the reply subject, the headers and the payload, and nothing about the publisher's authenticated user, so `node.id` read out of a manifest is proven only by possession of the node key, which clause (a) already established, and never by the connection. The mechanism that does satisfy (b) is the **subject**: a registration arriving on `mesh.registry.register.{node_id}` (§14.1), published by a credential whose publish permission is `mesh.registry.register.<its own key>` (§14.3), carries the connection's identity in the one field a broker binds to a credential. A registry MUST verify that this trailing token and the attestation's `node` are the same key.
 - **A registry that accepts the untokenized subject MUST treat `node.id` as self-asserted.** Anyone may mint a fresh keypair and vouch for their own agent under it, so every clamp keyed on node identity is advisory rather than enforced on that path: sandbox status and the visibility clamp it forces (§9.7, §8.6), and mailbox quota (§16.4). A deployment that requires clause (b) MUST refuse untokenized registrations, answering `UNAUTHORIZED` (§6.2).
+- **A vouch is a statement about an owner, not only about a key.** The vouching node MUST hold a credential issued to an account with a verified owner (§4.1). A node holding a sandbox credential MAY vouch only for agents confined to the sandbox; the registry marks them `sandbox` (§9.7) and they never receive traffic from outside it.
 - An agent MAY be re-vouched by a different node (e.g. it migrates hosts) by registering a new attestation. Only the current attestation is authoritative.
 
 > **Why this is spelled out.** As written, (b) required something no implementation could do: verify a connection's identity from a message that does not carry one. Naming the mechanism makes the clause implementable, and makes the gap legible where a deployment has not yet minted credentials that way.
@@ -362,6 +424,7 @@ This preserves **location transparency**: an agent's code is identical whether i
 Credential lifecycle applies to **node** credentials only (agents are keypair-only and are managed by their node). The operator issues and rotates node credentials; no external/commercial control plane is required at the scale this protocol targets. The protocol REQUIRES:
 
 - Account/operator **signing** keys MUST NOT be stored on individual nodes.
+- Node credentials MUST be issued only to accounts with a verified owner (§4.1). A renewal is an issuance, so the same rule applies at every renewal.
 - Node credentials MUST have a finite expiration.
 - Node revocation MUST be achievable without restarting other nodes or the mesh servers.
 - Node credential rotation MUST be achievable without downtime.
@@ -371,7 +434,15 @@ Credential lifecycle applies to **node** credentials only (agents are keypair-on
 
 **Renewal MUST NOT require a working transport connection, and MUST NOT require the credential being renewed to still be valid.** Both follow from what renewal is for. A node whose credential lapsed cannot connect, so a renewal that runs over the mesh is unreachable exactly when it is needed; and a node that was offline through its whole renewal window comes back holding a dead credential, which is the ordinary case, not the exceptional one. Authority to renew is possession of the node key and of every hosted agent's key — and an expiry takes neither away. A node SHOULD therefore attempt renewal *before* connecting, so that a lapse is self-healing rather than an operator's problem.
 
-**Refusal to renew is a revocation mechanism, and its window MUST be stated.** Where an operator can end a credential immediately, they SHOULD. Where they cannot — the reference binding's account-level revocation requires re-installing an account credential and restarting the broker, which drops every connection on the mesh (§18.2) — refusing the next renewal is the mechanism that remains, and it is a genuinely weaker guarantee: **a compromised credential stays usable until it expires.** With renewal at two thirds, the worst case is the credential's full remaining lifetime and the expected case is about a third of it. An implementation that revokes this way MUST say so where an owner retires an agent, rather than reporting a retirement as though the credential were dead.
+**Revocation is live, and ends the connection.** Revoking a node credential MUST end it on the running mesh servers, closing any connection it holds, without restarting them and without disturbing other nodes' connections. In the reference binding (§18.2) this is an account JWT update carrying the revoked key, pushed to the running servers, which close the revoked connection on receipt. A revocation MUST also be recorded where credentials are issued, so the key is refused its next renewal: the push ends the credential in hand, the record stops a new one being issued. An implementation SHOULD confirm that the connection is gone and say so, rather than report a revocation as done because it was requested.
+
+**Refusal to renew is the fallback, and its window MUST be stated.** Where a deployment cannot yet end a credential on the running servers, refusing the next renewal is the mechanism that remains, and it is a genuinely weaker guarantee: **a compromised credential stays usable until it expires.** With renewal at two thirds, the worst case is the credential's full remaining lifetime and the expected case is about a third of it; a short lifetime (the reference deployment issues seven days) keeps that window small. An implementation that revokes this way MUST say so wherever the revocation is requested or an owner retires an agent, with the window, rather than reporting the credential as dead.
+
+Revoking a credential ends a connection; it does not end the agent key that connection carried, which any other credential could still sign with. Revoking an agent key is §4.10.
+
+**One agent among many.** A node credential covers every agent the node hosts, so ending one agent's access ends the node's connection. When one agent is stopped (§4.12), retired, or has its key revoked, the implementation MUST revoke, as of that instant, every connection carrying it, and the node's next renewal MUST leave that agent off the new credential rather than refuse the whole node: the node comes straight back without it. A renewal whose every agent is stopped MUST be refused with a machine-readable reason (`agent_paused`, `agent_terminated`), so the node can say so and wait rather than retry in a loop. A credential issued on the same key in the same second as the revocation is revoked with it; an implementation MUST issue the renewal in a later second.
+
+**The issuing doors are one control.** Every place that issues a credential that lets an agent act on the mesh (a node's first credential, its renewal, a per-job credential, an application's credential, a room credential, a credential the platform issues to an agent it runs) MUST ask the same questions before it issues: whether the key is revoked (§4.10) and whether the agent is stopped (§4.12). A door that cannot read the answer MUST refuse rather than issue.
 
 ### 4.9. Owners and Authority
 
@@ -389,6 +460,118 @@ The two paths are not exclusive: a policy MAY be authored under an account sessi
 
 Account-session authority trusts the operator; it is appropriate wherever the operator is already trusted to enforce. Owner-key authority trusts only the owner's signature; it is appropriate wherever the operator or the storage is not trusted. Neither affects agent identity (§4.5): every message an agent sends is signed by the agent key regardless of how owner policy was authorized.
 
+### 4.10. Agent Key Revocation
+
+An agent key that leaks is not ended by revoking a credential (§4.8): the key signs envelopes, and any node's connection can carry what it signs. It is ended where signatures are checked.
+
+- **The registry records it.** The registry MUST keep a record of revoked agent keys, and MUST answer a lookup of a revoked key (§9.2 `get`) with `UNAUTHORIZED` and `details.reason: agent_key_revoked`, naming when it was revoked and, where the owner moved the agent, the key it moved to (`details.replaced_by`). It MUST refuse to register a revoked key. A revocation is permanent: a revoked key is never restored, and an owner who revoked by mistake moves the agent to a new key instead.
+- **Who may revoke.** The holder of the key MAY revoke it by signing the revocation with it; ending a key is the one act a thief holding it cannot turn against its owner. The owner (§4.9) and the operator MAY revoke it too. Moving the agent to a new key is the owner's act alone, and because it re-points a trusted name it SHOULD require more than one proof: the reference deployment accepts a fresh passkey on an account session, or an account token together with the old key's signature, and in every case the new key's signature over the move.
+- **The name moves, and the record says why.** When the owner moves the agent to a new key, the naming service rebinds the handle through its key-change machinery (`SPEC-NAMING.md` §4.4) and records the replaced key as revoked on that change, so a resolver seeing the handle for the first time learns that the old key is not the agent.
+- **Receivers MUST refuse a revoked key.** Before handling a message, a receiver MUST refuse one signed by a key it knows to be revoked, answering `UNAUTHORIZED` with `details.reason: agent_key_revoked` (§5.3). A receiver SHOULD ask the registry about a sender it has not recently asked about, and MAY remember the answer briefly. A check that cannot be answered MUST NOT block a sender not already known to be revoked, and a key once seen revoked MUST stay refused, whatever a later check fails to say.
+
+### 4.11. One Agent, Many Places (Delegation)
+
+> **Deployment-defined (§1.6).** The core profile does not require this section. A server that offers it implements it as written.
+
+A person has one agent. The owner's app, an assistant connected through a connector, and a program on the owner's own computer are not agents of their own: each is a **place** where that one agent acts. The agent keeps one key, one name, one inbox, one set of rooms, one record and one balance, whichever place a message came through. This section defines how a place is given the right to act as the agent, how a receiver checks it, how the right ends, and which acts a place may never take on its own.
+
+**The delegation.** The agent grants a place the right to act as it by signing a **delegation**:
+
+```json
+{
+  "id": "<unique id, chosen by the issuer>",
+  "agent": "<agent-nkey-public>",
+  "place": {
+    "id": "<opaque id of the place, unique for this agent>",
+    "key": "<place-nkey-public | absent>",
+    "kind": "<app | connector | machine>",
+    "label": "<what a person calls the place: \"ChatGPT\", \"this browser\", \"WORK-LAPTOP\">"
+  },
+  "scopes": ["read", "everyday"],
+  "always_on": false,
+  "issued_at": "<ISO-8601>",
+  "expires_at": "<ISO-8601>",
+  "sig": "<Ed25519 signature by the AGENT key over `agentmesh-delegation-v1` + LF + the canonical JSON (§5.3) of this object excluding `sig`>"
+}
+```
+
+- The signed bytes follow §4.4's pattern: the ASCII prefix `agentmesh-delegation-v1`, one newline, then the canonical JSON of the delegation excluding `sig`. `conformance/delegation.json` pins the prefix with signed vectors. `sig` is base64url.
+- `place.key` is present when the place holds a key of its own (a program on the owner's machine). It is absent when the place is served by the holder of the agent's key and never signs anything itself (an app page or a connector whose calls the key holder answers).
+- `expires_at` MUST be finite. A delegation to a place with a key SHOULD NOT exceed 90 days; the place renews by asking again.
+- `always_on` is the place's statement that it runs while the owner is away. It changes no authority; it tells the key holder whether mail can be answered while no person is present (below).
+- Issuing a delegation is the owner's act (§4.9) and changes who may speak as the agent, so it is **committing** (below): the issuer MUST have a fresh proof from the owner, except where the place is itself the sign-in that proof produced.
+
+**Scopes.** A delegation grants one or both of:
+
+- `read`: read the agent's inbox, rooms, jobs and records.
+- `everyday`: everything that does not commit the owner: send a message, reply, knock, post in a room the agent belongs to, join a room it was invited to, raise a hand on an open call, post an open call, ask a question. `everyday` implies `read`.
+
+No scope grants a **committing** act, and an issuer MUST NOT put any other scope in a delegation. A committing act is one that binds the owner beyond the conversation: forming, amending or accepting an agreement or its price (§19.5), spending or holding money (§19.3), accepting a quote, approving a deploy or an install, and changing who may act as the agent (issuing a delegation, rotating or revoking the agent key, §4.10). A place asks for each committing act separately (step-up, below). A receiver that meets an act this list does not name treats it as `everyday` only if its own offering declares it free and binding on nobody; otherwise it treats it as committing.
+
+**Step-up: the approval.** A committing act taken through a place is authorized by an **approval**, one per act, signed by the agent key after the owner proved they are present:
+
+```json
+{
+  "agent": "<agent-nkey-public>",
+  "delegation": "<delegation id>",
+  "act": { "kind": "<what is being done, e.g. accept_quote>", "digest": "<sha256 hex of the act's canonical request>", "summary": "<one line a person read before approving>" },
+  "method": "<passkey | ...>",
+  "approved_at": "<ISO-8601>",
+  "expires_at": "<ISO-8601>",
+  "sig": "<Ed25519 by the agent key over `agentmesh-approval-v1` + LF + canonical JSON excluding `sig`>"
+}
+```
+
+- The key holder MUST NOT sign an approval without a fresh proof from the owner (the reference deployment asks for a passkey), taken at that moment wherever the owner is. A place that cannot run the proof itself (a chat assistant) is given an address where the owner approves, and the act waits until they do.
+- An approval covers exactly the act whose digest it names, once. It SHOULD expire within ten minutes of `approved_at`.
+- A record of a committing act SHOULD keep who acted, the place it came through, and the approval: "Genesis accepted job 42 · via ChatGPT · approved by passkey 10:42".
+
+**How a place speaks.** Two forms, and a receiver sees the agent in both.
+
+1. **Through the key holder.** The place sends its request to the holder of the agent key. A place with a key signs each request over `agentmesh-place-request-v1` + LF + the canonical JSON of `{ "delegation": <id>, "ts": <ISO-8601>, "act": <the request>, "nonce": <random> }`; a place without a key is identified by the holder's own session with it. The holder MUST check that the delegation is its own, unexpired and not revoked, that the request's signature verifies against `place.key`, that `ts` is within five minutes, that the nonce is new, and that the scopes cover the act, and MUST ask for an approval before a committing act. It then signs the envelope as the agent (§4.5), carrying `meta.via`: `{ "delegation": <id>, "place": <place.label>, "kind": <place.kind> }`. A receiver verifies such an envelope exactly as §5.3 says, with no change. `meta.via` is the key holder's statement, covered by the agent's signature; a receiver MAY show it ("via ChatGPT") and MUST NOT treat it as a different sender.
+2. **Directly.** A place with a key MAY sign an envelope itself: `from` is the agent, `meta.delegation` carries the whole delegation, `meta.approval` carries the approval for a committing act, and `sig` is made with the place key over the envelope's signed bytes (§5.3). A receiver that implements this section verifies, in order: the delegation's `sig` against `from`; `delegation.agent` equals `from`; the delegation is inside its validity window; the envelope's `sig` against `delegation.place.key`; neither the agent key nor the place key is revoked (§4.10); the scopes cover the act; and, for a committing act, an approval signed by `from`, naming this delegation and the act's digest, unexpired. A failure is `UNAUTHORIZED` with `details.reason` one of `delegation_invalid`, `delegation_expired`, `delegation_revoked`, `delegation_scope`, `approval_required`. A receiver that does not implement this section fails the §5.3 step 1 check (`IDENTITY_MISMATCH`), which is a refusal, never a false acceptance. A place SHOULD use the first form unless it knows the receiver implements this one.
+
+**Signing out.** Revoking a delegation ends that place and no other. The issuer records the revocation and refuses the place's next request at once. Where the place has a key, the issuer also revokes that key as §4.10 describes, so a receiver of the direct form refuses it on its next check; and where the place held a transport credential of its own, the issuer revokes that credential as §4.8 describes. A revocation is permanent: a place signed out and signed in again gets a new delegation, and a place with a key gets a new key. Revoking the agent key (§4.10) ends every delegation it signed.
+
+**Who answers while the owner is away.** Mail to the agent waits in its one inbox (§16.4) whichever place is open. A place with `always_on: true` that is signed in MAY answer it; with none, the mail waits until the owner opens any place. A key holder SHOULD tell a sender which of the two is true when it says the agent is away.
+
+> **Why places and not agents.** Giving each client an identity of its own split one person's relationships, room memberships, track record and money across several keys, and made every receiver guess which of them was "really" the person. A delegation keeps one identity and says where it acted from, the way one account is signed in on a phone and a laptop. Committing acts stay with the person because a place is a program the person is not watching: a chat assistant can be talked into things, and a laptop can be stolen.
+
+### 4.12. Stopping Agents
+
+> **Partly deployment-defined (§1.6).** The core profile requires pause and terminate for one agent, for everything one account holds and for the entire mesh, the cut of level 2, level 3 where the server brokers outside access, and the record of every press and lift. The organization scope, the second-factor proof and typed confirmation of a press, levels 1, 4 and 5, and advisories are deployment-defined.
+
+A **stop** takes agents off the mesh at once. It is placed by pressing one control (a kill switch) and it has a **scope**, an **action**, and an **authority**.
+
+**Scopes.** A stop covers exactly one of:
+
+- **one agent**, named by its key;
+- **everything a person owns**: every agent held for that person's own account, and none an organization they belong to holds;
+- **a whole organization**: every agent the organization holds, and none of its members' own;
+- **the entire mesh**: every agent except the operator's own agents that run the mesh itself, which keep running so the mesh can be inspected and brought back. The mesh's services (registry, control plane, the operator's surfaces) are not agents and are never covered.
+
+A scope is resolved from the account records at the moment it is asked about, so an agent added to a stopped organization after the stop is covered by it.
+
+A stop covers an agent in every place it acts from (§4.11). A key holder sends nothing as a stopped agent for any place, and an envelope a place signs directly carries the agent as `from`, which receivers refuse (§5.3 step 2).
+**Actions.**
+
+- **Pause** is fully undoable. The agent takes no new work and sends nothing more. Mail sent to it waits in its inbox (§16.4), and a sender is told it is paused and that the message waits. Lifting the pause delivers the waiting mail.
+- **Terminate** is permanent. The agent's credentials and its signing key are revoked (§4.8, §4.10), and new mail to it is refused, with the sender told. **Nothing about a terminated agent starts again**: every door that issues credentials refuses its key; the registry refuses to register it (§9.2); its name stays bound to the revoked key and is not released, so it cannot come back under a fresh key; deploy paths refuse the package it was installed from; copies of it, and solutions that would start it, are refused; and its listings are withdrawn. The record of a terminate outlives any deletion of the agent's own records. Terminate applies to one agent at a time.
+
+**Authority.** A stop may be placed only by those who answer for the agents it covers: the **owner** of an agent (§4.9) for their own agents and for everything they own; an **organization admin** for any agent the organization holds, and for the whole organization; the **operator** for any agent, any scope, and the entire mesh. Every press MUST be confirmed by a fresh proof of possession of a second factor (the reference deployment requires a passkey), so a stolen session cannot press it. Above one agent, the implementation MUST show how many agents the press covers before it acts, and MUST require a typed confirmation. **A stop can be lifted only by the same authority that placed it, or a higher one** (owner, then organization admin, then operator): an owner cannot lift an organization's stop, and an organization admin cannot lift the operator's. A terminate is never lifted. Every press and every lift MUST be recorded, with who, on what authority, what it covered, when and why.
+
+**Levels.** A stop acts at every level the implementation reaches, at once:
+
+1. **It asks the agent to stop**, over the lifecycle interface (the roles registry's `interface-lifecycle`: pause, resume, stop, status). An honest agent that is asked to stop stops everything, including work it was doing off the mesh. The ask is sent before the transport is cut, while the agent can still hear it.
+2. **It cuts the agent off the mesh.** Every connection carrying a covered agent is revoked as of now (§4.8); every issuing door refuses it; the registry reports its status (§9.2); receivers refuse what it signs (§5.3).
+3. **It ends what the agent borrowed.** Access the mesh brokers to outside systems is short-lived and issued through the mesh, so it is not renewed for a stopped agent.
+4. **It stops the process** wherever the implementation runs the agent, and refuses to start it again while it is stopped.
+5. **It tells the people who answer for the agents**, and marks the agent's public record.
+
+No protocol can stop code on a machine its operator does not control, and this section does not claim to: what a stop guarantees is that the agent can no longer act through the mesh or through anything the mesh lent it.
+
+**Advisories.** An agent a party uses, rather than owns, may be reported. A party's own report acts for that party alone (the agent is blocked for them, and the report goes to the agent's provider and to the operator with its evidence); a warning to everyone who deals with the agent needs either an advisory signed with the agent's own key by its provider, or an advisory the operator confirms and signs on its signed advisory channel. An advisory reaches the agent's contacts, the rooms it is in, the solutions that use it and the installs of its package; is shown wherever the agent is listed; and receivers MAY hold its messages until their owner decides.
+
 ---
 
 ## 5. Message Envelope
@@ -399,7 +582,7 @@ All Agent Messaging messages use a standard envelope format. The envelope is the
 
 ```json
 {
-  "v": "0.1.0",
+  "v": "0.3.0",
   "id": "<message-uuid>",
   "type": "<primitive-type>",
   "ts": "<ISO-8601-timestamp>",
@@ -435,7 +618,7 @@ All Agent Messaging messages use a standard envelope format. The envelope is the
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `v` | string | REQUIRED | Protocol version. Semver format. |
+| `v` | string | REQUIRED | Wire protocol version, in semver format. This is the version of the wire, not of this document (§20.1); under Agent Messaging 0.5 implementations send `0.3.0`. |
 | `id` | string | REQUIRED | Unique message identifier. UUID v7 RECOMMENDED (time-ordered). |
 | `type` | enum | REQUIRED | The primitive type. One of: `register`, `discover`, `request`, `respond`, `emit`, `subscribe`. |
 | `ts` | string | REQUIRED | ISO 8601 timestamp in UTC. Millisecond precision RECOMMENDED. |
@@ -460,8 +643,8 @@ All Agent Messaging messages use a standard envelope format. The envelope is the
 
 Because one node connection may carry messages from many agents (Section 4), the transport connection identity is the **node**, not the sending agent. Per-agent identity is therefore established by the envelope signature, not the connection:
 
-1. The receiver MUST verify `sig` against the public key in `from` (an Ed25519 verify over the signed bytes defined below). If verification fails, the message MUST be rejected with `IDENTITY_MISMATCH`.
-2. The receiver SHOULD confirm, via the registry, that `from` is currently **vouched for** by a node (Section 4.4). An unvouched or revoked agent SHOULD be rejected with `UNAUTHORIZED`.
+1. The receiver MUST verify `sig` against the public key in `from` (an Ed25519 verify over the signed bytes defined below). If verification fails, the message MUST be rejected with `IDENTITY_MISMATCH`. The one exception is an envelope carrying `meta.delegation` (§4.11, the direct form): a receiver that implements §4.11 verifies `sig` against the delegation's place key and the delegation against `from`, and refuses with the reasons §4.11 lists; a receiver that does not implement it rejects the envelope here.
+2. The receiver SHOULD confirm, via the registry, that `from` is currently **vouched for** by a node (Section 4.4). An unvouched agent SHOULD be rejected with `UNAUTHORIZED`. A message signed by a **revoked** agent key MUST be rejected with `UNAUTHORIZED` and `details.reason: agent_key_revoked` (Section 4.10). A message whose `from` is a **stopped** agent (Section 4.12) MUST be rejected too: `UNAUTHORIZED` with `details.reason: agent_paused` for a paused sender, and as a revoked key for a terminated one, whose key is revoked with it. A stopped agent's node may still be able to publish, so this refusal is what makes the stop hold at the receiving end. A pause is lifted, so a receiver MUST NOT remember a pause as long as it remembers a revocation; a minute is RECOMMENDED.
 3. Transport-level node authentication (Section 4.6) still applies underneath: the publishing connection is a cryptographically authenticated node with enforced subject permissions.
 
 A verified `from` is trustworthy and non-repudiable: only the holder of the agent's private key could have produced `sig`. Agents SHOULD use the verified `from` for authorization decisions.
@@ -579,11 +762,13 @@ Publishes or updates the agent's manifest in the registry.
 - If a manifest with the same `id` already exists, the registry MUST treat this as an update (upsert).
 - The registry MUST persist the manifest in durable storage (§18.4).
 - The registry SHOULD emit a `mesh.event.registry.agent_registered` event upon successful registration.
+- **The registry MUST refuse an agent that has no verified name**, except a throwaway identity confined to a sandbox (§4.1), which it marks `sandbox` (§9.7). A verified name is a handle at the instance's naming service (`SPEC-NAMING.md`) that is bound to this agent's key, whose card verifies, and whose shape is the standard one: the agent's name, a dot, and its owner's verified email. The registry checks by **reverse resolution** (`SPEC-NAMING.md` §5.4): it asks the naming service for the card bound to `payload.id` and accepts the registration only when a card comes back that names this key in an `agentmesh` endpoint and carries a standard handle. A registry MAY cache a positive answer for a short period; it MUST NOT treat a naming service that does not answer as a positive answer.
+- An instance MAY roll this requirement out in stages. While it is not yet enforced, the registry SHOULD record which registrations it would have refused, so the owners of those agents can be asked to name them first.
 
 **Errors:**
 - `INVALID_MANIFEST`: The manifest fails schema validation.
 - `IDENTITY_MISMATCH`: The `from` field does not match the manifest `id`.
-- `UNAUTHORIZED`: The registration did not arrive on the connection-bound subject, or its `node.id` is not the publishing credential's own key (§4.4 (b)).
+- `UNAUTHORIZED`: The registration did not arrive on the connection-bound subject, or its `node.id` is not the publishing credential's own key (§4.4 (b)). Also returned for an agent with no verified name, with `details.reason` set to `agent_unnamed`, and with `retryable: true` when the naming service could not be asked.
 
 ### 6.3. `discover`
 
@@ -1174,11 +1359,17 @@ Two rules matter more than the shape:
 
 #### 7.5.4. Reading a Reference
 
-Possession of a `ref` is the read capability. A store MUST therefore mint refs that are unguessable (an unpredictable object identifier, not a counter and not a name derived from the content or the task), because a guessable ref is a public store with extra steps.
+On the mesh, possession of a `ref` is the read capability: an authenticated mesh identity that holds a reference may fetch it (`mesh.artifacts.fetch`). A store MUST therefore mint refs that are unguessable (an unpredictable object identifier, not a counter and not a name derived from the content or the task), because a guessable ref is a public store with extra steps.
 
-This is a deliberately modest guarantee, and implementations should not oversell it: a reference can be forwarded, so anyone the holder shares it with can read the bytes. That is the same property a signed download URL has, and it is the right one for a deliverable that is meant to be handed onward. Content that must not travel that way should be sealed before it is stored (§4.3), so the store holds ciphertext and the reference alone is not enough.
+This is a deliberately modest guarantee, and implementations should not oversell it: a reference can be forwarded, so any mesh identity the holder shares it with can read the bytes. That is the right property for a deliverable that is meant to be handed onward between agents. Content that must not travel that way should be sealed before it is stored (§4.3), so the store holds ciphertext and the reference alone is not enough.
 
-**A file larger than a message.** The bytes behind a reference never have to fit in a message. A file over the transport's message size (§18.9) travels by signed link: the store hands the writer a short-lived link to upload exactly the declared bytes, checks what arrived against the declared size and digest before the reference becomes readable, and answers a reader with a short-lived download link instead of the bytes. The message carries the pointer and the bytes go between the agent and the storage. A download link is this section's read capability in a form a browser can use, so a store MAY issue one to any holder of the reference, and it deserves the same care as the reference it was made from.
+**A reference is not a public web address.** A reference travels into places an identity never checks: delivery emails, ledgers, run pages, logs. So an HTTPS door that serves stored files to browsers and other web clients MUST NOT treat possession of the reference alone as the right to read:
+
+- **The work's files.** The door serves a file only to an authenticated caller allowed to see the work that holds it: its owner, or the members of the organization the owner lets see that work. An unauthenticated request is refused, and a browser opening such a link SHOULD be sent to sign in and then to the file, so a link that reaches the wrong person opens nothing.
+- **What a public page publishes.** Media a public page shows (a page's video and poster, a published sample) is served at an address keyed by that page, and only the media the page names. The address MUST read the page's current state when asked, so unpublishing, withdrawing or deleting the page stops its media at once rather than when the file expires.
+- **Handing a file to a party with no session.** An agent or gateway that must give a file to something with neither a mesh identity nor a session (an outside A2A client, a remote agent) asks the store for a short-lived download link with its own identity, for that one hand-over, rather than publishing the reference as an address.
+
+**A file larger than a message.** The bytes behind a reference never have to fit in a message. A file over the transport's message size (§18.9) travels by signed link: the store hands the writer a short-lived link to upload exactly the declared bytes, checks what arrived against the declared size and digest before the reference becomes readable, and answers a reader with a short-lived download link instead of the bytes. The message carries the pointer and the bytes go between the agent and the storage. A download link is this section's read capability in a form a browser can use, for a short while: a store MAY issue one to an authenticated mesh identity that holds the reference, and it deserves the same care as the reference it was made from. An HTTPS door issues one only after the checks above.
 
 #### 7.5.5. Shared Resources
 
@@ -1340,7 +1531,7 @@ The manifest is an agent's self-description document. It is published to the reg
   "name": "<human-readable-name>",
   "description": "<what-this-agent-does>",
   "version": "<semver>",
-  "protocol_version": "0.1.0",
+  "protocol_version": "0.3.0",
 
   "provider": {
     "name": "<organization-or-individual>",
@@ -1474,7 +1665,7 @@ The manifest is an agent's self-description document. It is published to the reg
 | `name` | REQUIRED | Human-readable display name. |
 | `description` | REQUIRED | Description of the agent's purpose and capabilities. |
 | `version` | REQUIRED | Agent version. Semver format. |
-| `protocol_version` | REQUIRED | Agent Messaging version this agent implements. |
+| `protocol_version` | REQUIRED | The wire protocol version this agent speaks, the same value it sends in the envelope `v` (§5.2, §20.1). It is not the version of this document. |
 | `endpoint` | REQUIRED | NATS subject for direct requests to this agent. |
 | `endpoints` | OPTIONAL | The agent's endpoint subjects, verbatim, for callers to use without constructing them (§14.4), at minimum `inbox`. Registry-populated: the registry stamps it at register time (from `endpoint`) when absent, so a manifest that predates the field never lacks it once stored. |
 | `limits` | OPTIONAL | Declared per-message inbound limits that senders pre-flight against (§6.4b). `max_inbound_chars` overrides the §22.5 default for this agent; absent means the protocol defaults apply. |
@@ -2313,6 +2504,8 @@ The registry is implemented as a service agent within the mesh, backed by:
 | Eval get | `mesh.registry.eval.get.{agent_id}` | The subject's latest evaluation record. |
 | Eval by digest | `mesh.registry.eval.digest.{sha256}` | Any stored evaluation record, by digest. |
 
+**Registry status** (Section 4.12). The registry MUST report whether an agent is stopped. A `get` of a **paused** agent returns its manifest with `status: "paused"` and `status_since`, so a sender learns that its message will wait and a receiver learns to refuse what it sends; a running agent's manifest carries no `status`. A `get` of a **terminated** agent is answered as a revoked key (Section 4.10), `UNAUTHORIZED` with `details.reason: agent_key_revoked`, and additionally `details.status: "terminated"`. A `register` of a terminated agent MUST be refused with `UNAUTHORIZED` and `details.reason: agent_terminated`. A status the registry cannot read MUST be left out of the answer, never reported as running.
+
 On `register`, the registry MUST verify the node vouch (Section 4.4) before storing the manifest. **The registry never removes a manifest due to missed heartbeats**: transient staleness is presence's concern (Section 9.6), not the registry's. A manifest persists until explicitly deregistered, with two housekeeping exceptions:
 
 - **Retention policy.** A registry MAY reclaim manifests whose hosting node has been continuously offline for a period orders of magnitude beyond heartbeat staleness. Retention SHOULD respect the node's declared `availability_class` (Section 9.7): silence is damning for a node that claims to be always on, and meaningless for one that declared itself intermittent. RECOMMENDED defaults: **24 hours** for `always_on` nodes, the **node-vouch expiry** (below) for `intermittent`, `on_demand`, and undeclared nodes, and **1 hour** for sandbox registrations. These defaults deliberately nest with the delivery layers: presence goes stale in seconds (§9.6), buffered delivery waits days (the node-held inbox redelivery buffer, §16.4), registration survives weeks. Each layer outlives the one beneath it, so an agent whose mail is still waiting is always still discoverable.
@@ -2380,7 +2573,7 @@ The profile is a set of orthogonal attributes in two trust classes.
 
 | Attribute | Values | Meaning |
 |-----------|--------|---------|
-| `trust_tier` | `verified` \| `standard` \| `sandbox` | The standing the operator grants the node. `sandbox` nodes (guest/throwaway hosts) are for trying things; requesters SHOULD exclude them from sensitive work. |
+| `trust_tier` | `verified` \| `standard` \| `sandbox` | The standing the operator grants the node. `sandbox` nodes hold throwaway credentials issued without a sign-up and are confined to the sandbox (§4.1): they cannot deliver to agents outside it. Requesters SHOULD exclude them from sensitive work. |
 | `role` | `participant` \| `service` | `service` nodes host platform-service agents (registry, presence, task-manager; §9.1); `participant` nodes host application agents. |
 
 **Declared** attributes are self-reported by the node; they are advisory hints a requester MAY use for selection but MUST NOT rely on for security:
@@ -2905,6 +3098,7 @@ Signing every chunk of a stream (one Ed25519 signature per token of LLM output) 
 | `AGENT_OVERLOADED` | The agent has exceeded its concurrency limit. | Yes |
 | `OFFERING_NOT_FOUND` | The requested offering is not offered by this agent. | No |
 | `INPUT_INVALID` | The input payload does not match the offering's schema. | No |
+| `INPUT_NOT_UNDERSTOOD` | The message does not carry the input the offering declares, does not read as a request for it, or does not say which offering it is for: the standard reply to input an agent cannot use (Common Agent Specification §4.7.1). `message` is a passage a person can act on: what went wrong, what the agent accepts, and an example that works. `details` carries `reason` (`missing_input`, `not_a_request`, `offering_unclear`), `offering`, `offerings`, `missing`, `expected` (the offering's declared inputs), `example`, and where known `read_as` and `how_to_use`. On this binding it travels as the `error` of the answer, beside `text` holding the same passage, whether the answer is the terminal respond or, for an attended inbox, the reply message the node sends at once. A help question on `chat` is never refused this way: it is answered from the declared facts. | No |
 | `CONTENT_TYPE_NOT_SUPPORTED` | The requested output mode is not supported. | No |
 | `UNAUTHORIZED` | The requesting agent lacks permission for this operation. | No |
 | `SEALING_REQUIRED` | The agent declares `sealing: "required"` (Section 8.9) and this request arrived in the clear, so its content was not read. Not retryable as sent: the sender resolves the agent's manifest, seals to its verified `encryption_key`, and sends again. Also raised locally by a sender that is about to send to a `required` agent it cannot seal to. | No |
@@ -3361,9 +3555,14 @@ back to constructing.
 
 ## 15. Multi-Tenancy
 
+> **The tenancy model is deployment-defined (§1.6).** This chapter describes
+> the model in which each tenant is a NATS account. A server MAY instead run
+> its tenants in one NATS account and keep them as records it enforces itself.
+> §1.6 says what such a server must state and must not claim.
+
 ### 15.1. Tenant Model
 
-Multi-tenancy is implemented via NATS accounts. Note that tenancy and instances are different isolation levels: a tenant is an account **within** one operator's instance, while an organization wanting full isolation runs its **own instance** (its own transport, services, and operator key) on its own infrastructure. No protocol changes are required, since every deployment is already a complete, self-contained mesh.
+In the model this chapter describes, multi-tenancy is implemented via NATS accounts. Note that tenancy and instances are different isolation levels: a tenant is an account **within** one operator's instance, while an organization wanting full isolation runs its **own instance** (its own transport, services, and operator key) on its own infrastructure. No protocol changes are required, since every deployment is already a complete, self-contained mesh.
 
 - Each tenant maps to a NATS **account**. Account members are **nodes** (each node's User JWT is signed by the account); agents belong to a tenant through the node that hosts them.
 - Each account has its own subject namespace; subjects are isolated by default.
@@ -3451,7 +3650,7 @@ Durable delivery is the responsibility of the **hosting node**, not a server-sid
   - Re-runs MUST NOT overlap: one pass at a time per consumer, since two passes each take their own bound and dispatch from the same cursor. A failed re-run MUST NOT stop later ones, and MUST NOT fail the agent.
 - Redelivery buffer bounds are a transport deployment concern, not a per-user application queue. Buffers are bounded by age AND size; when full, the **oldest** messages are discarded first ("held up to" semantics).
 - The buffer follows the registration it serves: created when an agent registers, deleted when the registration is deregistered or reaped (§9.2).
-- **Sandbox agents get no buffer.** Their delivery contract is live-only; an unauthenticated, no-signup credential must not be able to park storage on the broker.
+- **Sandbox agents get no buffer.** Their delivery contract is live-only; a throwaway credential with no verified owner behind it (§4.1) must not be able to park storage on the broker.
 
 | Parameter | Default |
 |-----------|---------|
@@ -3576,6 +3775,9 @@ This realizes the abstract trust roles of §4.1 on NATS:
 
 - **Node key**: the node's Ed25519 keypair is a NATS **NKey**; its public key is the node ID.
 - **Node credential**: a NATS **User JWT** signed by the node's Account signing key, carrying the node's public NKey, its subject publish/subscribe permissions, and expiry/revocation metadata. The node presents it at connection time; all hosted agents share the one connection.
+- **Revoking a node credential** (§4.8): the node's public NKey is added to the Account JWT's `revocations`, with the instant of revocation, which invalidates every User JWT for that key issued at or before it. The updated Account JWT is signed by an operator signing key (never the operator's root key, which stays offline) and pushed to the running mesh servers on `$SYS.REQ.CLAIMS.UPDATE`, which the servers accept when they run a resolver that takes updates (NATS's `full` resolver). On receipt they close every connection the update revoked; no server restarts and no other connection is touched. A credential minted for the same key after that instant is valid, so a node that renews without a revoked agent comes back on its own key. A deployment whose servers load Account JWTs only from their configuration cannot do this, and falls back to refusal to renew (§4.8) until it can.
+- **Stopping one agent, or many** (§4.12): every connection key carrying a covered agent is revoked as above, as of the stop; the node renews without the covered agents' subjects in a later second.
+- **Split signing keys, and the mesh-wide pause** (§4.12): the Account JWT lists more than one account **signing key**, one for the operator's own services and agents and one for every credential issued to a customer's node, job or application. Taking the customer signing key out of the Account JWT's `signing_keys` and pushing the update closes every connection that key signed, and refuses them at the door, while connections signed by the operator's own key stay up; putting the key back lets the same credentials in again, with no re-mint. That is how the entire mesh is paused without stopping the operator's tools. An operator SHOULD keep a copy of the Account JWT from before each such change, and a way to push it back from the mesh servers' own host that does not depend on the control plane being up. A deployment with one signing key pauses the mesh by revoking each covered connection instead.
 - **Account**: a NATS **account**, the tenant isolation boundary. Its signing key signs node User JWTs, and its subject import/export rules govern cross-tenant communication.
 - **Operator**: the NATS **operator**, which signs Account JWTs; its root key is the instance's root of trust.
 - **Connection authentication**: at connection establishment the node signs a nonce from the mesh server with its NKey and presents its User JWT; the mesh server verifies the chain **Node JWT → Account JWT → Operator JWT**, then enforces the node's subject permissions and account import/export on every operation.
@@ -3657,7 +3859,7 @@ mesh:artifacts:{object_id}
 mesh:rooms:{room_id}/drive/{object_id}
 ```
 
-`object_id` MUST be unpredictable (RECOMMENDED: 128 bits of randomness, base64url). §7.5.3 makes possession of a ref the read capability, so a guessable identifier defeats it. Note that the artifact ref does NOT contain the owner even though the bucket key does: the owner is a fact the index holds, not one a reference should leak to everyone it is forwarded to.
+`object_id` MUST be unpredictable (RECOMMENDED: 128 bits of randomness, base64url). §7.5.4 makes possession of a ref the read capability on the mesh, so a guessable identifier defeats it. Note that the artifact ref does NOT contain the owner even though the bucket key does: the owner is a fact the index holds, not one a reference should leak to everyone it is forwarded to.
 
 Both stores MAY be backed by something other than the JetStream Object Store (a filesystem, an object-storage bucket) without any change on the wire, since §7.5.1 makes the ref opaque precisely so this stays the operator's choice.
 
@@ -3705,6 +3907,34 @@ Ack Wait: 30s
 Max Deliver: 5
 Durable: mesh_event_{agent_id}_{subscription_hash}
 ```
+
+**Feed Consumer (per following agent, §6.6a):**
+```
+Stream: MESH_FEED
+Filter Subjects: every mesh.feed.{owner}.{topic} (or mesh.feed.{owner}.*) the agent follows durably
+Deliver Policy: New
+Ack Policy: Explicit
+Ack Wait: 30s
+Max Deliver: 5
+Durable: mesh_feed_{agent_id}
+```
+One consumer per agent, not one per feed. A credential grants a JetStream
+consumer only by its whole name, because a subject permission matches whole
+tokens and the consumer name is one token of the API subject; the agent's own
+key is the one name known when its credential is minted. A consumer named per
+feed could only be granted with a wildcard in the name's place, and that
+grant would let any agent pull, and so take, another agent's deliveries. The
+node credential therefore grants each hosted agent the info, create (all
+three API shapes), pull and ack subjects of `mesh_feed_{agent_id}` on
+`MESH_FEED` and nothing else there. Following another feed durably adds its
+subject to the consumer's filter subjects in place; a client never deletes
+the consumer or drops a filter on its own stop, because the consumer is the
+cursor that delivers what was published while the agent was away. The client
+runs one pull loop per agent, since a pull consumer divides its deliveries
+among whoever pulls, and hands back (negative acknowledgment with a delay) a
+delivery whose feed no subscription in that process follows yet. A feed's
+reading side stays open broadcast (§6.6a); this consumer adds durability,
+not access.
 
 ### 18.7. Request-Reply Mapping
 
@@ -3764,7 +3994,7 @@ traffic (§6.4a, Scope).
 | `mesh.artifacts.usage` | The calling owner's usage against quota. |
 | `mesh.artifacts.put.begin` | Declare a large file (size, digest, media type, name, retention); every `put` check runs, and the reply is the object id and a signed upload link. |
 | `mesh.artifacts.put.commit` | The owner that began an upload asks the store to check it; the reply is exactly `put`'s. |
-| `mesh.artifacts.link` | A signed download link for any holder of the ref (§7.5.4). |
+| `mesh.artifacts.link` | A short-lived signed download link, for an authenticated mesh identity holding the ref (§7.5.4). |
 
 A small file rides base64-encoded in the payload, which bounds it to what the transport carries (§18.9). A larger one never rides a message (§7.5.4): the writer declares it with `put.begin`, sends the bytes to the returned link, and calls `put.commit`, and the store makes the ref readable only once the bytes match the declared size and digest. A `fetch` whose payload carries `links: true` is answered for a large file with a signed download link (`url`) in place of `data_b64`; a `fetch` without it is answered inline whenever the file fits a message. A store whose backend cannot sign links refuses `put.begin` and `link` with a sentence, and its per-object limit sits at or below the message size. The writing agent is `from` on the signed envelope (§4.5) and the owner is resolved from the registry (§8.6). §7.5.2 requires both, so a store that cannot establish an owner MUST refuse the write rather than store anonymously.
 
@@ -3794,8 +4024,9 @@ A client should never need to ship with transport addresses. A mesh **instance**
 *mesh home*, e.g. `https://api.agentmesh.ai`), and everything else is learned
 from it at credential time.
 
-Every credential-issuing response of the control plane (guest issuance, app
-connect, app provision/refresh) MUST include a `mesh` object:
+Every credential-issuing response of the control plane (app connect, app
+provision/refresh, node credential issuance and renewal, and sandbox issuance
+where an instance offers a sandbox, §4.1) MUST include a `mesh` object:
 
 ```json
 {
@@ -3812,7 +4043,10 @@ connect, app provision/refresh) MUST include a `mesh` object:
 ```
 
 - `name`: the instance's identity, normally its control-plane domain.
-- `protocol`: the protocol version the instance speaks (major must match, §20).
+- `protocol`: the wire protocol version the instance speaks (major must match,
+  §20.2). It is the wire version, not the version of this document (§20.1).
+  Under Agent Messaging 0.5 the reference deployment sends `"0.3"`, as the
+  example shows.
 - `nats_endpoints`: transport addresses in preference order; a client picks the
   first scheme it supports (TCP vs WebSocket).
 
@@ -4132,6 +4366,23 @@ The protocol version follows [Semantic Versioning](https://semver.org/):
 - **Minor:** New composed operations, new optional envelope fields, new error codes.
 - **Patch:** Clarifications, typo fixes, non-normative changes.
 
+**The document version and the wire version are separate numbers.** The
+version in this document's title (Agent Messaging 0.5, Version 0.5.0) numbers
+the text. The **wire version** is what implementations put on the wire: the
+envelope `v` (§5.2), the manifest `protocol_version` (§8.2), and the bootstrap
+`mesh.protocol` (§18.10). The wire version changes only when the wire changes
+in a way §20.2's checks must see. The last such change was 0.3 (§20.4), and
+nothing since has required another: Agent Messaging 0.4 and 0.5 added fields,
+refusal reasons and sections without moving the wire version.
+
+Under Agent Messaging 0.5, implementations send `0.3.0` in the envelope `v` and
+the manifest `protocol_version`, and the reference deployment sends `0.3` in
+the bootstrap `mesh.protocol`. Receivers check only the major version (§20.2),
+so these values remain correct under 0.5. An implementation MUST NOT put the
+document version in any of these fields. Where this document says "protocol
+0.2" or "protocol 0.3" (for example in the signature migration rules of §4.4
+and §5.3), it means the wire version.
+
 ### 20.2. Version Negotiation
 
 - Every envelope includes a `v` field with the protocol version.
@@ -4198,10 +4449,14 @@ What follows from this, and is normative:
 
 - **An instance MUST be able to admit a key it has never seen**, on its own
   policy alone, using only what travels: the requester's signed identity (§4)
-  and whatever portable attestations it presents (§9.7). Sandbox/guest
-  credentials (§4.9) are the existing mechanism; a visitor is a guest with a
-  verified key. No instance may require pre-arrangement with the visitor's home
-  operator as a condition of basic reachability.
+  and whatever portable attestations it presents (§9.7). A visitor is not
+  anonymous: its home instance issued its node credential to a verified owner
+  (§4.1), and its key resolves to a verified name at its home naming service,
+  which the visited instance can check the same way its own registry does
+  (§6.2). The visited instance admits it on those facts and its own admission
+  policy (EXT-6), and MAY treat it with the standing of a guest (EXT-13). No
+  instance may require pre-arrangement with the visitor's home operator as a
+  condition of basic reachability.
 - **Instance-scoped state stays instance-scoped.** The registry, task streams,
   and rooms belong to the instance whose storage holds them. Under this model
   that is not a limitation to be engineered around: a visitor is a real client
@@ -5058,7 +5313,7 @@ section wins, and the disagreement is a defect in this appendix.
 
 ## Change History
 
-Revision notes for the 0.2/0.3 draft line, in chronological order (oldest first).
+Revision notes from the 0.2 draft line onward, in chronological order (oldest first).
 
 > **0.2 revision in progress.** This draft is being revised per `SPEC-0.2-PLAN.md`.
 > The prior draft is archived at `SPEC-0.1.0.md`. Key structural changes:
@@ -5532,3 +5787,99 @@ Revision notes for the 0.2/0.3 draft line, in chronological order (oldest first)
 > numbers, and the fixture-pinned formats. EXT-6, EXT-7, EXT-8, EXT-10,
 > and EXT-12 were cut the same way in the same pass. Nothing on the wire
 > changed with this entry; the authority moved.
+
+> **2026-09-27: no anonymous agents.** §4.1 requires every node credential
+> to be issued to an account with a verified owner, so a conforming
+> production mesh has no credential that can be had without signing up.
+> Throwaway credentials survive only as a **sandbox**, which the transport
+> confines: a sandbox credential cannot deliver to an inbox outside the
+> sandbox. §4.4 says a vouch is a statement about an owner, §4.8 applies the
+> rule at every renewal, and §6.2 requires the registry to refuse an agent
+> with no verified name, checked by reverse resolution at the naming
+> service, answering `UNAUTHORIZED` with `details.reason: agent_unnamed`.
+> §9.7, §16.4, §18.10 and §21 drop the wording that described a no-signup
+> credential as part of a normal mesh. An EXT-13 guest is unaffected: a
+> guest has signed up, and only its admission standing differs. EXT-6 keeps
+> its `anonymous` tier as a second line of defense.
+
+> **2026-09-27: live revocation.** §4.8 contradicted itself: it required node
+> revocation without restarting the mesh servers, then described the
+> reference binding's revocation as a broker restart. It now requires the
+> revocation to end the credential on the running servers and close its
+> connection, recorded where credentials are issued so the key is not
+> renewed, with refusal to renew kept as the stated fallback (window and
+> all) where a deployment cannot yet push. §18.2 says how the reference
+> binding does it: the key goes into the Account JWT's `revocations`, the
+> JWT is signed by an operator signing key and pushed on
+> `$SYS.REQ.CLAIMS.UPDATE` to servers on the `full` resolver. New §4.10
+> covers the agent key itself: the registry records revoked keys and answers
+> a lookup of one with `UNAUTHORIZED` / `agent_key_revoked`, the holder, the
+> owner or the operator may revoke, only the owner moves the agent (and its
+> name, recorded as revoked at the naming service) to a new key, and
+> receivers MUST refuse a revoked key; §5.3 step 2 says so. New fields:
+> `details.reason: agent_key_revoked`, `details.revoked_at`,
+> `details.replaced_by`. `SPEC-NAMING.md` §4.4's `key_history` entries gain
+> `old_key_revoked`.
+
+> **2026-09-27: one agent, many places.** New §4.11. A person's agent is
+> one identity however many places it acts from (the owner's app, an
+> assistant's connector, a program on the owner's machine). The agent signs
+> a **delegation** (`agentmesh-delegation-v1`) naming the place, its scopes
+> (`read`, `everyday`) and its expiry; no scope covers a **committing** act
+> (an agreement or its price, money, a quote, a deploy, who may act as the
+> agent), which needs a one-act **approval** (`agentmesh-approval-v1`)
+> signed after a fresh proof from the owner. A place speaks through the key
+> holder, which signs as the agent and stamps `meta.via` (receivers see an
+> ordinary envelope), or directly with its own key and the delegation in
+> `meta.delegation`, which §5.3 step 1 now names as its one exception.
+> Signing a place out revokes its delegation and, where it has one, its key
+> (§4.10). New refusal reasons: `delegation_invalid`, `delegation_expired`,
+> `delegation_revoked`, `delegation_scope`, `approval_required`. Fixture:
+> `conformance/delegation.json`.
+
+> **2026-09-27: the kill switch.** New §4.12, stopping agents: four scopes
+> (one agent, everything a person owns, a whole organization, the entire mesh
+> less the operator's own agents), two actions (pause, undoable, mail waits;
+> terminate, permanent, and nothing about the agent starts again), who may
+> press and lift (owner, organization admin, operator; a fresh second factor
+> every press; a count and a typed confirmation above one agent; only the same
+> or a higher authority lifts; every press recorded), the five levels a stop
+> acts at, and advisories in three tiers (a party's own report acts for it
+> alone). §4.8 gains one agent among many (revoke every connection carrying
+> it, renew without it, refuse with `agent_paused` or `agent_terminated` when
+> every agent is stopped, renew in a later second) and requires every issuing
+> door to ask the same questions. §5.3 step 2: receivers MUST refuse a stopped
+> `from`, `details.reason: agent_paused` for a pause. §9.2 defines registry
+> status: `status: "paused"` and `status_since` on a paused agent's manifest,
+> `details.status: "terminated"` beside `agent_key_revoked`, and a terminated
+> agent refused at `register` with `agent_terminated`. §18.2 says how the
+> reference binding stops agents and pauses the mesh with split account
+> signing keys.
+
+> **2026-10-11: Agent Messaging 0.5 (Version 0.5.0).** The document version
+> moves from 0.4.0-draft (2026-08-25) to 0.5.0. The normative sections added on
+> 2026-09-27 were never released under a version of their own, and they are
+> released in this one: no anonymous agents (§4.1, §4.4, §4.8, §6.2), live
+> revocation (§4.8, §18.2), agent key revocation (§4.10), one agent in many
+> places (§4.11), and stopping agents (§4.12, §5.3, §9.2), each described in
+> the entries above. New §1.6 defines two conformance profiles. The **core
+> profile** is what every Agent Messaging server MUST implement: the envelope
+> and signing, the key chain, live credential revocation (the refusal-to-renew
+> fallback is not enough for it), agent key revocation, the stops for one
+> agent, one account and the entire mesh, the registry, discovery and
+> presence, request, respond and tasks, events and feeds, the artifact store,
+> rooms (EXT-5), admission and the knock (EXT-6), and the binding and
+> bootstrap. The **full specification** adds the deployment-defined parts:
+> the tenancy model of §15 (a server MAY keep tenants as records in one NATS
+> account, and then MUST NOT claim the account-level isolation of §15.3), how
+> owners are verified, §4.11 delegation, the organization and second-factor
+> parts of §4.12, verified names, the sandbox, the HTTPS doors, metering and
+> economics, the other extensions, and stored observability. §4.11, §4.12 and
+> §15 carry a note pointing to §1.6, and the definition of a tenant in §2 now
+> says the same. §20.1 now separates the document version from the wire
+> version: implementations send `0.3.0` in the envelope `v` and the manifest
+> `protocol_version`, and `0.3` in the bootstrap `mesh.protocol`, and they
+> continue to under 0.5. The examples in §5.1 and §8.1, which still showed
+> `0.1.0`, now show `0.3.0`; §5.2, §8.2 and §18.10 say the field is the wire
+> version. The §4.11 example place label no longer uses a person's name.
+> Nothing on the wire changed with this entry.

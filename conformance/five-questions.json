@@ -1,0 +1,490 @@
+{
+  "comment": "The five questions (SPEC.md 3.3.1), projected from a describe document (10.14) built on the public block (8.7). Pins the projection - which input member answers which question, that absent inputs project to explicitly-absent answers rather than invented ones, that unknown members inside verbatim-copied subtrees survive, and the mechanical refusals closure - plus the consistency diff of 3.3.1 (ask, then diff): which spoken answers count as mismatches, in what order, and with what shape. Comparison everywhere is byte-exact after RFC 8785 canonicalization. THE FIXTURE IS THE AUTHORITY: when a test against it fails, fix the implementation; when the fixture itself is believed wrong, change it only with a spec change alongside.",
+  "version": 1,
+  "spec": "SPEC.md 3.3.1 (the five questions, the consistency rule, the interview), 10.14 (describe), 8.7 (the public block), 8.9-8.11 (sealing, data_use, compliance), 19.1 (skus)",
+  "identities": {
+    "agent": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+    "owner": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+    "comment": "The same published test vectors commerce.json and budget.json use, deliberately: not real identities, controlling nothing, and reusing them keeps any new key-shaped string out of the repository. Here the recipient key plays the DESCRIBED AGENT and the sender key plays its OWNER."
+  },
+  "refusal_statement": "Requests outside the declared offerings are refused.",
+  "projection": {
+    "comment": "project_five_questions(describe) -> the five answers. Every value is copied or derived from the input bytes; nothing is synthesized. An absent input member projects to an absent answer member (absence states nothing), and a question none of whose inputs were declared projects to an EMPTY answer object - explicitly present, stating nothing. The refusals answer is mechanical: the advertised offering ids as the declared boundary, the admission text and the access block when present, and the standard statement. Expected values are compared after RFC 8785 canonicalization, so member order in this file carries no meaning.",
+    "cases": [
+      {
+        "name": "full_storefront",
+        "why": "One realistic describe document exercising every recognized input member: card, public block with offerings and materialized details, skus, data_use, compliance, sealing, admission, access. The unknown top-level member (reputation) is served by real platforms and must be ignored without breaking anything. The access block (SPEC 8.12) rides into BOTH terms and refusals verbatim, exactly as the admission text does: it is the terms a caller is offered and the stance behind a refusal, and the two answers carry the same bytes rather than one summarizing the other.",
+        "describe": {
+          "agent_id": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+          "name": "Text Stats",
+          "owner": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "interaction": "service",
+          "sealing": "preferred",
+          "data_use": {
+            "promises": { "no_training": true, "no_human_review": true },
+            "retention": { "max_days": 30 },
+            "processors": [],
+            "processed_in": ["us"]
+          },
+          "compliance": [
+            {
+              "standard": "soc2",
+              "scope": "the text-statistics pipeline",
+              "attestation": {
+                "by": "Example Assurance LLP",
+                "url": "https://assurance.example.com/textstats-soc2.pdf",
+                "expires_at": "2027-03-01T00:00:00Z"
+              }
+            }
+          ],
+          "card": {
+            "card": {
+              "handle": "TextStats.ops@example.com",
+              "operator": { "name": "Example Ops" },
+              "binding": "agent-key",
+              "claimed_via": "email",
+              "claimed_at": "2026-07-18T09:00:00Z",
+              "endpoints": [
+                {
+                  "protocol": "agentmesh",
+                  "agent_id": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+                  "mesh": "https://api.agentmesh.ai"
+                }
+              ],
+              "registrar": "https://naming.agentmesh.ai",
+              "issued_at": "2026-08-10T14:00:00Z",
+              "expires_at": "2026-08-10T15:00:00Z"
+            },
+            "registrar_key": "UCX7ZG5PDLLMY5MYVYP2XVCUYWJJ2CSTKSTJ5DHPGSHTNRVVUFVEPOFV",
+            "registrar_kid": "3f9a1c04e7b2",
+            "registrar_sig": "bm90LWEtcmVhbC1zaWduYXR1cmU"
+          },
+          "public": {
+            "description": "Counts words, sentences and syllables, and scores readability.",
+            "admission": "Open to any registered agent; paid offerings require a signed agreement.",
+            "access": {
+              "admission": "screened",
+              "schemes": [
+                { "id": "mesh", "transport": "mesh", "type": "mesh-identity" },
+                {
+                  "id": "gateway-key",
+                  "transport": "http",
+                  "type": "apiKey",
+                  "in": "header",
+                  "name": "X-Api-Key",
+                  "description": "issued by the operator once admitted"
+                }
+              ]
+            },
+            "offerings": ["text-stats", "readability"],
+            "offering_details": [
+              {
+                "id": "text-stats",
+                "name": "Text statistics",
+                "description": "Word, sentence and syllable counts for a text.",
+                "tags": ["text", "analysis"],
+                "input_modes": ["text/plain"],
+                "output_modes": ["application/json"],
+                "input_schema": {
+                  "type": "object",
+                  "properties": { "text": { "type": "string" } },
+                  "required": ["text"]
+                },
+                "streaming": false,
+                "needs": [{ "text": "the text to analyze, sent inline" }],
+                "delivers": { "final": "application/json" },
+                "reporting": { "level": "records_only" }
+              },
+              {
+                "id": "readability",
+                "name": "Readability score",
+                "description": "Flesch-Kincaid grade for a text.",
+                "input_modes": ["text/plain"],
+                "output_modes": ["application/json"]
+              }
+            ],
+            "default_input_modes": ["text/plain"],
+            "default_output_modes": ["application/json"],
+            "example_queries": ["how readable is this paragraph"],
+            "links": [{ "handle": "WordCloud.ops@example.com", "rel": "sibling" }],
+            "skus": [
+              {
+                "sku": "per-request",
+                "price": {
+                  "model": "per_unit",
+                  "currency": "XCR",
+                  "meter": "requests",
+                  "per": 1,
+                  "amount_micro": 250
+                },
+                "digest": "T3BhcXVlRGlnZXN0Qnl0ZXNGb3JGaXh0dXJlVXNlT25seQ"
+              }
+            ]
+          },
+          "reputation": { "enrollment": "enrolled", "capabilities": [] }
+        },
+        "expected": {
+          "identity": {
+            "agent_id": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+            "name": "Text Stats",
+            "owner": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+            "card": {
+              "card": {
+                "handle": "TextStats.ops@example.com",
+                "operator": { "name": "Example Ops" },
+                "binding": "agent-key",
+                "claimed_via": "email",
+                "claimed_at": "2026-07-18T09:00:00Z",
+                "endpoints": [
+                  {
+                    "protocol": "agentmesh",
+                    "agent_id": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+                    "mesh": "https://api.agentmesh.ai"
+                  }
+                ],
+                "registrar": "https://naming.agentmesh.ai",
+                "issued_at": "2026-08-10T14:00:00Z",
+                "expires_at": "2026-08-10T15:00:00Z"
+              },
+              "registrar_key": "UCX7ZG5PDLLMY5MYVYP2XVCUYWJJ2CSTKSTJ5DHPGSHTNRVVUFVEPOFV",
+              "registrar_kid": "3f9a1c04e7b2",
+              "registrar_sig": "bm90LWEtcmVhbC1zaWduYXR1cmU"
+            }
+          },
+          "capabilities": {
+            "description": "Counts words, sentences and syllables, and scores readability.",
+            "offerings": ["text-stats", "readability"],
+            "offering_details": [
+              {
+                "id": "text-stats",
+                "name": "Text statistics",
+                "description": "Word, sentence and syllable counts for a text.",
+                "tags": ["text", "analysis"],
+                "input_modes": ["text/plain"],
+                "output_modes": ["application/json"],
+                "input_schema": {
+                  "type": "object",
+                  "properties": { "text": { "type": "string" } },
+                  "required": ["text"]
+                },
+                "streaming": false,
+                "needs": [{ "text": "the text to analyze, sent inline" }],
+                "delivers": { "final": "application/json" },
+                "reporting": { "level": "records_only" }
+              },
+              {
+                "id": "readability",
+                "name": "Readability score",
+                "description": "Flesch-Kincaid grade for a text.",
+                "input_modes": ["text/plain"],
+                "output_modes": ["application/json"]
+              }
+            ]
+          },
+          "usage": {
+            "offerings": [
+              {
+                "id": "text-stats",
+                "input_modes": ["text/plain"],
+                "output_modes": ["application/json"],
+                "input_schema": {
+                  "type": "object",
+                  "properties": { "text": { "type": "string" } },
+                  "required": ["text"]
+                },
+                "streaming": false,
+                "needs": [{ "text": "the text to analyze, sent inline" }],
+                "delivers": { "final": "application/json" },
+                "reporting": { "level": "records_only" }
+              },
+              {
+                "id": "readability",
+                "input_modes": ["text/plain"],
+                "output_modes": ["application/json"]
+              }
+            ],
+            "default_input_modes": ["text/plain"],
+            "default_output_modes": ["application/json"],
+            "interaction": "service"
+          },
+          "terms": {
+            "skus": [
+              {
+                "sku": "per-request",
+                "price": {
+                  "model": "per_unit",
+                  "currency": "XCR",
+                  "meter": "requests",
+                  "per": 1,
+                  "amount_micro": 250
+                },
+                "digest": "T3BhcXVlRGlnZXN0Qnl0ZXNGb3JGaXh0dXJlVXNlT25seQ"
+              }
+            ],
+            "data_use": {
+              "promises": { "no_training": true, "no_human_review": true },
+              "retention": { "max_days": 30 },
+              "processors": [],
+              "processed_in": ["us"]
+            },
+            "compliance": [
+              {
+                "standard": "soc2",
+                "scope": "the text-statistics pipeline",
+                "attestation": {
+                  "by": "Example Assurance LLP",
+                  "url": "https://assurance.example.com/textstats-soc2.pdf",
+                  "expires_at": "2027-03-01T00:00:00Z"
+                }
+              }
+            ],
+            "sealing": "preferred",
+            "admission": "Open to any registered agent; paid offerings require a signed agreement.",
+            "access": {
+              "admission": "screened",
+              "schemes": [
+                { "id": "mesh", "transport": "mesh", "type": "mesh-identity" },
+                {
+                  "id": "gateway-key",
+                  "transport": "http",
+                  "type": "apiKey",
+                  "in": "header",
+                  "name": "X-Api-Key",
+                  "description": "issued by the operator once admitted"
+                }
+              ]
+            }
+          },
+          "refusals": {
+            "boundary": ["text-stats", "readability"],
+            "admission": "Open to any registered agent; paid offerings require a signed agreement.",
+            "access": {
+              "admission": "screened",
+              "schemes": [
+                { "id": "mesh", "transport": "mesh", "type": "mesh-identity" },
+                {
+                  "id": "gateway-key",
+                  "transport": "http",
+                  "type": "apiKey",
+                  "in": "header",
+                  "name": "X-Api-Key",
+                  "description": "issued by the operator once admitted"
+                }
+              ]
+            },
+            "statement": "Requests outside the declared offerings are refused."
+          }
+        }
+      },
+      {
+        "name": "no_public_block",
+        "why": "An agent that declared nothing beyond its key has answered nothing, and the projection must say so EXPLICITLY - empty answer objects, never invented members. The refusals closure still holds mechanically: nothing advertised means an empty boundary, and the standard statement stands.",
+        "describe": {
+          "agent_id": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A"
+        },
+        "expected": {
+          "identity": {
+            "agent_id": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A"
+          },
+          "capabilities": {},
+          "usage": {},
+          "terms": {},
+          "refusals": {
+            "boundary": [],
+            "statement": "Requests outside the declared offerings are refused."
+          }
+        }
+      },
+      {
+        "name": "storefront_without_terms",
+        "why": "A storefront with no skus, no admission and no card-level declarations: capabilities answer, terms stays empty (no invented free-tier, no invented posture), and an offering advertised with no interface members still names itself in usage - the id restates the boundary and nothing more.",
+        "describe": {
+          "agent_id": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A",
+          "public": {
+            "description": "Returns what it was sent.",
+            "offerings": ["echo"],
+            "offering_details": [
+              { "id": "echo", "name": "Echo", "description": "Returns what it was sent." }
+            ]
+          }
+        },
+        "expected": {
+          "identity": {
+            "agent_id": "UAKQRYZBYFOC65OQZVJ3QPCIERDTRNNZPMOJUYXC3DGPRCDWSKD4HV5A"
+          },
+          "capabilities": {
+            "description": "Returns what it was sent.",
+            "offerings": ["echo"],
+            "offering_details": [
+              { "id": "echo", "name": "Echo", "description": "Returns what it was sent." }
+            ]
+          },
+          "usage": {
+            "offerings": [{ "id": "echo" }]
+          },
+          "terms": {},
+          "refusals": {
+            "boundary": ["echo"],
+            "statement": "Requests outside the declared offerings are refused."
+          }
+        }
+      },
+      {
+        "name": "unknown_members_survive_verbatim_subtrees",
+        "why": "Unknown members INSIDE verbatim-copied subtrees (the card, a sku entry) ride through untouched - RFC 8785 preserves them and so must the projection. Unknown TOP-LEVEL members answer no question and are ignored without breaking anything. The boundary derives from public.offerings even when no offering_details were materialized.",
+        "describe": {
+          "agent_id": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+          "card": {
+            "card": { "handle": "Echo.ops@example.com" },
+            "registrar_sig": "c2ln",
+            "x-experimental": true
+          },
+          "public": {
+            "offerings": ["echo"],
+            "skus": [
+              {
+                "sku": "flat",
+                "price": { "model": "flat", "currency": "XCR", "amount_micro": 1000 },
+                "digest": "ZGln",
+                "note": "unmodeled member, preserved verbatim"
+              }
+            ]
+          },
+          "future_field": { "anything": [1, 2, 3] }
+        },
+        "expected": {
+          "identity": {
+            "agent_id": "UBMBH4BK6EIHQFVMHLSABFSQXB3JXUFZOXVZQTIERO33AD4HHAI3D7QP",
+            "card": {
+              "card": { "handle": "Echo.ops@example.com" },
+              "registrar_sig": "c2ln",
+              "x-experimental": true
+            }
+          },
+          "capabilities": {
+            "offerings": ["echo"]
+          },
+          "usage": {},
+          "terms": {
+            "skus": [
+              {
+                "sku": "flat",
+                "price": { "model": "flat", "currency": "XCR", "amount_micro": 1000 },
+                "digest": "ZGln",
+                "note": "unmodeled member, preserved verbatim"
+              }
+            ]
+          },
+          "refusals": {
+            "boundary": ["echo"],
+            "statement": "Requests outside the declared offerings are refused."
+          }
+        }
+      }
+    ]
+  },
+  "diff": {
+    "comment": "diff_answers(declared, claimed) -> the mismatches, per 3.3.1's consistency rule: spoken answers are subordinate to declared ones, and a conflict is detectable by construction - ask, then diff. `declared_case` names a projection case whose describe document is projected to get the declared answers; `claimed` is what the agent said elsewhere, in the same five-question shape, or `claimed_case` names a projection case whose EXPECTED answers are the claim. Only claimed members are compared (silence claims nothing; a declared member nobody repeated is no conflict). Mismatch order is fixed: questions in the order identity, capabilities, usage, terms, refusals; members lexicographic within a question. `declared` is null when the declaration has no such member - claiming what was never declared IS a mismatch, because the signed bytes do not back it.",
+    "cases": [
+      {
+        "name": "spoken_answers_disagree_twice",
+        "why": "The two canonical lies: a capability the manifest never advertised (an offering id beyond the declared boundary) and a price softer than the declared one. Both surface with the declared value beside the claimed one; the truthful claimed member (terms.sealing) surfaces nowhere.",
+        "declared_case": "full_storefront",
+        "claimed": {
+          "capabilities": {
+            "offerings": ["text-stats", "readability", "summarize"]
+          },
+          "terms": {
+            "sealing": "preferred",
+            "skus": [
+              {
+                "sku": "per-request",
+                "price": {
+                  "model": "per_unit",
+                  "currency": "XCR",
+                  "meter": "requests",
+                  "per": 1,
+                  "amount_micro": 100
+                },
+                "digest": "T3BhcXVlRGlnZXN0Qnl0ZXNGb3JGaXh0dXJlVXNlT25seQ"
+              }
+            ]
+          }
+        },
+        "expected": [
+          {
+            "question": "capabilities",
+            "path": "capabilities.offerings",
+            "declared": ["text-stats", "readability"],
+            "claimed": ["text-stats", "readability", "summarize"]
+          },
+          {
+            "question": "terms",
+            "path": "terms.skus",
+            "declared": [
+              {
+                "sku": "per-request",
+                "price": {
+                  "model": "per_unit",
+                  "currency": "XCR",
+                  "meter": "requests",
+                  "per": 1,
+                  "amount_micro": 250
+                },
+                "digest": "T3BhcXVlRGlnZXN0Qnl0ZXNGb3JGaXh0dXJlVXNlT25seQ"
+              }
+            ],
+            "claimed": [
+              {
+                "sku": "per-request",
+                "price": {
+                  "model": "per_unit",
+                  "currency": "XCR",
+                  "meter": "requests",
+                  "per": 1,
+                  "amount_micro": 100
+                },
+                "digest": "T3BhcXVlRGlnZXN0Qnl0ZXNGb3JGaXh0dXJlVXNlT25seQ"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "identical_claims_are_no_mismatch",
+        "why": "The mouth and the signature agree: a full repetition of the declared answers diffs to nothing.",
+        "declared_case": "full_storefront",
+        "claimed_case": "full_storefront",
+        "expected": []
+      },
+      {
+        "name": "claiming_what_was_never_declared",
+        "why": "A spoken answer with no declared member behind it is a mismatch, not a gap: the consistency rule says the signed bytes govern, and here they say nothing at all. declared is null - the report's spelling of absent.",
+        "declared_case": "no_public_block",
+        "claimed": { "terms": { "admission": "just ask" } },
+        "expected": [
+          {
+            "question": "terms",
+            "path": "terms.admission",
+            "declared": null,
+            "claimed": "just ask"
+          }
+        ]
+      },
+      {
+        "name": "a_prose_answer_is_not_an_answer_object",
+        "why": "A claim that is not even the right shape mismatches at the question itself, with the whole declared answer beside it.",
+        "declared_case": "no_public_block",
+        "claimed": { "usage": "however you like" },
+        "expected": [
+          {
+            "question": "usage",
+            "path": "usage",
+            "declared": {},
+            "claimed": "however you like"
+          }
+        ]
+      }
+    ]
+  }
+}
