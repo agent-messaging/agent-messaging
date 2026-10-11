@@ -1,6 +1,7 @@
 # Peering conformance suite
 
-Executable form of the peered-mesh acceptance criteria: SPEC.md §1.5 (the
+Executable form of the peered-mesh acceptance criteria of Agent Messaging
+(https://agentmessaging.ai): SPEC.md §1.5 (the
 five layering invariants), §21 (federation preconditions), §10.14
 (`describe`), §8.7 (the public block), §9.7 (portable attestations), and
 SPEC-NAMING §5.3/§5.5/§5.6 (signed cards, resolution authority, re-homing).

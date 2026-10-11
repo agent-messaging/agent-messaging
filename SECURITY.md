@@ -5,8 +5,8 @@
 Use GitHub's private vulnerability reporting. Pick whichever public repository
 fits what you found, and include how to reproduce it:
 
-- Specification or conformance suite:
-  <https://github.com/jeffrschneider/agentmesh-protocol/security/advisories/new>
+- The Agent Messaging specification or its conformance suite:
+  <https://github.com/jeffrschneider/agent-messaging/security/advisories/new>
 - Deployment recipes (compose, kubernetes):
   <https://github.com/jeffrschneider/agentmesh-deploy/security/advisories/new>
 

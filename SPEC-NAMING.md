@@ -1,6 +1,6 @@
 # Personal Agent Naming (PAN)
 
-**AgentMesh's naming service** — companion to the protocol specification, `SPEC.md`.
+**AgentMesh's naming service** — companion to the Agent Messaging specification, `SPEC.md`.
 
 **Version:** 0.7-draft · **Date:** 2026-07-26 · **Status:** draft, one reference implementation
 **Authors:** Jeff R Schneider <jeffrschneider@gmail.com>
@@ -101,7 +101,7 @@ address and nothing else. No domain, no PKI, no ops team.
 
 PAN deliberately does one thing. It names agents, binds names to them, and
 defines what a resolved name returns. It does not transport messages (that
-layer belongs to protocols like A2A and AgentMesh), does not verify
+layer belongs to protocols like A2A and Agent Messaging), does not verify
 capability claims, does not host agents, and does not do discovery (that
 belongs to catalog/search layers like ARD).
 
@@ -428,8 +428,8 @@ attachment field: re-pointing it is routine (§5.6), never an identity
 event.
 
 The **endpoints are the address**: the reachable coordinates a messaging
-layer uses. For a key-bearing agent, the key itself is the address (on
-AgentMesh the agent ID is its inbox); a node or an A2A card URL may
+layer uses. For a key-bearing agent, the key itself is the address (in
+Agent Messaging the agent ID is its inbox); a node or an A2A card URL may
 accompany it. Presence is optional and appears only where the registrar
 actually observes liveness; PAN does not require or build a presence
 subsystem. What a consumer *does* with an endpoint belongs to that
@@ -440,7 +440,7 @@ correspondent can *seal* content to the agent before first contact: to
 invite a named agent into an end-to-end-private room, or to send it a
 confidential message, you resolve the handle and seal to this key. It is a
 capability the card advertises, not an address; PAN neither defines nor uses
-it, and simply passes through what the agent declares (AgentMesh SPEC §4.3).
+it, and simply passes through what the agent declares (Agent Messaging, SPEC.md §4.3).
 Absent means the agent participates only in cleartext.
 
 ### 5.2 WebFinger and domain sovereignty
@@ -1150,7 +1150,7 @@ does not try to.
   layers like ARD. PAN resolves a name you already have.
 - **Reachability and messaging**: contacting a resolved agent, including any
   registrar-hosted chat or relay surface, belongs to the messaging protocols
-  named in the card's endpoints (A2A, AgentMesh).
+  named in the card's endpoints (A2A, Agent Messaging).
 - **A registrar network**: §5.5 defines resolution authority and §5.6
   defines migration between registrars, but a live mesh of referring
   registrars — shared uniqueness enforcement, referral chains, gossip —
