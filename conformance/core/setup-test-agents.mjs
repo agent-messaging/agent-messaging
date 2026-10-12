@@ -22,8 +22,9 @@
 // Then the operator installs the file where the suite reads its credentials:
 // keep it at ~/.agentmesh/conformance-agents.json for local runs, and paste its
 // contents into the repository secret MESH_CONFORMANCE_AGENTS for the nightly.
-// The nightly asks the deployment to name them before every run, so if the
-// `name` step is skipped the first nightly does it.
+// The nightly asks the deployment to name them before every run (run.mjs
+// --agentmesh-operator), so if the `name` step is skipped the first nightly
+// does it.
 import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";

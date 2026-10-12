@@ -44,6 +44,8 @@ export default {
   id: "t11",
   title: "re-home statements are not custody: hijack, forgery, replay and staleness refused",
   spec: "SPEC-NAMING §5.6, §7.8",
+  // Registrars, not a messaging server: Agent Naming's suite.
+  profile: "naming",
   async run(env) {
     if (!env.registrarA || !env.registrarB) {
       return { status: "env-skip", detail: "set REGISTRAR_A and REGISTRAR_B (run rig/two-registrars.sh)" };

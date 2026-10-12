@@ -19,7 +19,7 @@ npm install
 node run.mjs            # the board
 node run.mjs --only t05 # one test
 node run.mjs --ci       # exit 1 on any REGRESSION vs expectations.json
-node run.mjs --update   # rewrite expectations.json from this run
+node run.mjs --update   # record this run's results in expectations.json
 ```
 
 ## The discipline
@@ -45,10 +45,21 @@ breaking a secret — an unreadable creds file would otherwise skip exactly the
 tests that would have caught it. The fix is always the credential file, never
 the baseline.
 
+## Profiles
+
+Each test names its conformance profile (SPEC.md §1.6) in its `profile`
+field: core (t01 to t05, t06a, t06b, t09, t14), platform (t05b, the HTTPS
+describe door, and t10, federation) or naming (t07, t08, t11, t12, t13, which
+test registrars and belong to Agent Naming's suite). `node run.mjs --profile
+core` runs one profile; `../run.mjs` runs the core profile of both suites on
+one board. See `../README.md`.
+
 ## Environment contract
 
-Everything defaults to the public reference deployment; tests that need
-more, env-skip with the variable named.
+Outside the core profile, everything defaults to the public reference
+deployment; tests that need more, env-skip with the variable named. The core
+profile has no defaults, and with no `ECHO_TARGET` it starts its own echo
+agent for t02 and t05 (`lib/echo-agent.mjs`).
 
 **The defaults are agentmesh.ai.** Any run in which an endpoint falls back to
 its default prints a banner naming every fallen-back variable and stating
@@ -63,7 +74,7 @@ evidence about the reference deployment only.
 | `MESH_IDENTITY_FILE` | `~/.agentmesh/adapter/identity.json` | t02 t05 (envelope signing identity) |
 | `REGISTRAR` | `https://naming.agentmesh.ai` | handle resolution |
 | `ECHO_TARGET` | `codex.test@agentmesh.ai` | a live fleet agent |
-| `STOREFRONT_BASE` | `https://api.agentmesh.ai` | t05 (HTTPS storefront, §10.14) |
+| `STOREFRONT_BASE` | `https://api.agentmesh.ai` | t05b (HTTPS storefront, §10.14) |
 | `RESOLVER_MJS` | `../../mesh-adapter/mesh-adapter.mjs` | t06a t06b (resolver under test) |
 | `REGISTRAR_A`, `REGISTRAR_B` | unset → env-skip | t07 t08 (two registrars; Phase 2) |
 | `PEER_MESH_URL` | unset → pending-peer | t10 (the second instance; Phase 3) |

@@ -25,6 +25,7 @@ export default {
   id: "c03",
   title: "unsigned and tampered envelopes die at the wire, not in handlers",
   spec: "§4.5, §5.3, §4.4",
+  profile: "core",
   async run(env) {
     if (!env.creds) throw new Error("env-skip: MESH_CREDS_FILE (durable NATS creds) required");
     const auth = () => jwtAuthenticator(env.creds.jwt, te.encode(env.creds.seed));

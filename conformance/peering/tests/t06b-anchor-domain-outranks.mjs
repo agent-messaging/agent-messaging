@@ -33,6 +33,7 @@ export default {
   id: "t06b",
   title: "the anchor domain outranks: its card wins over the registrar's",
   spec: "SPEC-NAMING §5.5, §5.2",
+  profile: "core",
   async run() {
     const domainKey = nkeys.createAccount();
     const registrarKey = nkeys.createAccount();

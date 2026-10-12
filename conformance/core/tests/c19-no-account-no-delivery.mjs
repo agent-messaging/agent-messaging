@@ -4,7 +4,9 @@
 // caller with NO account could come by a working connection, and so reach a
 // customer agent's inbox, and requires each one to fail:
 //
-//   1. the retired no-signup door, POST /v1/guest: 410 and no credential;
+//   1. the no-signup door, POST /v1/guest: no credential. AgentMesh retired
+//      it and answers 410; a server that never had it answers 404, and both
+//      are accepted (step 4 of docs/agent-messaging-for-nats-plan.md);
 //   2. a self-made nkey with no JWT at all: the broker refuses the connection;
 //   3. a user JWT signed by a self-made account key: the broker refuses it;
 //   4. the node-credential door, POST /v1/node-credential, asked for keys that
@@ -14,10 +16,11 @@
 // being modelled has none. A broker that is unreachable is an environment
 // problem (error), not evidence either way.
 //
-// Step 4 is expected to FAIL until MESH_REQUIRE_NAMES is on at the deployment
+// Step 4 FAILS at a deployment where MESH_REQUIRE_NAMES is off
 // (docs/no-anonymous-agents-plan.md item 6): with the setting off, the door
 // still grants on proof of key possession alone, which is the gap this test
-// exists to show. expectations.json records that until the setting is on.
+// exists to show. expectations.json records pass, so such a run reports a
+// regression.
 import { connect, jwtAuthenticator, nkeyAuthenticator, nkeys } from "../../peering/lib/mesh.mjs";
 import { createHash } from "node:crypto";
 
@@ -106,15 +109,17 @@ export default {
   id: "c19",
   title: "no account, no delivery: no credential path without an account",
   spec: "§4.1, §4.8, §6.2",
+  profile: "core",
   async run(env) {
     const fails = [];
     const notes = [];
 
-    // 1. The retired door.
+    // 1. The no-signup door: retired (410) or never there (404).
+    if (!env.storefrontBase) throw new Error("env-skip: STOREFRONT_BASE (the mesh's HTTPS API, where the credential doors are) required");
     const g = await fetch(`${env.storefrontBase}/v1/guest`, { method: "POST", signal: AbortSignal.timeout(15_000) }).catch(() => null);
     if (!g) throw new Error("env-skip: the API at STOREFRONT_BASE did not answer");
     const gText = await g.text().catch(() => "");
-    if (g.status !== 410) fails.push(`/v1/guest answered ${g.status}, not 410`);
+    if (g.status !== 410 && g.status !== 404) fails.push(`/v1/guest answered ${g.status}, not 410 or 404`);
     if (/"(jwt|seed)"\s*:/.test(gText)) fails.push("/v1/guest carried a credential");
 
     // 2. A self-made nkey, no JWT.

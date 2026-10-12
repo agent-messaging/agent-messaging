@@ -31,6 +31,7 @@ export default {
   id: "c12",
   title: "adapter pipe mode: message to stdin, stdout to reply, fresh process each time",
   spec: "adapter pipe contract, §6.4",
+  profile: "core",
   async run(env) {
     if (!env.creds) throw new Error("env-skip: MESH_CREDS_FILE (durable NATS creds) required");
     if (!existsSync(ADAPTER)) throw new Error("env-skip: mesh-adapter.mjs not found (set RESOLVER_MJS)");

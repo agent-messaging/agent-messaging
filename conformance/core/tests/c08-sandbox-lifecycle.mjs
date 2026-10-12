@@ -23,6 +23,9 @@ export default {
   id: "c08",
   title: "no-signup door closed: /v1/guest and its kin answer 410 with no credential",
   spec: "§4.1, §18.10",
+  // AgentMesh's own retired routes. A new server never had them and answers
+  // 404; c19 holds the core property, no credential without an account.
+  profile: "platform",
   async run(env) {
     const fails = [];
     let reached = 0;

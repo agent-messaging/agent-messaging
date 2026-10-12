@@ -1,20 +1,23 @@
-// §10.14: the pre-admission read. Two doors, one document:
-//   (a) mesh-native: a request with skill "describe" answered with
-//       {agent_id, card?, public} — fast, because nothing thinks.
-//   (b) HTTPS: the same document at <home-mesh>/a/<agent-id>, readable by
-//       anything that speaks the web.
+// §10.14: the pre-admission read, mesh-native: a request with skill
+// "describe" answered with {agent_id, card?, public} — fast, because nothing
+// thinks. The same document over HTTPS is t05b: SPEC.md §1.6 makes that door
+// deployment-defined, so it was split out in step 4 of
+// docs/agent-messaging-for-nats-plan.md.
 import { meshConnect, signedRequest, inboxRequest } from "../lib/mesh.mjs";
-import { resolveAgentId } from "../lib/env.mjs";
+import { echoAgent } from "../lib/echo-agent.mjs";
 
 export default {
   id: "t05",
-  title: "describe: pre-admission storefront over mesh and HTTPS",
+  title: "describe: pre-admission storefront over the mesh",
   spec: "SPEC.md §10.14, §8.7",
+  profile: "core",
   async run(env) {
-    const agentId = await resolveAgentId(env.registrar, env.echoTarget);
+    if (!env.identity?.public_key) throw new Error("env-skip: MESH_IDENTITY_FILE (adapter identity) required");
+    // describe is pre-admission, so the sender is not put on the roster.
+    const target = await echoAgent(env, "t05");
+    const agentId = target.agentId;
     const problems = [];
 
-    // (a) mesh-native describe
     const nc = await meshConnect(env);
     try {
       const t0 = Date.now();
@@ -30,23 +33,11 @@ export default {
       }
     } finally {
       await nc.close().catch(() => {});
-    }
-
-    // (b) HTTPS storefront at the RECOMMENDED convention
-    try {
-      const res = await fetch(`${env.storefrontBase}/a/${agentId}`, { signal: AbortSignal.timeout(10_000) });
-      if (!res.ok) {
-        problems.push(`HTTPS storefront: GET ${env.storefrontBase}/a/<agent-id> returned ${res.status}`);
-      } else {
-        const body = await res.json().catch(() => null);
-        if (!body || !("public" in body)) problems.push("HTTPS storefront: 200 but no public block in the body");
-      }
-    } catch (e) {
-      problems.push(`HTTPS storefront: ${String(e.message ?? e)}`);
+      await target.stop();
     }
 
     return problems.length
       ? { status: "fail", detail: problems.join("\n") }
-      : { status: "pass", detail: "describe answers pre-admission on both doors with the §10.14 shape" };
+      : { status: "pass", detail: "describe answers pre-admission over the mesh with the §10.14 shape" };
   },
 };

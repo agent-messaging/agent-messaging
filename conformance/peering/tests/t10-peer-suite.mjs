@@ -44,6 +44,9 @@ export default {
   id: "t10",
   title: "peered pair: request and describe cross a gateway with the envelope intact",
   spec: "SPEC.md §21 (acceptance), §10.14, §9.7",
+  // Federation belongs to no profile yet (SPEC.md §1.6); its preconditions
+  // are core (t02, t03, t04). AgentMesh runs it with a peer.
+  profile: "platform",
   async run(env) {
     if (!env.meshAWs || !env.meshBWs) {
       return { status: "pending-peer", detail: "requires the two-mesh rig (run rig/two-meshes.sh; sets PEER_MESH_A_WS / PEER_MESH_B_WS)" };

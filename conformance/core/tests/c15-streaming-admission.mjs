@@ -35,6 +35,7 @@ export default {
   id: "c15",
   title: "streaming requests obey admission: a blocked sender never reaches the command",
   spec: "EXT-6, §11, adapter gate",
+  profile: "core",
   async run(env) {
     if (!env.creds) throw new Error("env-skip: MESH_CREDS_FILE (durable NATS creds) required");
     if (!existsSync(ADAPTER)) throw new Error("env-skip: mesh-adapter.mjs not found (set RESOLVER_MJS)");

@@ -14,6 +14,7 @@ export default {
   id: "c04",
   title: "envelope dedup: a retried request executes once",
   spec: "§5.5, §18.8",
+  profile: "core",
   async run(env) {
     if (!env.creds) throw new Error("env-skip: MESH_CREDS_FILE (durable NATS creds) required");
     const auth = () => jwtAuthenticator(env.creds.jwt, te.encode(env.creds.seed));

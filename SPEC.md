@@ -1,10 +1,10 @@
-# Agent Messaging 0.5
+# Agent Messaging 0.6
 
-A protocol for asynchronous, signed, store-and-forward messaging between agents
+A protocol for agents that work over reliable messaging: signed messages that wait in an inbox, events published to every subscriber, and presence
 
-**Version:** 0.5.0
+**Version:** 0.6.0
 **Status:** Working Draft
-**Date:** 2026-10-11
+**Date:** 2026-10-12
 
 > AgentMesh is the reference implementation.
 
@@ -14,19 +14,25 @@ A protocol for asynchronous, signed, store-and-forward messaging between agents
 
 ## 1. Introduction
 
-Agent Messaging is an open specification for reliable, secure agent-to-agent communication over messaging infrastructure. Unlike HTTP-based agent protocols that impose a client-server interaction model, Agent Messaging treats the network as a **mesh**: any agent can request, respond, emit, subscribe, and discover any other agent, with the platform providing routing, delivery, persistence, security, and observability.
+Agent Messaging is an open specification for reliable, secure agent-to-agent communication over messaging infrastructure. Unlike HTTP-based agent protocols that impose a client-server interaction model, Agent Messaging treats the network as a **mesh**, and agents on it talk in three ways (§3.2):
 
-Agent Messaging is a **platform protocol**, not an application protocol. It defines the low-level primitives and infrastructure services that agents consume, rather than prescribing how agents should behave internally.
+- **Inbox messaging.** An agent sends a signed `request` to another agent's inbox and gets a `respond` back at its own inbox. A message for an agent that is offline waits until the agent returns.
+- **Publish and subscribe.** An agent publishes (`emit`) an event on a subject, and every agent whose subscription matches that subject receives it. Events are stored durably, so a durable subscriber replays what it missed.
+- **Registry and presence.** An agent registers a manifest that says what it does, other agents discover it, and presence says whether it can be reached right now.
+
+The platform provides routing, durable delivery, persistence, security, and observability. The messaging system underneath is supplied by a binding (Section 18).
+
+Agent Messaging is a **platform protocol**, not an application protocol. It defines the message types and infrastructure services that agents consume, rather than prescribing how agents should behave internally.
 
 ### 1.1. Design Goals
 
 - **Mesh-native:** Peer-to-peer topology. Any agent can initiate communication with any other agent. No fixed client-server roles.
-- **Primitive-first:** A minimal set of irreducible operations from which all higher-level patterns compose.
+- **Three ways to talk:** Inbox messaging, publish and subscribe, and registry and presence (§3.2). They are built from six message types, the primitives of Section 6, and every higher-level pattern composes from those.
 - **Infrastructure-secure:** Identity, authentication, and authorization enforced at the transport layer via cryptographic primitives, not application-layer tokens.
 - **Async-first:** All interactions are natively asynchronous. Synchronous request-response is a special case, not the default.
 - **Node-aware:** A single host (a **Node**) MAY connect once and serve many agents. Identity, presence, and delivery are defined so that co-located agents are first-class mesh peers without per-agent connection or credential ceremony.
 - **Observable:** Distributed **tracing** context is carried in every envelope. Trace/metric/log *storage* is an optional deployment concern, not a protocol requirement.
-- **Binding-defined:** The abstract protocol is separated from its platform binding (Section 18). NATS JetStream is the reference binding; alternative bindings MAY be defined but MUST satisfy the Binding Requirements (§18.1).
+- **Binding-defined:** The abstract protocol is separated from the messaging system that carries it. A binding (Section 18) realizes the protocol on specific infrastructure, and any binding MUST satisfy the Binding Requirements (§18.1). The reference binding is defined in §18.2 to §18.10.
 
 > Economics (cost, negotiation, metering) is **not** part of the core protocol in 0.2. It is defined as an optional extension (see Section 17). This keeps the core focused on connectivity, identity, and delivery.
 
@@ -70,7 +76,7 @@ Agent Messaging is designed to compose with the emerging agent ecosystem, not re
 
 > In one line: **the rails settle; the mesh meters.**
 
-**NATS** is not a peer protocol but the **substrate** of Agent Messaging. The reference binding (Section 18) realizes the protocol (transport, identity/credentials, and persistence) on NATS JetStream. NATS is a dependency Agent Messaging builds on, not a specification it aligns or competes with; alternative bindings MAY target other infrastructure, provided they meet the Binding Requirements (§18.1).
+**Messaging systems** are not peer protocols. They are the **substrate** a binding builds on. Section 18 states what any binding must provide (§18.1) and defines the reference binding, which realizes the protocol (transport, identity/credentials, and persistence) on NATS JetStream. A messaging system is a dependency of a binding, not a specification Agent Messaging aligns or competes with, and alternative bindings MAY target other infrastructure, provided they meet the Binding Requirements.
 
 > In one line: **ARD finds, A2A talks, Agent Messaging connects** (reach, trust, presence, and events).
 
@@ -100,7 +106,7 @@ Two kinds of party implement this specification. Agents, nodes and SDKs carry th
 
 There are two profiles:
 
-- **The core profile** is what every Agent Messaging server MUST implement. A server that implements it MAY say that it implements "Agent Messaging 0.5, core profile".
+- **The core profile** is what every Agent Messaging server MUST implement. A server that implements it MAY say that it implements "Agent Messaging 0.6, core profile".
 - **The full specification** is the core profile together with every deployment-defined part below, each implemented as this document describes it. AgentMesh, the reference implementation, claims the full specification.
 
 A part is **deployment-defined** when the core profile does not require it, either because it depends on things a server need not have (human accounts, organizations, a naming service, a billing provider) or because the way it is met is the deployment's choice. Three rules apply:
@@ -134,7 +140,7 @@ The agents and nodes a server runs for itself (its registry agent, its admission
 
 | Part | Sections | Why it is deployment-defined, and what a core server does |
 |------|----------|-----------------------------------------------------------|
-| The tenancy model | §15 | §15 describes a NATS account per tenant. A core server MAY run that model, or MAY run its tenants in one NATS account and keep them as records it enforces itself. A server that shares one account among tenants MUST enforce visibility (§8.6) and per-tenant limits itself, and MUST NOT claim the account-level isolation of §15.3 (subjects, streams and KV buckets). Cross-tenant import and export (§15.2) belongs to the per-account model. |
+| The tenancy model | §15 | §15 describes a transport account per tenant (a NATS account in the reference binding, §18.2). A core server MAY run that model, or MAY run its tenants in one transport account and keep them as records it enforces itself. A server that shares one account among tenants MUST enforce visibility (§8.6) and per-tenant limits itself, and MUST NOT claim the account-level isolation of §15.3 (subjects, streams and KV buckets). Cross-tenant import and export (§15.2) belongs to the per-account model. |
 | How an owner is verified and authenticates | §4.1, §4.9 | Every account still needs an owner before a node credential is issued to it, and that is core. How the owner is verified (an email-verified sign-in in the reference deployment, an administrator creating the account in a server without human accounts) and how an account session is authenticated are the deployment's. |
 | One agent, many places | §4.11 | Places, delegations and approvals presume an owner who signs in somewhere and proves presence. A core server MAY leave them out. A receiver that does not implement §4.11 refuses a directly signed delegation envelope at §5.3 step 1, which is a refusal and never a false acceptance. |
 | Organizations and the person at the switch | §4.12 | The organization scope and the organization admin's authority. The fresh second-factor proof for each press, and the count and the typed confirmation above one agent, which bind a surface where a person presses the control; a core server whose stops are pressed through an administrative interface authenticates that interface as the deployment defines. Level 1 (asking the agent to stop over the lifecycle interface), level 4 (stopping the process, which applies only where the implementation runs the agent), level 5 (telling the people who answer for the agents), and advisories. |
@@ -162,7 +168,9 @@ The parked composed operations of §10 belong to no profile.
 - **Standalone mesh:** An instance with no peers. This is a legitimate end state (a corporate mesh behind a firewall), not a failure to federate. Also called a *private* instance when unreachable from outside its boundary.
 - **Peered mesh:** An instance connected to one or more peer instances under §21, so that agents on each can resolve and reach agents on the other. "Peered", not "federated": the name-and-identity layer never changes with peering (§1.5, invariant 1); only reachability does.
 - **World Wide Mesh:** The connected whole: every peered instance, one namespace, one protocol. The ladder reads: instance → peered mesh → World Wide Mesh.
-- **Primitive:** An irreducible protocol operation. All agent interactions compose from primitives.
+- **Primitive:** One of the six message types (`register`, `discover`, `request`, `respond`, `emit`, `subscribe`) that an envelope's `type` field names (§5.2, Section 6). All agent interactions compose from them, grouped by the three ways agents talk (§3.2).
+- **Inbox:** The subject on which one agent receives requests and the responds addressed to it (§6.4, §6.5). Messages for an offline agent wait in its node's inbox or the transport's redelivery buffer (§16.4).
+- **Event:** A message published to a subject for every matching subscriber, with no reply expected (§6.6). A **feed** is an event channel owned by one agent (§6.6a).
 - **Composed Operation:** A higher-level interaction pattern built from multiple primitives. Standardized for interoperability but not fundamental.
 - **Manifest:** A durable self-description document published by an agent, declaring its identity, hosting node, capabilities, and offerings. (Liveness is *not* in the manifest; see Presence. Cost is an extension field; see Section 17.)
 - **Task:** A stateful unit of work with a defined lifecycle, created when an agent processes a request.
@@ -171,7 +179,7 @@ The parked composed operations of §10 belong to no profile.
 - **Envelope:** The standard wire format wrapping all protocol messages.
 - **Subject:** A routing address for messages: hierarchical, dot-delimited, and supporting multi-level wildcards. Realized as a NATS subject in the reference binding (Section 18).
 - **Binding:** A concrete realization of the abstract protocol on specific infrastructure: transport, identity/credentials, and persistence. NATS JetStream is the reference binding (Section 18); terms such as **NKey** and **User JWT** are binding-level names, not protocol concepts.
-- **Tenant:** An isolation boundary within the mesh. In the model of Section 15 a tenant is a NATS account; how a deployment realizes tenants is deployment-defined (Section 1.6).
+- **Tenant:** An isolation boundary within the mesh. In the model of Section 15 a tenant is a transport account (a NATS account in the reference binding); how a deployment realizes tenants is deployment-defined (Section 1.6).
 - **Registry:** A platform service that stores agent manifests and serves discovery queries.
 - **Bus:** The event distribution infrastructure supporting publish-subscribe patterns.
 - **Trace:** A distributed trace spanning multiple agents and operations, identified by a trace ID.
@@ -190,10 +198,14 @@ The parked composed operations of §10 belong to no profile.
 │         (LLM agents, tool agents, orchestrators)           │
 ├───────────────────────────────────────────────────────────┤
 │                   Composed Operations                      │
-│   connect, delegate, stream, broadcast, ...          │
+│   delegate, stream, broadcast, cancel, heartbeat, ...      │
 ├───────────────────────────────────────────────────────────┤
-│                    Core Primitives                          │
-│     register, discover, request, respond, emit, subscribe  │
+│              Three Ways Agents Talk (§3.2)                 │
+│   inbox messaging   │  publish/subscribe  │  registry and  │
+│   request, respond  │  emit, subscribe    │  presence:     │
+│                     │  (events, feeds)    │  register,     │
+│                     │                     │  discover      │
+│       (the six message types are the primitives, §6)       │
 ├───────────────────────────────────────────────────────────┤
 │                     Task Model                             │
 │          lifecycle, state machine, artifacts                │
@@ -208,21 +220,23 @@ The parked composed operations of §10 belong to no profile.
 │   one connection + credential per host; vouches for its    │
 │   agents; holds their durable inboxes; local delivery      │
 ├───────────────────────────────────────────────────────────┤
-│                     Transport                              │
-│                   NATS JetStream                           │
-│       subjects, streams, consumers, KV, security           │
+│                 Transport (a binding, §18)                 │
+│   subject addressing, durable delivery, request-reply,     │
+│   keyed and object stores, credentials, presence expiry    │
 └───────────────────────────────────────────────────────────┘
 ```
 
+The transport layer is whatever messaging system a binding targets. Section 18 lists what any binding must provide (§18.1) and defines the reference binding.
+
 ### 3.2. Topology
 
-Agent Messaging uses a **mesh topology**. There are no fixed client-server roles. Agents do not connect to the transport individually: a **Node** connects on behalf of the agents it hosts (Section 4). Over that connection, each hosted agent is a first-class peer that can:
+Agent Messaging uses a **mesh topology**. There are no fixed client-server roles. Agents do not connect to the transport individually: a **Node** connects on behalf of the agents it hosts (Section 4). Over that connection, each hosted agent is a first-class peer that talks in three ways:
 
-- Publish messages to any subject its node is authorized to publish on.
-- Subscribe to any subject its node is authorized to subscribe to.
-- Request-respond with any agent that is listening on its inbox subject, whether that agent is on another node across the internet or on the **same node** (see Section 4.7, Local Delivery). Both halves travel on inbox subjects: the request to the responder's, the respond to the requester's (§6.5).
+- **Inbox messaging.** It can request-respond with any agent that is listening on its inbox subject, whether that agent is on another node across the internet or on the **same node** (see Section 4.7, Local Delivery). Both halves travel on inbox subjects: the request to the responder's, the respond to the requester's (§6.5). A request to an agent that is offline is held and delivered when it returns (§6.4, §16.4). Message types: `request`, `respond` (§6.4, §6.5).
+- **Publish and subscribe.** It can publish events to any subject its node is authorized to publish on, and subscribe to any subject its node is authorized to subscribe to. An event reaches every subscriber whose pattern matches, and durable subscriptions replay what was published while the subscriber was away. Message types: `emit`, `subscribe` (§6.6, §6.6a, §6.7).
+- **Registry and presence.** It can register its manifest, discover other agents by what they do, and learn whether they are reachable now. Presence comes from signed heartbeats and is kept separate from the manifest (§8.4, §9.5, §9.6, §10.10). Message types: `register`, `discover` (§6.2, §6.3).
 
-The transport handles routing, delivery, persistence, and node-level security; the reference binding (Section 18) provides these via JetStream and the NATS credential chain. Agents do not need to know each other's network addresses, only their mesh identities. Whether a peer is remote or co-located is transparent to the agent (**location transparency**).
+The transport handles routing, delivery, persistence, and node-level security; a binding (Section 18) says how a particular messaging system provides them. Agents do not need to know each other's network addresses, only their mesh identities. Whether a peer is remote or co-located is transparent to the agent (**location transparency**).
 
 ### 3.3. Agent Surface Area
 
@@ -361,8 +375,8 @@ A node asserts that it hosts an agent by issuing a signed **attestation**:
 
 ```json
 {
-  "node": "<node-nkey-public>",
-  "agent": "<agent-nkey-public>",
+  "node": "<node-key-public>",
+  "agent": "<agent-key-public>",
   "issued_at": "<ISO-8601>",
   "expires_at": "<ISO-8601>",
   "sig": "<Ed25519 signature by the node key over the tagged signed bytes: `agentmesh-vouch-v1` + LF + the canonical JSON (§5.3) of this object excluding `sig`>"
@@ -417,7 +431,7 @@ Two agents hosted by the same node ARE mesh peers and CAN communicate. A node MA
 This preserves **location transparency**: an agent's code is identical whether its peer is across the internet or in the same process, and moving an agent between hosts changes nothing semantically.
 
 - **`request`/`respond`** (point-to-point, addressed): the node SHOULD short-circuit locally when the recipient is a hosted agent and the node is the sole authority for the reply.
-- **`emit`/`subscribe`** (bus fan-out): membership lives at the transport (who else subscribed?), so events SHOULD transit NATS when the node is online; the node falls back to local event delivery only while offline. Dedup-by-`id` (§5.5) covers any double-hearing.
+- **`emit`/`subscribe`** (bus fan-out): membership lives at the transport (who else subscribed?), so events SHOULD transit the transport when the node is online; the node falls back to local event delivery only while offline. Dedup-by-`id` (§5.5) covers any double-hearing.
 
 ### 4.8. Credential Lifecycle
 
@@ -480,10 +494,10 @@ A person has one agent. The owner's app, an assistant connected through a connec
 ```json
 {
   "id": "<unique id, chosen by the issuer>",
-  "agent": "<agent-nkey-public>",
+  "agent": "<agent-key-public>",
   "place": {
     "id": "<opaque id of the place, unique for this agent>",
-    "key": "<place-nkey-public | absent>",
+    "key": "<place-key-public | absent>",
     "kind": "<app | connector | machine>",
     "label": "<what a person calls the place: \"ChatGPT\", \"this browser\", \"WORK-LAPTOP\">"
   },
@@ -512,7 +526,7 @@ No scope grants a **committing** act, and an issuer MUST NOT put any other scope
 
 ```json
 {
-  "agent": "<agent-nkey-public>",
+  "agent": "<agent-key-public>",
   "delegation": "<delegation id>",
   "act": { "kind": "<what is being done, e.g. accept_quote>", "digest": "<sha256 hex of the act's canonical request>", "summary": "<one line a person read before approving>" },
   "method": "<passkey | ...>",
@@ -576,7 +590,7 @@ No protocol can stop code on a machine its operator does not control, and this s
 
 ## 5. Message Envelope
 
-All Agent Messaging messages use a standard envelope format. The envelope is the wire format for every primitive operation.
+All Agent Messaging messages use a standard envelope format. The envelope is the wire format for every message type (Section 6).
 
 ### 5.1. Envelope Schema
 
@@ -587,8 +601,8 @@ All Agent Messaging messages use a standard envelope format. The envelope is the
   "type": "<primitive-type>",
   "ts": "<ISO-8601-timestamp>",
 
-  "from": "<agent-nkey-public>",
-  "to": "<agent-nkey-public | subject-pattern>",
+  "from": "<agent-key-public>",
+  "to": "<agent-key-public | subject-pattern>",
 
   "trace": {
     "trace_id": "<32-hex-char W3C trace-id>",
@@ -618,7 +632,7 @@ All Agent Messaging messages use a standard envelope format. The envelope is the
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `v` | string | REQUIRED | Wire protocol version, in semver format. This is the version of the wire, not of this document (§20.1); under Agent Messaging 0.5 implementations send `0.3.0`. |
+| `v` | string | REQUIRED | Wire protocol version, in semver format. This is the version of the wire, not of this document (§20.1); under Agent Messaging 0.6 implementations send `0.3.0`. |
 | `id` | string | REQUIRED | Unique message identifier. UUID v7 RECOMMENDED (time-ordered). |
 | `type` | enum | REQUIRED | The primitive type. One of: `register`, `discover`, `request`, `respond`, `emit`, `subscribe`. |
 | `ts` | string | REQUIRED | ISO 8601 timestamp in UTC. Millisecond precision RECOMMENDED. |
@@ -728,18 +742,18 @@ A verifier that cannot obtain the cited bytes, which is the ordinary case across
 
 ## 6. Primitives
 
-Agent Messaging defines six atomic primitives. All agent interactions compose from these operations.
+The six primitives are the message types of Agent Messaging: they are the values of the envelope's `type` field (§5.2), and their names are wire identifiers. All agent interactions compose from them. They group by the three ways agents talk (§3.2): `request` and `respond` carry inbox messaging, `emit` and `subscribe` carry publish and subscribe, and `register` and `discover` serve the registry, beside which presence runs on heartbeats (§9.6, §10.10). `subscribe` is the one type that is an operation on the transport rather than a message an agent sends to another (§6.7).
 
 ### 6.1. Primitive Summary
 
-| Primitive | Direction | Subject Pattern | Description |
-|-----------|-----------|----------------|-------------|
-| `register` | Agent → Registry | `mesh.registry.register` | Publish the agent's manifest to the registry. |
-| `discover` | Agent → Registry | `mesh.registry.discover` | Query the registry for agents matching criteria. |
-| `request` | Agent → Agent | `mesh.agent.{agent_id}.inbox` | Send a request to a specific agent. Expects a `respond`. |
-| `respond` | Agent → Requester | `mesh.agent.{requester_id}.inbox` | Return a response to a prior request, at the requester's inbox (§6.5). Completes or progresses a Task. |
-| `emit` | Agent → Bus | `mesh.event.{domain}.{event_type}` | Publish a fire-and-forget event. No reply expected. |
-| `subscribe` | Agent → Bus | `mesh.event.{domain}.{event_type}` | Declare interest in events matching a subject pattern. |
+| Primitive | Way of talking | Direction | Subject Pattern | Description |
+|-----------|----------------|-----------|----------------|-------------|
+| `register` | Registry and presence | Agent → Registry | `mesh.registry.register` | Publish the agent's manifest to the registry. |
+| `discover` | Registry and presence | Agent → Registry | `mesh.registry.discover` | Query the registry for agents matching criteria. |
+| `request` | Inbox messaging | Agent → Agent | `mesh.agent.{agent_id}.inbox` | Send a request to a specific agent. Expects a `respond`. |
+| `respond` | Inbox messaging | Agent → Requester | `mesh.agent.{requester_id}.inbox` | Return a response to a prior request, at the requester's inbox (§6.5). Completes or progresses a Task. |
+| `emit` | Publish and subscribe | Agent → Bus | `mesh.event.{domain}.{event_type}` | Publish a fire-and-forget event. No reply expected. |
+| `subscribe` | Publish and subscribe | Agent → Bus | `mesh.event.{domain}.{event_type}` | Declare interest in events matching a subject pattern. |
 
 ### 6.2. `register`
 
@@ -751,7 +765,7 @@ Publishes or updates the agent's manifest in the registry.
 ```json
 {
   "type": "register",
-  "from": "<agent-nkey>",
+  "from": "<agent-key>",
   "payload": { "<ManifestObject>" }
 }
 ```
@@ -774,13 +788,13 @@ Publishes or updates the agent's manifest in the registry.
 
 Queries the registry for agents matching specified criteria.
 
-**Subject:** `mesh.registry.discover` (NATS request-reply)
+**Subject:** `mesh.registry.discover` (request-reply, §18.1)
 
 **Envelope:**
 ```json
 {
   "type": "discover",
-  "from": "<agent-nkey>",
+  "from": "<agent-key>",
   "payload": {
     "capabilities": ["web-scrape", "search"],
     "availability": "online",
@@ -807,7 +821,7 @@ Queries the registry for agents matching specified criteria.
 
 **Behavior:**
 - The registry MUST filter manifests against all provided criteria using AND semantics.
-- The registry MUST only return manifests visible to the requesting agent's tenant (NATS account), unless cross-tenant discovery has been explicitly configured via account subject imports.
+- The registry MUST only return manifests visible to the requesting agent's tenant (§15), unless cross-tenant discovery has been explicitly configured through the tenant's import rules (§15.2).
 - The registry SHOULD support pagination via `limit` and a `cursor` field in subsequent requests.
 - Capability matching SHOULD support subset matching: an agent with capabilities `["a", "b", "c"]` matches a query for `["a", "b"]`.
 
@@ -830,8 +844,8 @@ Sends a request to a specific agent, expecting a `respond`.
 ```json
 {
   "type": "request",
-  "from": "<requester-nkey>",
-  "to": "<responder-nkey>",
+  "from": "<requester-key>",
+  "to": "<responder-key>",
   "trace": { "trace_id": "...", "span_id": "...", "parent_span_id": "..." },
   "context_id": "<optional-session-context>",
   "payload": {
@@ -1044,8 +1058,8 @@ Returns a response to a prior `request`. Completes or progresses a Task.
 ```json
 {
   "type": "respond",
-  "from": "<responder-nkey>",
-  "to": "<requester-nkey>",
+  "from": "<responder-key>",
+  "to": "<requester-key>",
   "in_reply_to": "<request-message-id>",
   "task_id": "<task-uuid>",
   "trace": { "trace_id": "...", "span_id": "...", "parent_span_id": "..." },
@@ -1090,7 +1104,7 @@ Publishes a fire-and-forget event to the bus. No reply expected.
 ```json
 {
   "type": "emit",
-  "from": "<emitter-nkey>",
+  "from": "<emitter-key>",
   "trace": { "trace_id": "...", "span_id": "...", "parent_span_id": "..." },
   "task_id": "<optional-originating-task>",
   "payload": {
@@ -1149,10 +1163,10 @@ agent's public key and `{topic}` is a single token naming the channel.
 
 Declares interest in events matching a subject pattern.
 
-**Subject:** Not a message type. This is a NATS subscription operation.
+**Subject:** None of its own. `subscribe` is a value of the envelope `type` (§5.2), but a subscription is an operation on the transport rather than a message sent to another agent. The reference binding realizes it as a subscription or a durable consumer (§18.6).
 
 **Behavior:**
-- Agents subscribe to event subjects using NATS wildcard patterns:
+- Agents subscribe to event subjects using the wildcard patterns of §14.2:
   - `mesh.event.scraping.*`: all scraping events.
   - `mesh.event.>`: all events across all domains.
   - `mesh.event.scraping.profile_found`: a specific event type.
@@ -1191,8 +1205,8 @@ Requesters need no advance knowledge of which mode applies. The first **substant
 {
   "id": "<uuid>",
   "context_id": "<uuid>",
-  "requester": "<agent-nkey>",
-  "responder": "<agent-nkey>",
+  "requester": "<agent-key>",
+  "responder": "<agent-key>",
   "offering": "<offering-id>",
   "state": "<TaskState>",
   "created_at": "<ISO-8601>",
@@ -1527,7 +1541,7 @@ The manifest is an agent's self-description document. It is published to the reg
 
 ```json
 {
-  "id": "<agent-nkey-public>",
+  "id": "<agent-key-public>",
   "name": "<human-readable-name>",
   "description": "<what-this-agent-does>",
   "version": "<semver>",
@@ -1538,10 +1552,10 @@ The manifest is an agent's self-description document. It is published to the reg
     "url": "<provider-url>"
   },
 
-  "endpoint": "mesh.agent.<agent-nkey>.inbox",
+  "endpoint": "mesh.agent.<agent-key>.inbox",
 
   "endpoints": {
-    "inbox": "mesh.agent.<agent-nkey>.inbox"
+    "inbox": "mesh.agent.<agent-key>.inbox"
   },
 
   "limits": {
@@ -1573,10 +1587,10 @@ The manifest is an agent's self-description document. It is published to the reg
   },
 
   "node": {
-    "id": "<node-nkey-public>",
+    "id": "<node-key-public>",
     "attestation": {
-      "node": "<node-nkey-public>",
-      "agent": "<agent-nkey-public>",
+      "node": "<node-key-public>",
+      "agent": "<agent-key-public>",
       "issued_at": "<ISO-8601>",
       "expires_at": "<ISO-8601>",
       "sig": "<Ed25519 signature by the node key>"
@@ -1666,7 +1680,7 @@ The manifest is an agent's self-description document. It is published to the reg
 | `description` | REQUIRED | Description of the agent's purpose and capabilities. |
 | `version` | REQUIRED | Agent version. Semver format. |
 | `protocol_version` | REQUIRED | The wire protocol version this agent speaks, the same value it sends in the envelope `v` (§5.2, §20.1). It is not the version of this document. |
-| `endpoint` | REQUIRED | NATS subject for direct requests to this agent. |
+| `endpoint` | REQUIRED | The subject for direct requests to this agent (its inbox, §14.1). |
 | `endpoints` | OPTIONAL | The agent's endpoint subjects, verbatim, for callers to use without constructing them (§14.4), at minimum `inbox`. Registry-populated: the registry stamps it at register time (from `endpoint`) when absent, so a manifest that predates the field never lacks it once stored. |
 | `limits` | OPTIONAL | Declared per-message inbound limits that senders pre-flight against (§6.4b). `max_inbound_chars` overrides the §22.5 default for this agent; absent means the protocol defaults apply. |
 | `node` | REQUIRED | The hosting node's ID plus its signed vouching attestation for this agent (Section 4.4). |
@@ -2388,7 +2402,7 @@ An array. Each entry carries:
   `bearerFormat`, `flows`, `openIdConnectUrl`) unchanged. This specification
   deliberately does not invent a parallel vocabulary for a problem OpenAPI
   solved. For `transport: "mesh"`, the type is `mesh-identity`: the caller is
-  identified by its NKey and account JWT at the transport layer, and there is
+  identified by its node credential at the transport layer (§4.6, §18.2), and there is
   nothing further to present.
 - `description`: OPTIONAL. One sentence, for a person.
 
@@ -2479,14 +2493,15 @@ The registry is **attachment-scoped**: it records which agents are on *this* mes
 
 The registry is implemented as a service agent within the mesh, backed by:
 
-- A **NATS KV bucket** (`mesh_registry`) for manifest storage, keyed by agent ID.
-- Two KV buckets per stored document family: current-per-subject and
-  every-version-by-digest, for Agent Descriptors (`mesh_descriptors`,
-  `mesh_descriptor_archive`) and evaluation records (`mesh_eval_records`,
-  `mesh_eval_record_archive`). Exact bytes are stored, because both formats
-  define their digests over the bytes as served.
-- A **JetStream consumer** on `mesh.registry.register` for ingesting registrations.
-- A **NATS request-reply** listener on `mesh.registry.discover` for serving queries.
+- A durable keyed store for manifests, keyed by agent ID.
+- Two keyed stores per stored document family: current-per-subject and
+  every-version-by-digest, for Agent Descriptors and evaluation records.
+  Exact bytes are stored, because both formats define their digests over the
+  bytes as served.
+- A durable subscription on `mesh.registry.register` for ingesting registrations.
+- A request-reply listener on `mesh.registry.discover` for serving queries.
+
+The reference binding names these stores and says how they are realized (§18.4).
 
 ### 9.2. Registry Operations
 
@@ -2496,7 +2511,7 @@ The registry is implemented as a service agent within the mesh, backed by:
 | Deregister | `mesh.registry.deregister` | Remove a manifest. |
 | Discover | `mesh.registry.discover` | Query for matching manifests. |
 | Get | `mesh.registry.get.{agent_id}` | Retrieve a specific manifest by agent ID. |
-| Watch | KV watch on `mesh_registry` bucket | Subscribe to manifest changes (additions, updates, deletions). |
+| Watch | A watch on the manifest store (in the reference binding, a KV watch on `mesh_registry`, §18.4) | Subscribe to manifest changes (additions, updates, deletions). |
 | Descriptor put | `mesh.registry.descriptor.put` | Store the SENDER's current Agent Descriptor. The registry MUST refuse a draft (no subject), a subject other than the sender, and a descriptor-statement signature that does not verify; it keeps the current version per subject and every stored version by digest, and SHOULD emit `mesh.event.registry.descriptor_updated` on replacement. |
 | Descriptor get | `mesh.registry.descriptor.get.{agent_id}` | The subject's current descriptor, exact bytes with their digest. |
 | Descriptor by digest | `mesh.registry.descriptor.digest.{sha256}` | Any stored descriptor version, by digest. |
@@ -2541,9 +2556,8 @@ Discovery queries support the following filter fields, combined with AND semanti
 
 The registry MUST be highly available. Recommended deployment:
 
-- Run as a replicated JetStream stream (R3 minimum for production).
-- The KV bucket inherits stream replication.
-- Multiple registry service instances can serve discover queries concurrently from the same KV bucket.
+- Keep the manifest store replicated (three replicas minimum for production). In the reference binding the `mesh_registry` KV bucket inherits JetStream stream replication (§18.4).
+- Multiple registry service instances can serve discover queries concurrently from the same manifest store.
 
 ### 9.5. Registry ≠ Presence
 
@@ -2551,7 +2565,7 @@ The registry stores **manifests**, durable descriptions that change rarely. It h
 
 ### 9.6. Presence Service
 
-Presence is a **separate** platform service tracking ephemeral liveness, backed by a short-TTL store (e.g. a KV bucket with per-key TTL, or the `MESH_HEARTBEAT` stream):
+Presence is a **separate** platform service tracking ephemeral liveness, backed by a short-TTL store (in the reference binding, a KV bucket with per-key TTL or the `MESH_HEARTBEAT` stream, §18.3):
 
 - Keyed by **node ID** (default) and optionally agent ID for per-agent overrides.
 - A node publishes a **heartbeat** (Section 10.10) at an interval (default 30s) carrying its current status and load.
@@ -2689,7 +2703,7 @@ Delivers incremental results for a single request as a sequence of ordered messa
    - `payload.final`: boolean indicating whether this is the last chunk.
 4. The final chunk has `payload.final: true` and `payload.status: "completed"`.
 
-**Ordering Guarantee:** All stream chunks are published to the same subject (`mesh.task.{task_id}.stream`), which guarantees ordering within a JetStream stream.
+**Ordering Guarantee:** All stream chunks are published to the same subject (`mesh.task.{task_id}.stream`), which guarantees their order, because every binding delivers in order per subject (§18.1).
 
 ### 10.6. `broadcast`
 
@@ -2884,7 +2898,7 @@ Hands off a Task to another agent, including accumulated context.
 **Flow:**
 1. Agent A sends `request` to Agent B with `payload.offering: "task.transfer"`, including the full Task history and artifacts.
 2. Agent B creates a new Task (or adopts the existing `task_id`) and takes over.
-3. Agent A responds to the original requester with `meta.transferred_to: "<agent-B-nkey>"`.
+3. Agent A responds to the original requester with `meta.transferred_to: "<agent-B-key>"`.
 
 ### 10.10. `heartbeat`
 
@@ -2981,7 +2995,7 @@ Streaming is the delivery of incremental results for a single Task as an ordered
 
 ### 11.1. Streaming Model
 
-Agent Messaging streaming uses JetStream subjects for ordered, durable delivery:
+Agent Messaging streaming uses task subjects with ordered, durable delivery (§18.1; in the reference binding, the `MESH_TASKS` stream, §18.3):
 
 - **Stream Subject:** `mesh.task.{task_id}.stream`
 - **Control Subject:** `mesh.task.{task_id}.update`
@@ -2993,8 +3007,8 @@ All chunks for a single Task are published to the same stream subject, guarantee
 ```json
 {
   "type": "respond",
-  "from": "<responder-nkey>",
-  "to": "<requester-nkey>",
+  "from": "<responder-key>",
+  "to": "<requester-key>",
   "in_reply_to": "<original-request-id>",
   "task_id": "<task-uuid>",
   "payload": {
@@ -3011,15 +3025,15 @@ All chunks for a single Task are published to the same stream subject, guarantee
 
 1. Requester sends `request` with `config.stream: true`.
 2. Responder sends the initial `respond` to the requester's inbox (§6.5) with `status: "working"` and `task_id`.
-3. Requester creates a durable JetStream consumer on `mesh.task.{task_id}.stream`.
+3. Requester creates a durable subscription on `mesh.task.{task_id}.stream` (a durable consumer in the reference binding, §18.6).
 4. Responder publishes chunks to `mesh.task.{task_id}.stream`.
 5. Final chunk has `payload.final: true` and `payload.status: "completed"`.
 6. Responder publishes a final task update to `mesh.task.{task_id}.update` with `status: "completed"`. This update SHOULD carry the final result in `payload.output` (§6.5): the durable task record (Section 7) is built from these updates, and including the output there lets a requester that lost the stream (disconnect, restart) recover the answer from the task store instead of losing it with the ephemeral stream subject.
 
 ### 11.4. Backpressure
 
-- JetStream consumers support flow control via explicit acknowledgment.
-- The consumer SHOULD use `ack_wait` timeouts to detect slow consumers.
+- Durable subscriptions support flow control via explicit acknowledgment.
+- The subscriber SHOULD use acknowledgment timeouts (`ack_wait` in the reference binding) to detect slow consumers.
 - The responder SHOULD use `max_pending` on the stream to limit unacknowledged chunks.
 - If the consumer falls too far behind, the responder MAY pause emission until acknowledgments catch up.
 
@@ -3067,9 +3081,9 @@ Signing every chunk of a stream (one Ed25519 signature per token of LLM output) 
 
 | Code | Description | Retryable |
 |------|-------------|-----------|
-| `TRANSPORT_TIMEOUT` | NATS request timed out waiting for a response. | Yes |
+| `TRANSPORT_TIMEOUT` | A transport request timed out waiting for a response. | Yes |
 | `TRANSPORT_NO_RESPONDERS` | No agent is listening on the target subject. | No |
-| `TRANSPORT_PERMISSION_DENIED` | NATS subject permission denied by the node's JWT. | No |
+| `TRANSPORT_PERMISSION_DENIED` | The node's credential does not permit the subject (§14.3). | No |
 
 #### Protocol Errors
 
@@ -3077,7 +3091,7 @@ Signing every chunk of a stream (one Ed25519 signature per token of LLM output) 
 |------|-------------|-----------|
 | `INVALID_ENVELOPE` | The message envelope fails schema validation. | No |
 | `INVALID_VERSION` | The protocol version is not supported by the receiver. | No |
-| `IDENTITY_MISMATCH` | The `from` field does not match the NATS connection identity. | No |
+| `IDENTITY_MISMATCH` | The envelope's signature does not verify against `from` (§5.3), or `from` does not match the identity an operation requires. | No |
 | `INVALID_MANIFEST` | The manifest fails schema validation. | No |
 | `INVALID_QUERY` | The discovery query fails schema validation. | No |
 
@@ -3181,12 +3195,12 @@ SDKs MUST apply these rules automatically for calls made from within an offering
 
 **Trace Storage:**
 
-Trace data SHOULD be collected into a dedicated JetStream stream (`mesh.trace.>`) for analysis. Agents SHOULD publish span completion events:
+Trace data SHOULD be collected into a dedicated durable store on `mesh.trace.>` for analysis (the optional `MESH_TRACE` stream in the reference binding, §18.3). Agents SHOULD publish span completion events:
 
 ```json
 {
   "type": "emit",
-  "from": "<agent-nkey>",
+  "from": "<agent-key>",
   "payload": {
     "domain": "trace",
     "event_type": "span_completed",
@@ -3194,7 +3208,7 @@ Trace data SHOULD be collected into a dedicated JetStream stream (`mesh.trace.>`
       "trace_id": "<32-hex-char W3C trace-id>",
       "span_id": "<16-hex-char W3C span-id>",
       "parent_span_id": "<16-hex-char span-id>",
-      "agent_id": "<nkey>",
+      "agent_id": "<agent-key>",
       "operation": "request",
       "offering": "web-scrape",
       "started_at": "<ISO-8601>",
@@ -3268,7 +3282,7 @@ Agents SHOULD publish periodic metrics as events:
 **Payload:**
 ```json
 {
-  "agent_id": "<nkey>",
+  "agent_id": "<agent-key>",
   "timestamp": "<ISO-8601>",
   "requests_total": 1000,
   "requests_failed": 5,
@@ -3362,8 +3376,8 @@ The atom of usage:
   "meter": "tokens_out",
   "class": "declared",
   "quantity": 4210,
-  "provider": "<nkey of the serving agent>",
-  "consumer": "<nkey of the requesting agent>",
+  "provider": "<key of the serving agent>",
+  "consumer": "<key of the requesting agent>",
   "offering": "caselaw-summary",
   "task_id": "<uuid, when a Task exists>",
   "envelope_id": "<id of the envelope this event derives from>",
@@ -3447,31 +3461,33 @@ All Agent Messaging subjects follow a hierarchical naming convention under the `
 
 ### 14.1. Subject Map
 
-| Pattern | Purpose | Persistence |
+| Pattern | Purpose | Delivery |
 |---------|---------|-------------|
-| `mesh.registry.register` | Agent registration | JetStream |
-| `mesh.registry.register.{node_id}` | Connection-bound agent registration (§4.4) | JetStream |
-| `mesh.registry.deregister` | Agent deregistration | JetStream |
-| `mesh.registry.discover` | Discovery queries (request-reply) | Core NATS |
-| `mesh.registry.get.{agent_id}` | Manifest lookup (request-reply) | Core NATS |
-| `mesh.registry.descriptor.put` | Agent Descriptor submission (request-reply) | Core NATS, stored in KV |
-| `mesh.registry.descriptor.get.{agent_id}` | Current descriptor lookup (request-reply) | Core NATS |
-| `mesh.registry.descriptor.digest.{sha256}` | Descriptor version by digest (request-reply) | Core NATS |
-| `mesh.registry.eval.put` | Evaluation record submission (request-reply) | Core NATS, stored in KV |
-| `mesh.registry.eval.get.{agent_id}` | Latest evaluation record lookup (request-reply) | Core NATS |
-| `mesh.registry.eval.digest.{sha256}` | Evaluation record by digest (request-reply) | Core NATS |
-| `mesh.presence.get` | Presence lookup (request-reply) | Core NATS |
-| `mesh.agent.{agent_id}.inbox` | Direct requests to an agent, and the responds addressed to it (§6.5) | Core NATS |
-| `mesh.task.{task_id}.update` | Task state transitions | JetStream |
-| `mesh.task.{task_id}.stream` | Task streaming data | JetStream |
-| `mesh.event.{domain}.{event_type}` | Domain events | JetStream |
-| `mesh.feed.{agent_id}.{topic}` | Owner-rooted feeds (§6.6a); publishable only by the owning agent's node | JetStream / KV (state feeds), *optional* |
-| `mesh.heartbeat.{node_id}` | Node heartbeat signals (presence) | JetStream (short TTL) |
-| `mesh.session.{context_id}.>` | Session messages | JetStream, *optional (parked sessions)* |
-| `mesh.trace.>` | Trace spans | JetStream, *optional* |
-| `mesh.metrics.{agent_id}` | Agent metrics | JetStream (short TTL), *optional* |
-| `mesh.log.{agent_id}.{level}` | Agent logs | JetStream (short TTL), *optional* |
+| `mesh.registry.register` | Agent registration | Durable |
+| `mesh.registry.register.{node_id}` | Connection-bound agent registration (§4.4) | Durable |
+| `mesh.registry.deregister` | Agent deregistration | Durable |
+| `mesh.registry.discover` | Discovery queries (request-reply) | Live |
+| `mesh.registry.get.{agent_id}` | Manifest lookup (request-reply) | Live |
+| `mesh.registry.descriptor.put` | Agent Descriptor submission (request-reply) | Live, stored by the registry |
+| `mesh.registry.descriptor.get.{agent_id}` | Current descriptor lookup (request-reply) | Live |
+| `mesh.registry.descriptor.digest.{sha256}` | Descriptor version by digest (request-reply) | Live |
+| `mesh.registry.eval.put` | Evaluation record submission (request-reply) | Live, stored by the registry |
+| `mesh.registry.eval.get.{agent_id}` | Latest evaluation record lookup (request-reply) | Live |
+| `mesh.registry.eval.digest.{sha256}` | Evaluation record by digest (request-reply) | Live |
+| `mesh.presence.get` | Presence lookup (request-reply) | Live |
+| `mesh.agent.{agent_id}.inbox` | Direct requests to an agent, and the responds addressed to it (§6.5) | Live, with a per-agent redelivery buffer while the agent is offline (§16.4) |
+| `mesh.task.{task_id}.update` | Task state transitions | Durable |
+| `mesh.task.{task_id}.stream` | Task streaming data | Durable |
+| `mesh.event.{domain}.{event_type}` | Domain events | Durable |
+| `mesh.feed.{agent_id}.{topic}` | Owner-rooted feeds (§6.6a); publishable only by the owning agent's node | Durable (state feeds keep their latest value), *optional* |
+| `mesh.heartbeat.{node_id}` | Node heartbeat signals (presence) | Durable (short retention) |
+| `mesh.session.{context_id}.>` | Session messages | Durable, *optional (parked sessions)* |
+| `mesh.trace.>` | Trace spans | Durable, *optional* |
+| `mesh.metrics.{agent_id}` | Agent metrics | Durable (short retention), *optional* |
+| `mesh.log.{agent_id}.{level}` | Agent logs | Durable (short retention), *optional* |
 | `mesh.peer.{instance}.>` | **Reserved** for cross-instance relay (federation, §21) | *(none)* |
+
+**Durable** means the binding stores what is published on the subject, so that it can be replayed and redelivered (§18.1). **Live** means it is delivered to the subscribers present at the time and not stored. The reference binding names the stream or store behind each durable subject (§18.3, §18.4).
 
 `mesh.registry.register.{node_id}` is the connection-bound form of registration: the trailing token is the publishing credential's own key, so a credential whose publish permission is `mesh.registry.register.<its own key>` (§14.3) cannot register under anybody else's identity. Both forms are accepted; §4.4 says what each is worth.
 
@@ -3479,7 +3495,7 @@ The `mesh.peer.` prefix is reserved: no agent, node, or service may publish or s
 
 ### 14.2. Wildcard Usage
 
-NATS supports two wildcards:
+Subject addressing supports two wildcards, and every binding MUST provide them (§18.1):
 - `*` matches a single token: `mesh.event.scraping.*` matches `mesh.event.scraping.profile_found` but not `mesh.event.scraping.linkedin.profile_found`.
 - `>` matches one or more tokens: `mesh.event.scraping.>` matches all subjects under `mesh.event.scraping.`.
 
@@ -3487,9 +3503,9 @@ Agents SHOULD use wildcards judiciously in subscriptions to avoid receiving unin
 
 ### 14.3. Subject Permissions
 
-A **node's** User JWT MUST define explicit publish and subscribe permissions covering the subjects of every agent it hosts (its agents' inboxes, the task/event subjects they use, and its node heartbeat). Per-agent identity is asserted in-envelope (§4.5/§5.3); subject permissions are enforced at node granularity by the mesh server.
+A **node's** credential MUST define explicit publish and subscribe permissions covering the subjects of every agent it hosts (its agents' inboxes, the task/event subjects they use, and its node heartbeat). Per-agent identity is asserted in-envelope (§4.5/§5.3); subject permissions are enforced at node granularity by the mesh server. In the reference binding the credential is a NATS User JWT (§18.2).
 
-**Example permissions for a node hosting a web-scraping agent** (`AGENT_NKEY` = the hosted agent, `NODE_NKEY` = the node):
+**Example permissions for a node hosting a web-scraping agent**, written in the reference binding's form (`AGENT_NKEY` = the hosted agent's key, `NODE_NKEY` = the node's key; `_INBOX.>` is that binding's space of transport reply subjects, §18.7):
 ```json
 {
   "pub": {
@@ -3556,18 +3572,19 @@ back to constructing.
 ## 15. Multi-Tenancy
 
 > **The tenancy model is deployment-defined (§1.6).** This chapter describes
-> the model in which each tenant is a NATS account. A server MAY instead run
-> its tenants in one NATS account and keep them as records it enforces itself.
+> the model in which each tenant is a transport account (a NATS account in the
+> reference binding, §18.2). A server MAY instead run
+> its tenants in one account and keep them as records it enforces itself.
 > §1.6 says what such a server must state and must not claim.
 
 ### 15.1. Tenant Model
 
-In the model this chapter describes, multi-tenancy is implemented via NATS accounts. Note that tenancy and instances are different isolation levels: a tenant is an account **within** one operator's instance, while an organization wanting full isolation runs its **own instance** (its own transport, services, and operator key) on its own infrastructure. No protocol changes are required, since every deployment is already a complete, self-contained mesh.
+In the model this chapter describes, multi-tenancy is implemented via transport accounts, which the reference binding realizes as NATS accounts (§18.2). Note that tenancy and instances are different isolation levels: a tenant is an account **within** one operator's instance, while an organization wanting full isolation runs its **own instance** (its own transport, services, and operator key) on its own infrastructure. No protocol changes are required, since every deployment is already a complete, self-contained mesh.
 
-- Each tenant maps to a NATS **account**. Account members are **nodes** (each node's User JWT is signed by the account); agents belong to a tenant through the node that hosts them.
+- Each tenant maps to an **account**. Account members are **nodes** (each node's credential is signed by the account); agents belong to a tenant through the node that hosts them.
 - Each account has its own subject namespace; subjects are isolated by default.
-- Nodes within the same account can freely communicate on any subject their JWT permits, so their hosted agents can reach each other.
-- Cross-tenant communication requires explicit **subject import/export** configuration on the account JWTs.
+- Nodes within the same account can freely communicate on any subject their credentials permit, so their hosted agents can reach each other.
+- Cross-tenant communication requires explicit **subject import/export** configuration on the accounts (on the Account JWTs in the reference binding).
 
 Discovery visibility follows from this: an agent is discoverable only within its own account unless the account explicitly exports discovery. Personal agents are therefore **private by default** (a personal tenant/account), and become externally discoverable only through deliberate export, the mechanism for "my agent can find my spouse's agent" without exposing either to the world.
 
@@ -3575,8 +3592,8 @@ Discovery visibility follows from this: an agent is discoverable only within its
 
 When Tenant A wants to allow its agents to be discoverable by Tenant B:
 
-1. Tenant A's account JWT exports `mesh.registry.discover` as a service.
-2. Tenant B's account JWT imports Tenant A's `mesh.registry.discover` service, optionally under a remapped subject (e.g., `mesh.external.tenant_a.discover`).
+1. Tenant A's account exports `mesh.registry.discover` as a service.
+2. Tenant B's account imports Tenant A's `mesh.registry.discover` service, optionally under a remapped subject (e.g., `mesh.external.tenant_a.discover`).
 3. Tenant B's agents can now discover Tenant A's agents via the imported subject.
 
 Subject mapping and transforms can remap imported subjects to maintain namespace consistency.
@@ -3584,8 +3601,8 @@ Subject mapping and transforms can remap imported subjects to maintain namespace
 ### 15.3. Tenant Isolation Guarantees
 
 - **Subject isolation:** Agents in different accounts cannot publish or subscribe to each other's subjects without explicit import/export.
-- **Stream isolation:** JetStream streams are account-scoped. Tenant A's task data is not accessible to Tenant B.
-- **KV isolation:** KV buckets are account-scoped.
+- **Stream isolation:** durable streams are account-scoped (JetStream streams in the reference binding). Tenant A's task data is not accessible to Tenant B.
+- **Store isolation:** keyed stores (KV buckets in the reference binding) are account-scoped.
 - **Connection isolation:** Connection limits, message size limits, and rate limits are configurable per account.
 
 ---
@@ -3594,7 +3611,7 @@ Subject mapping and transforms can remap imported subjects to maintain namespace
 
 Platform services enforce rate limits to prevent abuse and ensure fair resource allocation.
 
-### 16.1. NATS Subject Rate Limits
+### 16.1. Subject Rate Limits
 
 All platform service handlers enforce a per-sender rate limit, keyed by the `from` field in the message envelope.
 
@@ -3623,7 +3640,7 @@ When an IP exceeds the limit, the service MUST respond with HTTP `429 Too Many R
 - Rate limits use a **sliding window** algorithm: the window starts from the first request and advances with time.
 - Expired tracking entries are lazily evicted to avoid unbounded memory growth.
 - `RATE_LIMITED` is a retryable error. Clients SHOULD implement backoff as described in Section 12.4.
-- Rate limit defaults MAY be overridden via environment variables (`RATE_LIMIT_NATS_MAX`, `RATE_LIMIT_NATS_WINDOW_MS`, `RATE_LIMIT_HTTP_MAX`, `RATE_LIMIT_HTTP_WINDOW_MS`).
+- Rate limit defaults MAY be overridden by deployment configuration; the reference implementation reads the environment variables `RATE_LIMIT_NATS_MAX`, `RATE_LIMIT_NATS_WINDOW_MS`, `RATE_LIMIT_HTTP_MAX` and `RATE_LIMIT_HTTP_WINDOW_MS`.
 
 ### 16.4. Resource Caps
 
@@ -3639,7 +3656,7 @@ Each task stores an envelope history for debugging and audit. The platform MUST 
 
 #### Node-Held Inbox (replaces the server-side user queue)
 
-Durable delivery is the responsibility of the **hosting node**, not a server-side per-user queue. A node holds its agents' inboxes locally and is the durable endpoint; the transport retains only a short redelivery buffer for messages sent while a node is briefly offline (a JetStream stream with a bounded age/size, delivered on reconnect and acked by the node). This is the inverse of v0.1's server-side mailbox: the always-on node owns the mailbox, the mesh server is a thin buffer.
+Durable delivery is the responsibility of the **hosting node**, not a server-side per-user queue. A node holds its agents' inboxes locally and is the durable endpoint; the transport retains only a short redelivery buffer for messages sent while a node is briefly offline (a durable stream with a bounded age and size, delivered on reconnect and acked by the node; `MESH_INBOX_{agent_id}` in the reference binding, §18.3). This is the inverse of v0.1's server-side mailbox: the always-on node owns the mailbox, the mesh server is a thin buffer.
 
 - The node MUST ack messages it has durably accepted; unacked messages remain in the redelivery buffer until TTL.
 - **The drain MUST be bounded to the backlog the buffer held when the node bound its consumer.** The node reads the buffer's last sequence at bind time, delivers up to that sequence, and stops; anything the buffer captures after that belongs to the live subscription (§14.1). This is not an optimisation. The buffer captures the very subject live messages arrive on, so an unbounded drain competes with the live subscription for every live message, and deduplication (§22.2) does not make that overlap harmless, because it decides only *which* of the two paths dispatches. Both paths now answer the same destination, the sender's inbox (§6.5), so the answer no longer races between destinations; what an unbounded drain still costs is the overlap itself. Every live message would lean on the bounded §22.2 memory to run once, an evicted entry becoming a second dispatch and a second answer, and the drain path judges age by the mailbox freshness window (§22.3), which is far wider than the live one, so live traffic delivered through it is judged by a bound built for old mail. A drain that stops early (an error, a lost connection) MUST leave the agent live and serving on its live subscription; the part of the backlog it did not reach stays buffered.
@@ -3745,7 +3762,7 @@ carriage only in existing extensible slots, independent versioning.
 
 ## 18. Bindings
 
-Agent Messaging separates its **abstract protocol** (Sections 4 to 17) from the concrete **platform binding** that realizes it. The abstract protocol names concepts (a signed operator → account → node credential chain, subject addressing, a durable task store), and a binding defines how those concepts are provided on specific infrastructure. NATS JetStream is the **reference binding**. Alternative bindings MAY be defined but MUST satisfy the requirements in §18.1.
+Agent Messaging separates its **abstract protocol** (Sections 4 to 17) from the concrete **platform binding** that realizes it. The abstract protocol names concepts (a signed operator → account → node credential chain, subject addressing, a durable task store), and a binding defines how those concepts are provided on specific infrastructure. Alternative bindings MAY be defined but MUST satisfy the requirements in §18.1. The **reference binding** is NATS JetStream, and §18.2 to §18.10 define it: everything in this document that names NATS, JetStream, NKeys, JWTs, streams, consumers or KV buckets belongs to it.
 
 ### 18.1. Binding Requirements
 
@@ -3753,6 +3770,7 @@ Any transport-and-platform binding MUST provide:
 
 - **Addressing:** hierarchical, dot-delimited subject addressing with multi-level wildcards, per the Subject Namespace (Section 14).
 - **Delivery:** ordered, at-least-once delivery per subject, with deduplication keyed on `(from, id)` (§5.5, §22.2).
+- **Durable publish and subscribe:** events stored for replay, and durable subscriptions with at-least-once delivery and explicit acknowledgment, as §6.6, §6.6a and §6.7 already require.
 - **Request-reply:** correlated request-reply with a per-request reply address and a configurable timeout, used by platform service operations and as the liveness signal (§18.7). Agent `respond` delivery does not use it: responds ride the addressing and delivery guarantees above, published to the requester's inbox (§6.5).
 - **Durable task store:** a durable, keyed store holding authoritative Task state, updated on every transition (Section 7).
 - **Large-payload storage:** an object store (or equivalent) for payloads exceeding the message size limit, referenced by artifact `ref` parts (Section 7.5).
@@ -3836,7 +3854,9 @@ for the same reason it applies to presence.
 
 | Bucket Name | Key Pattern | TTL | Replicas | Purpose |
 |-------------|-------------|-----|----------|---------|
-| `mesh_registry` | `{agent_id}` | None | 3 | Agent manifest storage |
+| `mesh_registry` | `{agent_id}` | None | 3 | Agent manifest storage (§9.1) |
+| `mesh_descriptors`, `mesh_descriptor_archive` | `{agent_id}`; `{sha256}` | None | 3 | Agent Descriptors, current per subject and every version by digest (§9.1, §9.2) |
+| `mesh_eval_records`, `mesh_eval_record_archive` | `{agent_id}`; `{sha256}` | None | 3 | Evaluation records, latest per subject and every record by digest (§9.1, §9.2) |
 | `mesh_tasks` | `{task_id}` | 7d | 3 | Task state (authoritative store) |
 | `mesh_sessions` | `{context_id}` | 1h | 1 | Session metadata |
 | `mesh_board_items` | `{room_id}.{item_id}` | None | 3 | Work-board items (EXT-5 §10): claim is a revision-checked compare-and-set; items die with their room |
@@ -4045,7 +4065,7 @@ where an instance offers a sandbox, §4.1) MUST include a `mesh` object:
 - `name`: the instance's identity, normally its control-plane domain.
 - `protocol`: the wire protocol version the instance speaks (major must match,
   §20.2). It is the wire version, not the version of this document (§20.1).
-  Under Agent Messaging 0.5 the reference deployment sends `"0.3"`, as the
+  Under Agent Messaging 0.6 the reference deployment sends `"0.3"`, as the
   example shows.
 - `nats_endpoints`: transport addresses in preference order; a client picks the
   first scheme it supports (TCP vs WebSocket).
@@ -4183,8 +4203,8 @@ The platform SHOULD emit one for every completed task:
 ```json
 {
   "task_id": "<uuid>",
-  "requester": "<nkey>",
-  "responder": "<nkey>",
+  "requester": "<agent-key>",
+  "responder": "<agent-key>",
   "offering": "<offering-id>",
   "started_at": "<RFC-3339 UTC>",
   "completed_at": "<RFC-3339 UTC>",
@@ -4362,23 +4382,23 @@ depends on it:
 
 The protocol version follows [Semantic Versioning](https://semver.org/):
 
-- **Major:** Breaking changes to primitives, envelope format, or security model.
+- **Major:** Breaking changes to the message types (the primitives of Section 6), envelope format, or security model.
 - **Minor:** New composed operations, new optional envelope fields, new error codes.
 - **Patch:** Clarifications, typo fixes, non-normative changes.
 
 **The document version and the wire version are separate numbers.** The
-version in this document's title (Agent Messaging 0.5, Version 0.5.0) numbers
+version in this document's title (Agent Messaging 0.6, Version 0.6.0) numbers
 the text. The **wire version** is what implementations put on the wire: the
 envelope `v` (§5.2), the manifest `protocol_version` (§8.2), and the bootstrap
 `mesh.protocol` (§18.10). The wire version changes only when the wire changes
 in a way §20.2's checks must see. The last such change was 0.3 (§20.4), and
-nothing since has required another: Agent Messaging 0.4 and 0.5 added fields,
+nothing since has required another: Agent Messaging 0.4, 0.5 and 0.6 added fields,
 refusal reasons and sections without moving the wire version.
 
-Under Agent Messaging 0.5, implementations send `0.3.0` in the envelope `v` and
+Under Agent Messaging 0.6, implementations send `0.3.0` in the envelope `v` and
 the manifest `protocol_version`, and the reference deployment sends `0.3` in
 the bootstrap `mesh.protocol`. Receivers check only the major version (§20.2),
-so these values remain correct under 0.5. An implementation MUST NOT put the
+so these values remain correct under 0.6. An implementation MUST NOT put the
 document version in any of these fields. Where this document says "protocol
 0.2" or "protocol 0.3" (for example in the signature migration rules of §4.4
 and §5.3), it means the wire version.
@@ -4463,7 +4483,7 @@ What follows from this, and is normative:
   of the instance holding the state, so tasks and rooms work normally without
   any cross-instance state protocol. Nothing here needs distributed streams.
 - **Peering is an optimization, never a precondition.** Two instances with
-  heavy mutual traffic MAY establish a transport-level link (the NATS gateway
+  heavy mutual traffic MAY establish a transport-level link (in the reference binding, the NATS gateway
   topology, with account import/export deciding which subjects cross). Basic
   reachability MUST NOT depend on one, and no agent's behavior may differ by
   whether a link exists. The relay guard (below) and the reserved
@@ -4802,7 +4822,7 @@ the sender, with the same refusal codes, before anything is published.
 ### 22.2. Duplicate Rejection
 
 The same envelope legitimately arrives twice. A live subscription and a mailbox
-drain overlap; a JetStream consumer redelivers what it did not see acked
+drain overlap; a durable subscription redelivers what it did not see acked
 (§18.6). The transport is doing its job in both cases, and the receiver's job is
 to run the work once.
 
@@ -5883,3 +5903,28 @@ Revision notes from the 0.2 draft line onward, in chronological order (oldest fi
 > `0.1.0`, now show `0.3.0`; §5.2, §8.2 and §18.10 say the field is the wire
 > version. The §4.11 example place label no longer uses a person's name.
 > Nothing on the wire changed with this entry.
+
+> **2026-10-12: Agent Messaging 0.6 (Version 0.6.0).** A wording revision.
+> Nothing on the wire changed, the wire version stays `0.3.0` (§20.1), and the
+> requirements of the §1.6 core profile are unchanged. The introduction (§1,
+> §1.1), the terminology (§2), the layer diagram (§3.1) and the topology
+> (§3.2) now present the protocol by the three ways agents talk: inbox
+> messaging (`request`, `respond`), publish and subscribe (`emit`,
+> `subscribe`, feeds), and registry and presence (`register`, `discover`,
+> heartbeats). §2 defines inbox and event. Section 6 says the six primitives
+> are the message types, the values of the envelope `type` (§5.2), and groups
+> them by the three ways. The abstract sections no longer name the reference
+> binding's machinery as though it were the protocol: §1.1, §1.3, §3.1, §4.7,
+> §6.3, §6.7, §8.1 (`endpoint`), §8.12, §9.1, §9.2 (Watch), §9.4, §9.6,
+> §10.5, §11.1, §11.3, §11.4, the transport error descriptions of §12.2,
+> §13.1, §14.1 to §14.3, §15, §16.1, §16.3, §16.4 and §22.2 now say what they need
+> in terms any binding provides, and point to §18 where the reference
+> binding realizes it. The §14.1 column that named NATS and JetStream now
+> says whether a subject is durable or live. The `IDENTITY_MISMATCH`
+> description in §12.2 now matches §5.3 (a signature that does not verify
+> against `from`). Placeholder keys in the examples read `<agent-key>` and
+> the like. §18 states that everything naming NATS, JetStream, NKeys, JWTs,
+> streams, consumers or KV buckets belongs to the reference binding, §18.1
+> lists the durable publish and subscribe that §6.6, §6.6a and §6.7 already
+> require, and §18.4 lists the registry's descriptor and evaluation-record
+> buckets that §9.1 used to name.

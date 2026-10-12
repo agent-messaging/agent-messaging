@@ -36,6 +36,7 @@ export default {
   id: "c07",
   title: "admission: anonymous senders dropped before the handler, registered relayed",
   spec: "EXT-6 §9.x",
+  profile: "core",
   async run(env) {
     if (!env.creds) throw new Error("env-skip: MESH_CREDS_FILE (durable NATS creds) required");
     const auth = () => jwtAuthenticator(env.creds.jwt, te.encode(env.creds.seed));

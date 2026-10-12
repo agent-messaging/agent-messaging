@@ -44,6 +44,7 @@ export default {
   id: "c11",
   title: "offline delivery: mailbox holds, agent drains, reply comes home",
   spec: "§6.4, §6.5, §16.4, §18.3/18.6/18.7",
+  profile: "core",
   async run(env) {
     if (!env.creds) throw new Error("env-skip: MESH_CREDS_FILE (durable NATS creds) required");
     const auth = () => jwtAuthenticator(env.creds.jwt, te.encode(env.creds.seed));

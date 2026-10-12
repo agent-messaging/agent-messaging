@@ -9,6 +9,7 @@ export default {
   id: "t03",
   title: "reserved namespace: mesh.peer.> denied to ordinary credentials",
   spec: "SPEC.md §14.1",
+  profile: "core",
   async run(env) {
     const nc = await meshConnect(env);
     const violations = [];

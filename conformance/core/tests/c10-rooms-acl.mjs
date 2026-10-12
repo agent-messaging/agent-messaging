@@ -14,16 +14,28 @@ export default {
   id: "c10",
   title: "ACL room: members talk; expel revokes the credential at the broker",
   spec: "EXT-5, §15.3",
+  profile: "core",
   async run(env) {
     if (!env.creds) throw new Error("env-skip: MESH_CREDS_FILE (durable NATS creds) required");
     const auth = () => jwtAuthenticator(env.creds.jwt, te.encode(env.creds.seed));
     const { AgentMesh } = sdk;
 
-    // ACL rooms require the creator to reverse-resolve to a PAN handle
-    // (an email-verified operator), so the host uses the paired conformance
-    // key; without it there is no way to create the room — env-skip.
-    if (!env.roomsCreatorSeed) throw new Error("env-skip: MESH_ROOMS_CREATOR_SEED (a PAN-handle-paired key) required for ACL rooms");
-    const host = await AgentMesh.connect(env.meshWsUrl, { requireNamed: false, authenticator: auth(), nkeySeed: env.roomsCreatorSeed });
+    // An ACL room is durable, and a durable room counts against somebody's
+    // limits, so its creator must be owned by someone the mesh knows. The
+    // core's rule (decided 2026-10-12): any agent an account owns in the
+    // ownership record may open one, counted against that account. So the
+    // host is the suite's own agent (MESH_IDENTITY_FILE), which the mesh's
+    // operator puts on record. A room-creator key (MESH_ROOMS_CREATOR_SEED,
+    // on AgentMesh a key paired to a PAN handle) is used instead when it is
+    // given. With neither, or a host nobody owns, the test env-skips and says
+    // so. A core server that turns the check off (ROOMS_REQUIRE_OPERATOR=0)
+    // can pass any key here.
+    const hostSeed = env.roomsCreatorSeed ?? env.identity?.seed ?? null;
+    if (!hostSeed) {
+      throw new Error("env-skip: an ACL room needs a creator an account owns: MESH_IDENTITY_FILE (an agent on record) or MESH_ROOMS_CREATOR_SEED");
+    }
+    const hostIs = env.roomsCreatorSeed ? "MESH_ROOMS_CREATOR_SEED" : "MESH_IDENTITY_FILE";
+    const host = await AgentMesh.connect(env.meshWsUrl, { requireNamed: false, authenticator: auth(), nkeySeed: hostSeed });
     // The guest is a standing test agent, c10-guest.test@agentmesh.ai
     // (lib/test-agents.mjs), so the registry sees a named agent rather than a
     // new unnamed one each night. Without the file, a key minted for the run.
@@ -35,12 +47,13 @@ export default {
         room = await host.openRoom({ acl: true, name: "c10-acl" });
       } catch (e) {
         const m = String(e?.message ?? e);
-        // ACL rooms are quota-owned, so the creator must be an email-verified
-        // operator (a PAN handle). The operator NATS creds are not a paired
-        // handle — run with MESH_CREDS_FILE/MESH_IDENTITY_FILE of a
-        // handle-bearing agent (e.g. a fleet agent) to exercise this.
-        if (/PAN handle|email-verified/i.test(m)) throw new Error("env-skip: ACL rooms need a handle-bearing creator (set creds to a paired agent)");
-        throw new Error(`env-skip: ACL rooms unavailable (${m.slice(0, 80)})`);
+        // The host is not owned by anyone this mesh knows: the rooms service
+        // refuses with UNAUTHORIZED, details.reason no_owner_on_record.
+        // Older servers said "PAN handle" / "email-verified" instead.
+        if (e?.details?.reason === "no_owner_on_record" || /no account on this mesh owns|PAN handle|email-verified/i.test(m)) {
+          throw new Error(`env-skip: no account owns the room creator (${hostIs}); put the agent on record, or set MESH_ROOMS_CREATOR_SEED`);
+        }
+        throw new Error(`env-skip: ACL rooms unavailable (${m.slice(0, 80)})`); // cut-ok: error message
       }
 
       const heardByHost = [];

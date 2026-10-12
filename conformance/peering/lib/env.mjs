@@ -1,9 +1,10 @@
 // Environment contract for the peering conformance suite.
 //
 // Tests declare what they need; missing pieces produce env-skip (with the
-// exact variable named), never a false pass or a mysterious crash. All
-// defaults point at the public reference deployment, so a fully-credentialed
-// operator machine runs everything runnable with zero configuration.
+// exact variable named), never a false pass or a mysterious crash. Outside the
+// core profile, all defaults point at the public reference deployment, so a
+// fully-credentialed operator machine runs everything runnable with zero
+// configuration. The core profile has no defaults (loadEnv below).
 //
 // Two hazards of that convenience, both handled here:
 //
@@ -41,14 +42,32 @@ const REFERENCE_DEFAULTS = [
   ["STOREFRONT_BASE", "https://api.agentmesh.ai"],
 ];
 
-export function loadEnv() {
-  const dflt = Object.fromEntries(REFERENCE_DEFAULTS);
+/**
+ * `profile` is the conformance profile the run tests (../../lib/harness.mjs).
+ * A core run tests whatever mesh it is pointed at and nothing else, so it
+ * takes no agentmesh.ai default: MESH_WS_URL must be set, and a value left
+ * unset stays unset. The tests that need it env-skip and name it; t02 and t05
+ * start their own echo agent when ECHO_TARGET is unset (lib/echo-agent.mjs);
+ * the adapter tests let the adapter use its own naming default when REGISTRAR
+ * is unset, which is the naming client's choice and not the mesh's.
+ */
+export function loadEnv({ profile = "all" } = {}) {
+  const core = profile === "core";
+  if (core && !process.env.MESH_WS_URL) {
+    console.error("The core profile tests the mesh you point it at, and has no default. Set MESH_WS_URL to its NATS WebSocket address.");
+    process.exit(2);
+  }
+  // undefined rather than null for an unset value: the adapter tests spread
+  // these into a child's environment, where undefined is left out.
+  const dflt = core ? {} : Object.fromEntries(REFERENCE_DEFAULTS);
   const env = {
+    profile,
     meshWsUrl: process.env.MESH_WS_URL ?? dflt.MESH_WS_URL,
     registrar: process.env.REGISTRAR ?? dflt.REGISTRAR,
     // A live fleet agent whose daemon answers echo; describe (t05) also lands here.
     echoTarget: process.env.ECHO_TARGET ?? dflt.ECHO_TARGET,
-    // Where HTTPS storefronts are expected to serve (§10.14): the home mesh API.
+    // The mesh's HTTPS API: the credential doors (c19, c20, c22) and, on
+    // AgentMesh, the HTTPS storefronts (§10.14, t05b).
     storefrontBase: process.env.STOREFRONT_BASE ?? dflt.STOREFRONT_BASE,
     // Second instance (Phase 3). Unset => pending-peer.
     peerMeshUrl: process.env.PEER_MESH_URL ?? null,
@@ -61,10 +80,10 @@ export function loadEnv() {
     registrarB: process.env.REGISTRAR_B ?? null,
     creds: null,
     identity: null,
-    // An agent key paired to a PAN handle, for tests that need a handle-bearing
-    // creator (c10: durable/ACL rooms require the creator to reverse-resolve to
-    // an email-verified operator). Just the seed; the connection still uses the
-    // operator NATS creds above.
+    // Optional: a key for c10 to open its room with instead of the identity
+    // above (a durable or ACL room's creator must be owned by an account on
+    // the mesh, or on AgentMesh hold a PAN handle). Just the seed; the
+    // connection still uses the operator NATS creds above.
     roomsCreatorSeed: null,
     // The core suite's standing test agents (conformance/core/lib/
     // test-agents.mjs): name → { seed, public_key }, one stable key each,
@@ -119,7 +138,7 @@ export function loadEnv() {
   // Name every value that fell back to the reference deployment. Without
   // this, a third-party operator who forgets one export silently tests OUR
   // mesh and walks away with a green board for THEIR install.
-  const fellBack = REFERENCE_DEFAULTS.filter(([name]) => !process.env[name]);
+  const fellBack = core ? [] : REFERENCE_DEFAULTS.filter(([name]) => !process.env[name]);
   if (fellBack.length) {
     const w = Math.max(...fellBack.map(([name]) => name.length));
     console.error([

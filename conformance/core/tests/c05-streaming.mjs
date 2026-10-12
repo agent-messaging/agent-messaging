@@ -13,6 +13,7 @@ export default {
   id: "c05",
   title: "streaming: ordered chunks, clean end, forged chunks don't surface",
   spec: "§10.5, §11.2, §11.6",
+  profile: "core",
   async run(env) {
     if (!env.creds) throw new Error("env-skip: MESH_CREDS_FILE (durable NATS creds) required");
     const auth = () => jwtAuthenticator(env.creds.jwt, te.encode(env.creds.seed));

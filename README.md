@@ -1,65 +1,61 @@
 # Agent Messaging
 
-A protocol for asynchronous, signed, store-and-forward messaging between agents.
+A protocol for agents that work over reliable messaging. Agents send each other
+signed messages that wait in an inbox while the receiver is offline, publish
+events that every matching subscriber receives, and register in a registry
+beside a presence service that says who is online right now.
 
-Agent Messaging was formerly called the AgentMesh Protocol. AgentMesh is the
-reference implementation. Only the name of the document changed: envelope
-fields, version strings, `mesh.*` subjects, package names and SDK APIs keep the
-names they had, so nothing on the wire is different.
+AgentMesh is the reference implementation. Envelope fields, version strings,
+`mesh.*` subjects, package names and SDK APIs carry the names they have always
+had.
 
 This repository holds the specification and the conformance suite that tests
 whether an implementation follows it. The reference platform, the SDKs, and the
-tools for running a mesh live elsewhere. The specification is also published at
-<https://agentmessaging.ai>.
+tools for running a network live elsewhere. The specification is also published
+at <https://agentmessaging.ai>.
 
 ## What's here
 
-- **[SPEC.md](SPEC.md)**: Agent Messaging 0.4, the core protocol. It covers
-  identity and signing, the message envelope, the six primitives (register,
-  discover, request, respond, emit, subscribe), the task model, the registry and
-  presence split, streaming, errors, the subject namespace, multi-tenancy, rate
-  limits, extensions, and the NATS binding. Readable at
+- **[SPEC.md](SPEC.md)**: Agent Messaging 0.6. It presents the protocol by the
+  three ways agents talk: inbox messaging (`request`, `respond`), publish and
+  subscribe (`emit`, `subscribe`, feeds), and registry and presence. It also
+  covers identity and signing, the envelope, tasks, streaming, errors, the
+  subject namespace, tenancy, limits, extensions, the two conformance profiles
+  (§1.6), and bindings: what any messaging system must provide (§18.1) and the
+  reference binding on NATS JetStream. Readable at
   <https://agentmessaging.ai/spec.html>.
-- **[SPEC-NAMING.md](SPEC-NAMING.md)**: the naming layer (PAN), AgentMesh's
-  naming service. It says how a handle resolves to a card over ordinary HTTPS,
-  why a domain outranks every registrar, how trust attestations stay portable,
-  and how a handle re-homes. Readable at <https://agentnaming.ai/spec.html>.
-- **[conformance/](conformance/)**: two suites of black-box tests run against a
-  live mesh. `core/` covers the protocol surface (c01 to c17); `peering/` covers
-  naming and federation (t01 to t13). Each test cites the spec section it checks.
-  A red test is a defect in the code or in the spec, and which of the two it is
-  gets decided explicitly, in writing. Nobody edits a test just to make it pass.
+- **[SPEC-NAMING.md](SPEC-NAMING.md)**: Agent Naming, the naming layer. It says
+  how a handle resolves to a card over ordinary HTTPS, why a domain outranks
+  every registrar, how trust attestations stay portable, and how a handle moves
+  to a new registrar. Readable at <https://agentnaming.ai/spec.html>.
+- **[conformance/](conformance/)**: black-box tests run against a live server,
+  and byte-level fixtures. Every test belongs to a profile: 30 core tests that
+  every server must pass, 5 tests of the deployment-defined parts AgentMesh
+  offers, and 5 tests of Agent Naming registrars. Each test cites the sections it
+  checks. A red test is a defect in the code or in the specification, and which
+  of the two it is gets decided explicitly, in writing. Nobody edits a test just
+  to make it pass.
 
 ## Running the conformance suite
 
-The suites are black-box: they exercise a running mesh over its real wire, not
-an in-process mock. Point them at your own mesh, or at the public reference
-deployment (the defaults).
+The tests exercise a running server over its real wire, on the reference binding.
+A run of the core profile has no default address, so name the server you want to
+test:
 
 ```
-cd conformance/peering && npm install     # installs shared deps (nats.ws, nkeys)
-cd ../core   && node run.mjs              # the core suite
-cd ../peering && node run.mjs             # the naming/federation suite
+cd conformance/peering && npm install
+cd ..
+MESH_WS_URL=wss://mesh.example.com MESH_CREDS_FILE=~/mesh.creds   STOREFRONT_BASE=https://api.example.com node run.mjs
 ```
 
-Both runners take `--only <id>` to run one test, `--ci` to fail on any
-regression against `expectations.json`, and `--update` to re-record the
-baseline.
-
-Tests declare what they need. A test whose prerequisite is absent (operator
-credentials, a second registrar, a paired handle) reports **env-skip** and names
-the missing piece, so a missing prerequisite never shows up as a pass. Set:
-
-- `MESH_WS_URL`: the mesh to test (default `wss://mesh.agentmesh.ai`).
-- `MESH_CREDS_FILE`: durable NATS credentials, for tests that register agents.
-  Without these, most core tests env-skip.
-- `AGENTMESH_SDK`: a local SDK build directory to test instead of the published
-  tarball pinned in `conformance/peering/package.json`. The runner prints which
-  artifact answered on every run.
-
-Some tests need more (a PAN-handle-paired key for ACL rooms, a two-registrar
-rig for re-homing); each names its requirement when skipped. The `peering/rig/`
-scripts stand up the local rigs.
+`run.mjs` runs the core tests of both suites and prints the specification
+version and profile it tested. `--profile platform`, `--profile naming` and
+`--profile all` run the others, `--only <id>` runs one test, `--ci` fails on a
+regression against `expectations.json`, and `--update` records a new baseline.
+A test whose prerequisite is missing reports **env-skip** and names it, so a
+missing prerequisite never shows up as a pass. [conformance/README.md](conformance/README.md)
+lists every setting. The adapter tests (c12, c13, c15) also need the reference
+adapter, which lives with the AgentMesh SDKs.
 
 ## Licensing
 
@@ -83,7 +79,7 @@ small number of people, so expect a reply in days rather than hours.
 ## Related
 
 - The specification site: <https://agentmessaging.ai>
-- Agent naming (PAN): <https://agentnaming.ai>
+- Agent Naming: <https://agentnaming.ai>
 - AgentMesh, the reference implementation: <https://agentmesh.ai>
 - Run your own mesh: <https://github.com/jeffrschneider/agentmesh-deploy>
 - Developer docs: <https://dev.agentmesh.ai>

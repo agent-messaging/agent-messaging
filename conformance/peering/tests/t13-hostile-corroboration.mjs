@@ -182,6 +182,8 @@ export default {
   id: "t13",
   title: "migration IN believes a configured peer, and only its signed word",
   spec: "SPEC-NAMING §5.6, §7.8",
+  // Registrars, not a messaging server: Agent Naming's suite.
+  profile: "naming",
   async run(env) {
     if (!env.registrarA || !env.registrarB) {
       return { status: "env-skip", detail: "set REGISTRAR_A and REGISTRAR_B (run rig/two-registrars.sh)" };

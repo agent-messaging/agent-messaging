@@ -135,6 +135,9 @@ export default {
   id: "c21",
   title: "one agent, many places: a signed-out place can no longer act, and the others can",
   spec: "§4.11, §4.10",
+  // A signed-in person, account approval and the hosted MCP door; §4.11 is
+  // deployment-defined (SPEC.md §1.6).
+  profile: "platform",
   async run(env) {
     const fails = [];
     const notes = [];

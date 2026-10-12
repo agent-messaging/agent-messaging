@@ -16,14 +16,12 @@
 //      UNAUTHORIZED with details.reason agent_key_revoked, while a request from
 //      another fresh key does reach the handler.
 //
-// EXPECTED TO FAIL against production until three things have happened, which
-// is how c19 was carried (docs/no-anonymous-agents-plan.md): the
-// live-revocation branch is deployed (the two doors and the registry's
-// answer); the broker has moved to the full resolver (docs/our-instance.md
+// It needs three things of the mesh under test: the two doors and the
+// registry's answer; a broker on the full resolver (docs/our-instance.md
 // §6.4), without which part A falls back to refusing renewal and says so; and
-// the agent under test runs an SDK with the §5.3 receive check (the published
-// tarball does not have it until the next SDK release; AGENTMESH_SDK points
-// the suite at a local build). expectations.json records "fail" until then.
+// an agent under test whose SDK has the §5.3 receive check. Since step 3 of
+// docs/agent-messaging-for-nats-plan.md the doors are the core's
+// (services/src/keychain/doors.ts).
 import { connect, jwtAuthenticator, nkeys } from "../../peering/lib/mesh.mjs";
 import { sdkModule as sdk } from "../../peering/lib/sdk.mjs";
 import { launchAgent, requireAgentOps } from "../lib/agent-under-test.mjs";
@@ -175,7 +173,9 @@ export default {
   id: "c20",
   title: "live revocation: a revoked credential is cut off in seconds, a revoked agent key is refused",
   spec: "§4.8, §4.10, §5.3, §18.2",
+  profile: "core",
   async run(env) {
+    if (!env.storefrontBase) throw new Error("env-skip: STOREFRONT_BASE (the mesh's HTTPS API, where the credential doors are) required");
     const fails = [];
     const notes = [];
     await partA(env, fails, notes);

@@ -21,6 +21,7 @@ export default {
   id: "c18",
   title: "feeds: owner-rooted publish delivers; the current-value lookup answers a real envelope",
   spec: "§6.6a, §18.3",
+  profile: "core",
   async run(env) {
     if (!env.creds) throw new Error("env-skip: MESH_CREDS_FILE (durable NATS creds) required");
     const auth = () => jwtAuthenticator(env.creds.jwt, te.encode(env.creds.seed));

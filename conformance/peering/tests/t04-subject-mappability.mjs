@@ -17,6 +17,7 @@ export default {
   id: "t04",
   title: "subject mappability: the §14.1 table rewrites mechanically",
   spec: "SPEC.md §21.3, §14.1",
+  profile: "core",
   async run() {
     const spec = readFileSync(SPEC, "utf8");
     const table = spec.split("### 14.1")[1]?.split("### 14.2")[0];

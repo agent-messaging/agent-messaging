@@ -21,6 +21,7 @@ export default {
   id: "c16",
   title: "broker auth: an unauthenticated connection is refused",
   spec: "§4.6, §18.2",
+  profile: "core",
   async run(env) {
     // No env.creds gate, deliberately: this test's whole point is connecting
     // WITHOUT any credential, so it runs even on an uncredentialed machine.

@@ -15,6 +15,8 @@ export default {
   id: "t12",
   title: "referrals are followed: a re-homed handle still resolves at the old address",
   spec: "SPEC-NAMING §5.6",
+  // Registrars, not a messaging server: Agent Naming's suite.
+  profile: "naming",
   async run(env) {
     if (!env.registrarA || !env.registrarB) {
       return { status: "env-skip", detail: "set REGISTRAR_A and REGISTRAR_B (run rig/two-registrars.sh)" };

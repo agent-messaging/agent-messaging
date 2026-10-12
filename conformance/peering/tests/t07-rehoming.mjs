@@ -9,6 +9,8 @@ export default {
   id: "t07",
   title: "re-homing: custodian moves, key unchanged, pins stay silent",
   spec: "SPEC-NAMING §5.6",
+  // Registrars, not a messaging server: Agent Naming's suite.
+  profile: "naming",
   async run(env) {
     if (!env.registrarA || !env.registrarB) {
       return { status: "env-skip", detail: "set REGISTRAR_A and REGISTRAR_B (run rig/two-registrars.sh)" };

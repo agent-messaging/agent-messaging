@@ -8,6 +8,7 @@ export default {
   id: "t01",
   title: "carrier independence: envelopes verify offline; tampering breaks them",
   spec: "SPEC.md §21.1, §4.5",
+  profile: "core",
   async run() {
     const kp = nkeys.createUser();
     const from = kp.getPublicKey();

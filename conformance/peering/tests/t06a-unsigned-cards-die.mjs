@@ -31,6 +31,7 @@ export default {
   id: "t06a",
   title: "unsigned cards die: resolver discards a card without a signature",
   spec: "SPEC-NAMING §5.3",
+  profile: "core",
   async run() {
     const problems = [];
 

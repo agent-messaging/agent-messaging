@@ -33,6 +33,7 @@ export default {
   id: "c13",
   title: "adapter inbox mode: messages queue, a session drains and replies",
   spec: "adapter inbox contract, §6.4, §16.4",
+  profile: "core",
   async run(env) {
     if (!env.creds) throw new Error("env-skip: MESH_CREDS_FILE (durable NATS creds) required");
     if (!existsSync(ADAPTER)) throw new Error("env-skip: mesh-adapter.mjs not found (set RESOLVER_MJS)");

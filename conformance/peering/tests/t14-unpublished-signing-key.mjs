@@ -58,6 +58,7 @@ export default {
   id: "t14",
   title: "a signed card whose key the authority does not publish is discarded",
   spec: "SPEC-NAMING §5.3",
+  profile: "core",
   async run() {
     const problems = [];
 

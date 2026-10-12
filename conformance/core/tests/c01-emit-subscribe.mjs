@@ -13,6 +13,7 @@ export default {
   id: "c01",
   title: "emit/subscribe: matching events deliver signed, non-matching don't",
   spec: "§6.6, §6.7, §14.2",
+  profile: "core",
   async run(env) {
     if (!env.creds) throw new Error("env-skip: MESH_CREDS_FILE (durable NATS creds) required");
     const auth = () => jwtAuthenticator(env.creds.jwt, te.encode(env.creds.seed));

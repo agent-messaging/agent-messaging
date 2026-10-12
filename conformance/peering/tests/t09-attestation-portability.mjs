@@ -43,6 +43,7 @@ export default {
   id: "t09",
   title: "attestations are portable: trust claims verify offline, with or without our code",
   spec: "SPEC.md §9.7, §21",
+  profile: "core",
   async run() {
     const operator = nkeys.createAccount();      // the issuing operator
     const node = nkeys.createUser();             // the subject node

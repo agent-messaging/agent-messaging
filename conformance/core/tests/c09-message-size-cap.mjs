@@ -12,6 +12,7 @@ export default {
   id: "c09",
   title: "1 MB cap: oversized fails fast and defined, under-cap crosses",
   spec: "§18.9",
+  profile: "core",
   async run(env) {
     if (!env.creds) throw new Error("env-skip: MESH_CREDS_FILE (durable NATS creds) required");
     const auth = () => jwtAuthenticator(env.creds.jwt, te.encode(env.creds.seed));

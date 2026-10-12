@@ -38,6 +38,7 @@ export default {
   id: "c01b",
   title: "durable subscribe: §18.6 consumer on MESH_EVENTS, away events delivered on return",
   spec: "§18.6, §18.3, §6.7",
+  profile: "core",
   async run(env) {
     if (!env.creds) throw new Error("env-skip: MESH_CREDS_FILE (durable NATS creds) required");
     const auth = () => jwtAuthenticator(env.creds.jwt, te.encode(env.creds.seed));

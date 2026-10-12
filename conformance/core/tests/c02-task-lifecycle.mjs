@@ -17,6 +17,7 @@ export default {
   id: "c02",
   title: "task lifecycle on the wire: transitions observed, terminal enforced",
   spec: "§7.2, §7.3, §14.1",
+  profile: "core",
   async run(env) {
     if (!env.creds) throw new Error("env-skip: MESH_CREDS_FILE (durable NATS creds) required");
     const nc = await connect({

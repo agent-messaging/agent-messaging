@@ -21,6 +21,7 @@ export default {
   id: "c14",
   title: "interaction style: declared, stored, and discoverable",
   spec: "§8.2, §8.3a, §9.3",
+  profile: "core",
   async run(env) {
     if (!env.creds) throw new Error("env-skip: MESH_CREDS_FILE (durable NATS creds) required");
     const auth = () => jwtAuthenticator(env.creds.jwt, te.encode(env.creds.seed));
