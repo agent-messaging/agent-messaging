@@ -4,7 +4,7 @@
 //   node run.mjs                     the core profile: what every Agent
 //                                    Messaging server must pass, and the
 //                                    health check of a mesh that runs only
-//                                    the core (Agent Messaging for NATS)
+//                                    the core (the Agent Messaging Server)
 //   node run.mjs --profile platform  AgentMesh's deployment-defined parts
 //   node run.mjs --profile naming    the Agent Naming registrar tests
 //   node run.mjs --profile all       everything

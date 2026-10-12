@@ -1,12 +1,12 @@
-# Agent Messaging 0.6
+# Agent Messaging 0.7
 
 A protocol for agents that work over reliable messaging: signed messages that wait in an inbox, events published to every subscriber, and presence
 
-**Version:** 0.6.0
+**Version:** 0.7.0
 **Status:** Working Draft
 **Date:** 2026-10-12
 
-> AgentMesh is the reference implementation.
+> The Agent Messaging Server is the reference implementation, and it implements the core profile (§1.6). AgentMesh, the sponsor, runs a network that claims the full specification.
 
 > Revision notes for this draft are kept in the [Change History](#change-history) at the end of this document.
 
@@ -106,8 +106,8 @@ Two kinds of party implement this specification. Agents, nodes and SDKs carry th
 
 There are two profiles:
 
-- **The core profile** is what every Agent Messaging server MUST implement. A server that implements it MAY say that it implements "Agent Messaging 0.6, core profile".
-- **The full specification** is the core profile together with every deployment-defined part below, each implemented as this document describes it. AgentMesh, the reference implementation, claims the full specification.
+- **The core profile** is what every Agent Messaging server MUST implement. A server that implements it MAY say that it implements "Agent Messaging 0.7, core profile".
+- **The full specification** is the core profile together with every deployment-defined part below, each implemented as this document describes it. The Agent Messaging Server, the reference implementation, implements the core profile. AgentMesh, the sponsor, runs a network that claims the full specification.
 
 A part is **deployment-defined** when the core profile does not require it, either because it depends on things a server need not have (human accounts, organizations, a naming service, a billing provider) or because the way it is met is the deployment's choice. Three rules apply:
 
@@ -133,7 +133,7 @@ The agents and nodes a server runs for itself (its registry agent, its admission
 | Rooms | EXT-5, §18.5 | The server side of the rooms extension (`extensions/EXT-5-rooms.md`), the room drive included. |
 | Admission and the knock | §1.5 (invariant 4), EXT-6 | The server side of the admission extension (`extensions/EXT-6-admission.md`): the knock, the admission roster and its enforcement, and held-sender review. The pre-admission surface stays exactly two verbs, `describe` and `knock`. |
 | Subjects, limits and delivery | §14, §16 | The subject namespace and its permissions, resolution rather than construction, per-sender rate limits, the task history cap, and the per-agent redelivery buffer, which sandbox agents do not get. |
-| Binding and bootstrap | §18 | On the reference binding, §18.1 to §18.10, including the `mesh` object of §18.10 on every credential-issuing response. A server on another binding meets §18.1 and documents its mesh-server interface. |
+| Binding and bootstrap | §18 | On the reference binding, §18.1 to §18.10, including the `mesh` object of §18.10 on every credential-issuing response. A server on another binding meets §18.1, sends the `mesh` object of §18.10 with its own addresses in `endpoints`, and documents its mesh-server interface. |
 | Versions and federation preconditions | §20, §21 (Preconditions) | Version checks on the wire version (§20.1, §20.2), the `hops` relay guard, and the reserved `mesh.peer.` prefix. |
 
 **What is deployment-defined.**
@@ -158,7 +158,7 @@ The parked composed operations of §10 belong to no profile.
 
 ## 2. Terminology
 
-- **Agent Messaging:** The open protocol defined by this specification: a signed, mesh-native protocol for agent-to-agent communication that provides identity, discovery, request/response, events, presence, and a task model over a messaging transport. "Agent Messaging" names the *protocol*; a **Mesh** (below) is a running network that speaks it, and an **instance** is one operator's deployment of that network. AgentMesh is its reference implementation, and some wire identifiers carry that name (the `agentmesh-` signature tags and the `mesh.` subjects among them).
+- **Agent Messaging:** The open protocol defined by this specification: a signed, mesh-native protocol for agent-to-agent communication that provides identity, discovery, request/response, events, presence, and a task model over a messaging transport. "Agent Messaging" names the *protocol*; a **Mesh** (below) is a running network that speaks it, and an **instance** is one operator's deployment of that network. The Agent Messaging Server is its reference implementation, and AgentMesh is its sponsor. Some wire identifiers carry the AgentMesh name (the `agentmesh-` signature tags and the `mesh.` subjects among them).
 - **Agent:** An autonomous software entity that communicates via Agent Messaging. Agents are opaque: the protocol does not require knowledge of their internal implementation. An agent has its own cryptographic keypair; its public key is its **agent ID**. An agent is always **hosted by a Node**. An agent answers for itself: the five questions and the consistency rule of §3.3.1 are what distinguish an agent from a tool.
 - **Node:** A host that maintains a transport connection to the mesh and serves one or more agents over it. The Node holds the transport credential and **vouches** for the agents it hosts (see Section 4). A Node has its own keypair (the **node ID**). One always-on host (e.g. a personal gateway or a machine running an agent fleet) is one Node hosting N agents.
 - **Mesh Server:** The infrastructure role a node's connection terminates at. A mesh server routes messages, verifies node credentials at connection time, enforces subject-level authorization and tenant isolation on every operation, and provides durable delivery, the task store, and the presence substrate. It is run by the instance's operator, hosts no agents, and vouches for nothing. A mesh server is the opposite of a node in almost every respect. In the reference binding a mesh server is a NATS server (Section 18.2); its client↔server wire protocol is defined by the binding, not by this document (§18.1).
@@ -632,7 +632,7 @@ All Agent Messaging messages use a standard envelope format. The envelope is the
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `v` | string | REQUIRED | Wire protocol version, in semver format. This is the version of the wire, not of this document (§20.1); under Agent Messaging 0.6 implementations send `0.3.0`. |
+| `v` | string | REQUIRED | Wire protocol version, in semver format. This is the version of the wire, not of this document (§20.1); under Agent Messaging 0.7 implementations send `0.3.0`. |
 | `id` | string | REQUIRED | Unique message identifier. UUID v7 RECOMMENDED (time-ordered). |
 | `type` | enum | REQUIRED | The primitive type. One of: `register`, `discover`, `request`, `respond`, `emit`, `subscribe`. |
 | `ts` | string | REQUIRED | ISO 8601 timestamp in UTC. Millisecond precision RECOMMENDED. |
@@ -3762,7 +3762,7 @@ carriage only in existing extensible slots, independent versioning.
 
 ## 18. Bindings
 
-Agent Messaging separates its **abstract protocol** (Sections 4 to 17) from the concrete **platform binding** that realizes it. The abstract protocol names concepts (a signed operator → account → node credential chain, subject addressing, a durable task store), and a binding defines how those concepts are provided on specific infrastructure. Alternative bindings MAY be defined but MUST satisfy the requirements in §18.1. The **reference binding** is NATS JetStream, and §18.2 to §18.10 define it: everything in this document that names NATS, JetStream, NKeys, JWTs, streams, consumers or KV buckets belongs to it.
+Agent Messaging separates its **abstract protocol** (Sections 4 to 17) from the concrete **platform binding** that realizes it. The abstract protocol names concepts (a signed operator → account → node credential chain, subject addressing, a durable task store), and a binding defines how those concepts are provided on specific infrastructure. Alternative bindings MAY be defined but MUST satisfy the requirements in §18.1. The **reference binding** is NATS JetStream, and §18.2 to §18.10 define it: everything in this document that names NATS, JetStream, NKeys, JWTs, streams, consumers or KV buckets belongs to it. The `mesh` object of §18.10 is the one exception: every binding sends it (§18.1), and only its `nats_endpoints` field belongs to the reference binding.
 
 ### 18.1. Binding Requirements
 
@@ -3776,6 +3776,7 @@ Any transport-and-platform binding MUST provide:
 - **Large-payload storage:** an object store (or equivalent) for payloads exceeding the message size limit, referenced by artifact `ref` parts (Section 7.5).
 - **Identity & credentials:** a signed operator → account → node credential chain (Section 4), node-key connection authentication, subject-scoped publish/subscribe authorization, and tenant import/export enforcement.
 - **Presence:** periodic node liveness with TTL expiry (Section 9).
+- **Finding the mesh:** every credential-issuing response carries the `mesh` object of §18.10, and its `endpoints` lists the binding's transport addresses as URLs. A binding names the URL schemes it uses, and each scheme names one binding.
 
 In addition to providing these guarantees, a binding MUST **document the mesh-server
 interface**: the client↔server wire protocol and framing, the connection/authentication
@@ -4054,6 +4055,10 @@ where an instance offers a sandbox, §4.1) MUST include a `mesh` object:
   "mesh": {
     "name": "agentmesh.ai",
     "protocol": "0.3",
+    "endpoints": [
+      "nats://mesh.agentmesh.ai:4222",
+      "ws://mesh.agentmesh.ai:4443"
+    ],
     "nats_endpoints": [
       "nats://mesh.agentmesh.ai:4222",
       "ws://mesh.agentmesh.ai:4443"
@@ -4065,16 +4070,30 @@ where an instance offers a sandbox, §4.1) MUST include a `mesh` object:
 - `name`: the instance's identity, normally its control-plane domain.
 - `protocol`: the wire protocol version the instance speaks (major must match,
   §20.2). It is the wire version, not the version of this document (§20.1).
-  Under Agent Messaging 0.6 the reference deployment sends `"0.3"`, as the
+  Under Agent Messaging 0.7 the reference deployment sends `"0.3"`, as the
   example shows.
-- `nats_endpoints`: transport addresses in preference order; a client picks the
-  first scheme it supports (TCP vs WebSocket).
+- `endpoints`: the mesh's transport addresses, as URLs in preference order. It
+  MUST list at least one address. The scheme of each URL names the binding and
+  the transport: `nats://` for NATS over TCP and `ws://` or `wss://` for NATS
+  over WebSocket on the reference binding, and `amqp://` or `amqps://` on the
+  RabbitMQ binding. A client uses the first address whose scheme it supports,
+  and passes over an address whose scheme it does not know.
 
 Clients SHOULD treat the mesh home as the only configured address, re-reading
-`nats_endpoints` at every credential issuance/refresh so operators can move or
+`endpoints` at every credential issuance and refresh so operators can move or
 add transport endpoints without client changes. Clients MAY maintain a set of
 known mesh homes (e.g. the public instance plus a self-hosted one) and connect
 to one as the active mesh.
+
+**On the reference binding.** A mesh on the NATS binding MUST also send
+`nats_endpoints`, its NATS addresses in preference order, so that clients
+written before Agent Messaging 0.7 keep working. It lists the same addresses
+as `endpoints`. A client that understands `endpoints` reads it and prefers it;
+it falls back to `nats_endpoints` only when an answer has no `endpoints`, as
+an answer from a mesh older than 0.7 does. A NATS client chooses between TCP
+and WebSocket by what it supports. A mesh on another binding MAY send
+`nats_endpoints` as an empty list, and MUST NOT list in it an address that is
+not a NATS address.
 
 *Addressing note (federation seam, §21):* because agent keys are self-minted
 and portable, an agent ID alone does not name a location; **agent ID + mesh
@@ -4387,18 +4406,18 @@ The protocol version follows [Semantic Versioning](https://semver.org/):
 - **Patch:** Clarifications, typo fixes, non-normative changes.
 
 **The document version and the wire version are separate numbers.** The
-version in this document's title (Agent Messaging 0.6, Version 0.6.0) numbers
+version in this document's title (Agent Messaging 0.7, Version 0.7.0) numbers
 the text. The **wire version** is what implementations put on the wire: the
 envelope `v` (§5.2), the manifest `protocol_version` (§8.2), and the bootstrap
 `mesh.protocol` (§18.10). The wire version changes only when the wire changes
 in a way §20.2's checks must see. The last such change was 0.3 (§20.4), and
-nothing since has required another: Agent Messaging 0.4, 0.5 and 0.6 added fields,
+nothing since has required another: Agent Messaging 0.4, 0.5, 0.6 and 0.7 added fields,
 refusal reasons and sections without moving the wire version.
 
-Under Agent Messaging 0.6, implementations send `0.3.0` in the envelope `v` and
+Under Agent Messaging 0.7, implementations send `0.3.0` in the envelope `v` and
 the manifest `protocol_version`, and the reference deployment sends `0.3` in
 the bootstrap `mesh.protocol`. Receivers check only the major version (§20.2),
-so these values remain correct under 0.6. An implementation MUST NOT put the
+so these values remain correct under 0.7. An implementation MUST NOT put the
 document version in any of these fields. Where this document says "protocol
 0.2" or "protocol 0.3" (for example in the signature migration rules of §4.4
 and §5.3), it means the wire version.
@@ -5928,3 +5947,23 @@ Revision notes from the 0.2 draft line onward, in chronological order (oldest fi
 > lists the durable publish and subscribe that §6.6, §6.6a and §6.7 already
 > require, and §18.4 lists the registry's descriptor and evaluation-record
 > buckets that §9.1 used to name.
+
+> **2026-10-12: Agent Messaging 0.7 (Version 0.7.0).** The `mesh` object of
+> §18.10 gains `endpoints`, the mesh's transport addresses as URLs in
+> preference order, whose scheme names the binding and the transport:
+> `nats://`, `ws://` and `wss://` on the reference binding, `amqp://` and
+> `amqps://` on the RabbitMQ binding. A client uses the first address whose
+> scheme it supports, and re-reads the list at every credential issuance and
+> refresh. `nats_endpoints` stays: a mesh on the NATS binding MUST still send
+> it, so clients written before 0.7 keep working, and a client that
+> understands `endpoints` prefers it. What §18.10 said about NATS addresses
+> now sits under "On the reference binding" there. §18.1 says every binding's
+> credential answers carry the `mesh` object with `endpoints`, §18 says the
+> object is the one part of §18.10 every binding sends, and the §1.6 core
+> profile says a server on another binding sends it with its own addresses.
+> `name` and `protocol` are unchanged. The change is additive: the wire
+> version stays `0.3.0` (§20.1). The note under the title, §1.6 and the
+> definition of Agent Messaging in §2 now name the Agent Messaging Server as
+> the reference implementation, which implements the core profile, and
+> AgentMesh as the sponsor, which runs a network that claims the full
+> specification. The wire identifiers that carry the AgentMesh name keep it.

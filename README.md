@@ -5,9 +5,10 @@ signed messages that wait in an inbox while the receiver is offline, publish
 events that every matching subscriber receives, and register in a registry
 beside a presence service that says who is online right now.
 
-AgentMesh is the reference implementation. Envelope fields, version strings,
-`mesh.*` subjects, package names and SDK APIs carry the names they have always
-had.
+The Agent Messaging Server is the reference implementation, and it implements
+the core profile. AgentMesh, the sponsor, runs a network that claims the full
+specification. Envelope fields, version strings, `mesh.*` subjects, package
+names and SDK APIs carry the names they have always had.
 
 This repository holds the specification and the conformance suite that tests
 whether an implementation follows it. The reference platform, the SDKs, and the
@@ -16,7 +17,7 @@ at <https://agentmessaging.ai>.
 
 ## What's here
 
-- **[SPEC.md](SPEC.md)**: Agent Messaging 0.6. It presents the protocol by the
+- **[SPEC.md](SPEC.md)**: Agent Messaging 0.7. It presents the protocol by the
   three ways agents talk: inbox messaging (`request`, `respond`), publish and
   subscribe (`emit`, `subscribe`, feeds), and registry and presence. It also
   covers identity and signing, the envelope, tasks, streaming, errors, the
@@ -80,6 +81,6 @@ small number of people, so expect a reply in days rather than hours.
 
 - The specification site: <https://agentmessaging.ai>
 - Agent Naming: <https://agentnaming.ai>
-- AgentMesh, the reference implementation: <https://agentmesh.ai>
+- AgentMesh, the sponsor: <https://agentmesh.ai>
 - Run your own mesh: <https://github.com/jeffrschneider/agentmesh-deploy>
 - Developer docs: <https://dev.agentmesh.ai>

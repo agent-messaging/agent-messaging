@@ -6,7 +6,7 @@
 //
 //   1. the no-signup door, POST /v1/guest: no credential. AgentMesh retired
 //      it and answers 410; a server that never had it answers 404, and both
-//      are accepted (step 4 of docs/agent-messaging-for-nats-plan.md);
+//      are accepted (step 4 of docs/agent-messaging-server-plan.md);
 //   2. a self-made nkey with no JWT at all: the broker refuses the connection;
 //   3. a user JWT signed by a self-made account key: the broker refuses it;
 //   4. the node-credential door, POST /v1/node-credential, asked for keys that

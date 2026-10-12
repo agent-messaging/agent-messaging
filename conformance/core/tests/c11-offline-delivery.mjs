@@ -31,7 +31,7 @@
 //
 // Needs an SDK with the drain (>= the offline-delivery commit): run with
 // AGENTMESH_SDK pointing at a local sdk-typescript build until published.
-import { connect, jwtAuthenticator, nkeys } from "../../peering/lib/mesh.mjs";
+import { connect, jwtAuthenticator, mailboxes, nkeys } from "../../peering/lib/mesh.mjs";
 import { createEnvelope, signEnvelope } from "../../peering/lib/sdk.mjs";
 import { launchAgent, requireAgentOps } from "../lib/agent-under-test.mjs";
 import { cleanSlate, seedFor } from "../lib/test-agents.mjs";
@@ -99,7 +99,9 @@ export default {
 
     // Raw connection for the sender + JetStream inspection.
     const nc = await connect({ servers: env.meshWsUrl, authenticator: auth(), timeout: 15_000, maxReconnectAttempts: 0 });
-    const jsm = await nc.jetstreamManager();
+    // The mailbox as the mesh holds it: a JetStream stream on NATS, a durable
+    // queue on RabbitMQ (mailboxes() in peering/lib/mesh.mjs).
+    const boxes = mailboxes(nc);
     const inboxS = `mesh.agent.${idS}.inbox`;
     const replies = [];
     const subS = nc.subscribe(inboxS);
@@ -114,17 +116,21 @@ export default {
     try {
       // (1) mailbox exists with the published bounds
       await sleep(1500); // registry creates it fire-and-forget
-      let info;
-      try { info = await jsm.streams.info(stream); }
-      catch { return { status: "fail", detail: `no mailbox stream ${stream} after registration — registry side not deployed?` }; }
-      const cfg = info.config;
-      if (cfg.max_bytes !== 25 * 1024 * 1024) fails.push(`max_bytes=${cfg.max_bytes}, want 25MB`);
-      if (cfg.max_age !== 7 * 24 * 3600_000 * 1_000_000) fails.push(`max_age=${cfg.max_age}, want 7d`);
-      if (cfg.discard !== "old") fails.push(`discard=${cfg.discard}, want old`);
-      // Without no_ack, JetStream answers each capture with a pub-ack on the
-      // request's reply subject, which §18.7 reserves for delivery-status
-      // signals - the capture must be silent.
-      if (cfg.no_ack !== true) fails.push("no_ack is not set - the capture answers reply subjects, which §18.7 reserves for delivery-status signals");
+      const info = await boxes.info(idA);
+      if (!info) return { status: "fail", detail: `no mailbox ${stream} after registration — registry side not deployed?` };
+      // BINDING: the bounds are read on NATS only. A client cannot read an
+      // AMQP queue's arguments; on RabbitMQ they are the server's, set when
+      // the registry makes the queue (storage/rabbitmq/storage.ts).
+      const cfg = info.bounds;
+      if (cfg) {
+        if (cfg.max_bytes !== 25 * 1024 * 1024) fails.push(`max_bytes=${cfg.max_bytes}, want 25MB`);
+        if (cfg.max_age !== 7 * 24 * 3600_000 * 1_000_000) fails.push(`max_age=${cfg.max_age}, want 7d`);
+        if (cfg.discard !== "old") fails.push(`discard=${cfg.discard}, want old`);
+        // Without no_ack, JetStream answers each capture with a pub-ack on the
+        // request's reply subject, which §18.7 reserves for delivery-status
+        // signals - the capture must be silent.
+        if (cfg.no_ack !== true) fails.push("no_ack is not set - the capture answers reply subjects, which §18.7 reserves for delivery-status signals");
+      }
 
       // (2) offline capture: stop A, send, observe silence + capture
       await a.close();
@@ -139,7 +145,8 @@ export default {
         liveReply = JSON.parse(td.decode(m.data));
       } catch { /* timeout or no-responders: expected while offline */ }
       if (liveReply && !liveReply.error) fails.push("got a live reply from a closed agent — test rig broken");
-      const captured = (await jsm.streams.info(stream)).state.messages;
+      await sleep(300);
+      const captured = (await boxes.info(idA))?.messages ?? 0;
       if (captured < 1) fails.push(`offline request not captured (stream has ${captured} messages)`);
 
       // (3) reconnect: drain, handle, reply lands in S's inbox
@@ -213,12 +220,11 @@ export default {
       // (5) deregistration deletes the mailbox
       await a.deregister();
       await sleep(1500);
-      let gone = false;
-      try { await jsm.streams.info(stream); } catch { gone = true; }
-      if (!gone) fails.push("mailbox stream survived deregistration");
+      const gone = (await boxes.info(idA)) === null;
+      if (!gone) fails.push("mailbox survived deregistration");
     } finally {
       for (const inc of incarnations) await inc.close().catch(() => {});
-      try { await jsm.streams.delete(stream); } catch { /* already gone */ }
+      await boxes.remove(idA);
       await nc.close().catch(() => {});
       await cleanSlate(env, "c11-offline-a");
     }

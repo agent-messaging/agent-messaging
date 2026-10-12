@@ -11,13 +11,13 @@ The JSON files in this folder are test vectors that the SDK unit tests read. The
 
 SPEC.md §1.6 defines two conformance profiles. Every test says which one it belongs to, in its `profile` field:
 
-- **core**: what every Agent Messaging server must pass. A mesh that runs only the core, such as Agent Messaging for NATS, runs these as its health check.
+- **core**: what every Agent Messaging server must pass. A mesh that runs only the core, such as the Agent Messaging Server, runs these as its health check.
 - **platform**: a part that §1.6 makes deployment-defined and that AgentMesh offers. A core server may leave these out.
 - **naming**: a test of Agent Naming registrars, not of a messaging server. These belong to Agent Naming's own suite and run here until they move there.
 
 | Profile | Tests |
 |---|---|
-| core (30) | c01, c01b, c02 to c07, c09 to c16, c18 to c20, c22, c23; t01 to t05, t06a, t06b, t09, t14 |
+| core (32) | c01, c01b, c02 to c07, c09 to c16, c18 to c20, c22, c23, c24, c24b; t01 to t05, t06a, t06b, t09, t14 |
 | platform (5) | c08 (AgentMesh's own retired guest routes), c21 (§4.11 places, which need a signed-in person), c22b (provider advisories), t05b (the HTTPS describe door), t10 (federation) |
 | naming (5) | t07, t08, t11, t12, t13 |
 
@@ -41,12 +41,25 @@ is missing says so as an env-skip.
 |---|---|---|
 | `MESH_WS_URL` | the mesh's NATS WebSocket address | all live tests |
 | `MESH_CREDS_FILE` | a NATS credentials file for the suite (default `~/.agentmesh/mesh.creds`) | all live tests |
-| `STOREFRONT_BASE` | the mesh's HTTPS API, where the credential doors and the key check are | c19, c20, c22 |
-| `MESH_IDENTITY_FILE` | an agent identity the suite signs as and mints credentials for (default `~/.agentmesh/adapter/identity.json`). c10 opens its room as this agent, so an account on the mesh must own it | c10, c20, t02, t05 |
+| `STOREFRONT_BASE` | the mesh's HTTPS API, where the credential doors and the key check are | c19, c20, c22, c24, c24b |
+| `MESH_IDENTITY_FILE` | an agent identity the suite signs as and mints credentials for (default `~/.agentmesh/adapter/identity.json`). c10 opens its room as this agent, so an account on the mesh must own it | c10, c20, c24, c24b, t02, t05 |
 | `MESH_ROOMS_CREATOR_SEED` | optional: a different key for c10 to open its room with, such as a key paired to an Agent Naming name. Used instead of `MESH_IDENTITY_FILE` when set | c10 |
 | `MESH_CONFORMANCE_AGENTS_FILE` | standing keys for the agents the suite registers, needed where registration requires a name | c03 to c20 |
 | `REGISTRAR` | an Agent Naming registrar for the adapter tests; unset, the adapter uses its own default | c12, c13, c15 |
 | `ECHO_TARGET` | an agent for t02 and t05 to send to; unset, the suite starts its own with the reference adapter | t02, t05 |
+
+## Bindings
+
+The suite runs against a mesh on either binding (SPEC.md §18): NATS JetStream, the reference binding, or RabbitMQ
+(`docs/agent-messaging-rabbitmq-binding.md`). `MESH_WS_URL`'s scheme says which: `ws://`, `wss://` or `nats://` for
+NATS, `amqp://` or `amqps://` for RabbitMQ. On RabbitMQ the suite reaches the mesh through the SDK's AMQP
+transport, so `AGENTMESH_SDK` must name a build that has it, and the adapter tests need an adapter whose SDK has it.
+The board says which binding it tested.
+
+A test that checks something only one binding has says so in a `binding` field (`nats` or `amqp`) and is reported
+`binding-skip`, not evaluated, on the other. Where a test checks one property in each binding's own terms (c01b's
+durable consumer, c11's mailbox), it says which in its detail. Each binding keeps its own record of agreed results:
+`expectations.json` for NATS and `expectations.amqp.json` for RabbitMQ.
 
 ## Other runs
 

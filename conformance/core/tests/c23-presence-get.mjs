@@ -1,6 +1,6 @@
 // c23 — the presence lookup (§9.6, §10.10): `mesh.presence.get` answers a
 // node's current liveness from signed heartbeats, and only from them. Added in
-// step 4 of docs/agent-messaging-for-nats-plan.md: the registry has answered
+// step 4 of docs/agent-messaging-server-plan.md: the registry has answered
 // the subject since step 3 (services/src/registry/handlers/admin.ts), and
 // presence is in the core profile (SPEC.md §1.6).
 //

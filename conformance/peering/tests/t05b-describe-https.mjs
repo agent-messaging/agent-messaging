@@ -2,7 +2,7 @@
 // the mesh, at <home-mesh>/a/<agent-id>, readable by anything that speaks the
 // web. SPEC.md §1.6 makes the HTTPS describe door deployment-defined, so this
 // half of the old t05 is a platform test (step 4 of
-// docs/agent-messaging-for-nats-plan.md).
+// docs/agent-messaging-server-plan.md).
 import { resolveAgentId } from "../lib/env.mjs";
 
 export default {

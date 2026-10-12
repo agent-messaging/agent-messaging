@@ -22,7 +22,7 @@
 // halves are statements about the mesh and the wire, not about the SDK's
 // self-report.
 import { createHash } from "node:crypto";
-import { connect, jwtAuthenticator, nkeys } from "../../peering/lib/mesh.mjs";
+import { bindingOf, connect, jwtAuthenticator, nkeys } from "../../peering/lib/mesh.mjs";
 import { sdkModule as sdk } from "../../peering/lib/sdk.mjs";
 
 const te = new TextEncoder();
@@ -57,7 +57,13 @@ export default {
 
     // Raw connection for JetStream inspection and cleanup.
     const nc = await connect({ servers: env.meshWsUrl, authenticator: auth(), timeout: 15_000, maxReconnectAttempts: 0 });
-    const jsm = await nc.jetstreamManager();
+    // BINDING: the consumer's §18.6 config is the NATS binding's (a JetStream
+    // durable consumer on MESH_EVENTS). On the RabbitMQ binding the durable is
+    // a durable queue of the same name bound to the pattern, so there the
+    // name and the queue's existence are checked instead. Property (2) is
+    // the same on both.
+    const amqp = bindingOf(env.meshWsUrl) === "amqp";
+    const jsm = amqp ? null : await nc.jetstreamManager();
     const fails = [];
     const consumers = []; // durable names to delete on the way out
     let a = null;
@@ -81,8 +87,12 @@ export default {
       consumers.push(wantName);
       if (pinnedSub.durable !== wantName) fails.push(`durable name ${pinnedSub.durable}, want ${wantName} (§18.6 cross-SDK contract)`);
       let info = null;
-      try { info = await jsm.consumers.info("MESH_EVENTS", wantName); }
-      catch { fails.push(`no durable consumer ${wantName} exists on MESH_EVENTS`); }
+      if (amqp) {
+        if (!(await nc.transport.queueInfo(wantName))) fails.push(`no durable queue ${wantName} exists`);
+      } else {
+        try { info = await jsm.consumers.info("MESH_EVENTS", wantName); }
+        catch { fails.push(`no durable consumer ${wantName} exists on MESH_EVENTS`); }
+      }
       if (info) {
         const cfg = info.config;
         if (cfg.ack_policy !== "explicit") fails.push(`ack_policy=${cfg.ack_policy}, want explicit`);
@@ -126,11 +136,15 @@ export default {
       // The consumers are cursors and the SDK rightly never deletes them; the
       // HARNESS does, because these identities will never come back and a
       // leaked consumer holds interest (retention) on the shared stream.
-      for (const d of consumers) { try { await jsm.consumers.delete("MESH_EVENTS", d); } catch { /* already gone */ } }
+      for (const d of consumers) {
+        try { if (amqp) await nc.transport.deleteQueue(d); else await jsm.consumers.delete("MESH_EVENTS", d); } catch { /* already gone */ }
+      }
       await nc.close().catch(() => {});
     }
     return fails.length
       ? { status: "fail", detail: fails.join("; ") }
-      : { status: "pass", detail: "pinned §18.6 consumer name and config on MESH_EVENTS; live event delivered; away event held and delivered on return" };
+      : { status: "pass", detail: amqp
+        ? "pinned §18.6 durable name, a durable queue of that name (RabbitMQ binding); live event delivered; away event held and delivered on return"
+        : "pinned §18.6 consumer name and config on MESH_EVENTS; live event delivered; away event held and delivered on return" };
   },
 };

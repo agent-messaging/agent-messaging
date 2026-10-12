@@ -4,7 +4,7 @@
 // Every test declares which conformance profile it belongs to (SPEC.md §1.6):
 //
 //   core      what every Agent Messaging server must pass. A server that runs
-//             only the core (Agent Messaging for NATS, a self-hosted mesh)
+//             only the core (the Agent Messaging Server, a self-hosted mesh)
 //             runs these as its health check.
 //   platform  a deployment-defined part that AgentMesh offers (§1.6, "What is
 //             deployment-defined"): human sign-in, provider advisories, the
@@ -33,6 +33,18 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
 
 export const PROFILES = ["core", "platform", "naming"];
+
+/** The bindings a mesh can run (SPEC §18; docs/agent-messaging-server-plan.md,
+ *  steps 9 and 10). A test that checks something only one binding has says so
+ *  in a `binding` field, and on a mesh of the other binding it is reported as
+ *  `binding-skip`, which is not evaluated rather than passed. A test with no
+ *  `binding` field runs on every binding. */
+export const BINDINGS = { nats: "NATS JetStream (the reference binding)", amqp: "RabbitMQ (AMQP 0-9-1, with Postgres)" };
+
+/** The binding of the mesh under test, from its address's scheme. */
+export function bindingOfMesh(url) {
+  return /^amqps?:\/\//i.test(String(url ?? "")) ? "amqp" : "nats";
+}
 
 const CONFORMANCE = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -106,12 +118,17 @@ async function loadTests(suites) {
 export async function runSuites({ suites, env, opts, header = [], after = null }) {
   const tests = await loadTests(suites);
   const results = [];
+  const binding = bindingOfMesh(env.meshWsUrl);
 
   for (const { suite, mod } of tests) {
     if (opts.only && mod.id !== opts.only) continue;
     if (!opts.only && opts.profile !== "all" && mod.profile !== opts.profile) continue;
     let r;
     const t0 = Date.now();
+    if (mod.binding && mod.binding !== binding) {
+      results.push({ suite, id: mod.id, title: mod.title, spec: mod.spec, profile: mod.profile, ms: 0, status: "binding-skip", detail: `checks the ${BINDINGS[mod.binding] ?? mod.binding} binding only` });
+      continue;
+    }
     try {
       r = await mod.run(env);
     } catch (e) {
@@ -135,10 +152,11 @@ export async function runSuites({ suites, env, opts, header = [], after = null }
   // Say what was tested. A board that does not name the artifact under test
   // cannot be cited as evidence about any particular artifact.
   console.log(opts.only ? `Agent Messaging ${specVersion()}, one test: ${opts.only}` : profileLine(opts.profile));
+  console.log(`Binding under test — ${BINDINGS[binding]}`);
   for (const line of header) console.log(line);
   console.log("");
 
-  const ICON = { pass: "✓", fail: "✗", "env-skip": "○", "pending-peer": "…", error: "!", "not-validated": "‼" };
+  const ICON = { pass: "✓", fail: "✗", "env-skip": "○", "binding-skip": "–", "pending-peer": "…", error: "!", "not-validated": "‼" };
   for (const r of results) {
     const tag = r.profile === "core" ? "" : ` (${r.profile})`;
     console.log(`${ICON[r.status] ?? "?"} ${r.id}${tag}  ${r.title}  [${r.spec}]  ${r.status.toUpperCase()}${r.ms > 1500 ? ` (${(r.ms / 1000).toFixed(1)}s)` : ""}`);
@@ -158,7 +176,9 @@ export async function runSuites({ suites, env, opts, header = [], after = null }
 
   if (after) await after(results);
 
-  const expectationsOf = (suite) => join(suite.dir, "expectations.json");
+  // Each binding keeps its own record: expectations.json for NATS, as always,
+  // and expectations.amqp.json for a mesh on the RabbitMQ binding.
+  const expectationsOf = (suite) => join(suite.dir, binding === "nats" ? "expectations.json" : `expectations.${binding}.json`);
   if (opts.update) {
     // Only the tests this run ran are rewritten. A run of one profile, or of
     // one test, leaves every other recorded status as it was.
@@ -167,7 +187,8 @@ export async function runSuites({ suites, env, opts, header = [], after = null }
       if (!ran.length) continue;
       const path = expectationsOf(suite);
       const before = existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : {};
-      for (const r of ran) before[r.id] = r.status;
+      // A test that did not run on this binding keeps what the other binding's run recorded.
+      for (const r of ran) if (r.status !== "binding-skip") before[r.id] = r.status;
       const ids = Object.keys(before).sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
       writeFileSync(path, JSON.stringify(Object.fromEntries(ids.map((id) => [id, before[id]])), null, 2) + "\n");
       console.log(`${suite.name}/expectations.json updated from this run (${ran.length} test(s))`);
@@ -181,7 +202,7 @@ export async function runSuites({ suites, env, opts, header = [], after = null }
     // a real peer) was absent, so the test could not be evaluated; that is not a
     // regression, just an unavailable environment. "not-validated" is neither:
     // it is reported above and gates the exit code on its own.
-    const NOT_EVALUATED = new Set(["env-skip", "pending-peer", "not-validated"]);
+    const NOT_EVALUATED = new Set(["env-skip", "binding-skip", "pending-peer", "not-validated"]);
     const regressions = results.filter((r) => was(r) === "pass" && r.status !== "pass" && !NOT_EVALUATED.has(r.status));
     const unevaluated = results.filter((r) => was(r) === "pass" && NOT_EVALUATED.has(r.status) && r.status !== "not-validated");
     const improvements = results.filter((r) => was(r) && was(r) !== "pass" && r.status === "pass");

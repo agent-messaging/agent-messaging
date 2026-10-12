@@ -1,6 +1,6 @@
 // c22b: the kill switch's provider advisory (SPEC §4.12, §5.3; 2026-09-27,
 // docs/kill-switch-plan.md). Split from c22 in step 4 of
-// docs/agent-messaging-for-nats-plan.md, because SPEC.md §1.6 makes advisories
+// docs/agent-messaging-server-plan.md, because SPEC.md §1.6 makes advisories
 // deployment-defined: the key check is core (c22), the advisory is AgentMesh's.
 //
 // A provider advisory is signed with the agent's own key, and nobody else can

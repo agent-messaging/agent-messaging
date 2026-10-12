@@ -20,7 +20,7 @@
 // registry's answer; a broker on the full resolver (docs/our-instance.md
 // §6.4), without which part A falls back to refusing renewal and says so; and
 // an agent under test whose SDK has the §5.3 receive check. Since step 3 of
-// docs/agent-messaging-for-nats-plan.md the doors are the core's
+// docs/agent-messaging-server-plan.md the doors are the core's
 // (services/src/keychain/doors.ts).
 import { connect, jwtAuthenticator, nkeys } from "../../peering/lib/mesh.mjs";
 import { sdkModule as sdk } from "../../peering/lib/sdk.mjs";

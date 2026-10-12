@@ -2,7 +2,7 @@
 // "describe" answered with {agent_id, card?, public} — fast, because nothing
 // thinks. The same document over HTTPS is t05b: SPEC.md §1.6 makes that door
 // deployment-defined, so it was split out in step 4 of
-// docs/agent-messaging-for-nats-plan.md.
+// docs/agent-messaging-server-plan.md.
 import { meshConnect, signedRequest, inboxRequest } from "../lib/mesh.mjs";
 import { echoAgent } from "../lib/echo-agent.mjs";
 
