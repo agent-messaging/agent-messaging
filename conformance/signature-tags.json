@@ -63,7 +63,7 @@
     "items": [
       "The envelope signature's tag (agentmesh-envelope-v1) is pinned by conformance/budget.json and conformance/inbound-protections.json, not here.",
       "The 9.7 portable trust attestation is domain-separated by an in-object type field (agentmesh-trust-attestation-v1), not a byte prefix; it is deliberately unchanged.",
-      "The PAN card signature is governed by SPEC-NAMING and pinned by conformance/naming.json; it is out of this fixture's scope.",
+      "The PAN card signature is governed by SPEC-NAMING and pinned by conformance/naming.json in the Personal Agent Naming repository (github.com/AgentNaming/personal-agent-naming); it is out of this fixture's scope.",
       "The legacy untagged forms are accepted by verifiers through the 0.2 draft window but are deliberately NOT pinned here: the fixture holds implementations to the form signers must EMIT."
     ]
   }

@@ -25,14 +25,14 @@ at <https://agentmessaging.ai>.
   (§1.6), and bindings: what any messaging system must provide (§18.1) and the
   reference binding on NATS JetStream. Readable at
   <https://agentmessaging.ai/spec.html>.
-- **[SPEC-NAMING.md](SPEC-NAMING.md)**: Agent Naming, the naming layer. It says
-  how a handle resolves to a card over ordinary HTTPS, why a domain outranks
-  every registrar, how trust attestations stay portable, and how a handle moves
-  to a new registrar. Readable at <https://agentnaming.ai/spec.html>.
+- **Personal Agent Naming**, the naming layer, is a separate standard with its
+  own repository: <https://github.com/AgentNaming/personal-agent-naming> holds
+  its specification and wire-format vectors. Readable at
+  <https://agentnaming.ai/spec.html>.
 - **[conformance/](conformance/)**: black-box tests run against a live server,
   and byte-level fixtures. Every test belongs to a profile: 30 core tests that
   every server must pass, 5 tests of the deployment-defined parts AgentMesh
-  offers, and 5 tests of Agent Naming registrars. Each test cites the sections it
+  offers, and 5 tests of Personal Agent Naming registrars. Each test cites the sections it
   checks. A red test is a defect in the code or in the specification, and which
   of the two it is gets decided explicitly, in writing. Nobody edits a test just
   to make it pass.
@@ -60,7 +60,7 @@ adapter, which lives with the AgentMesh SDKs.
 
 ## Licensing
 
-The specification prose (SPEC.md, SPEC-NAMING.md) is licensed under
+The specification prose (SPEC.md) is licensed under
 [CC BY 4.0](LICENSE-SPEC), so you can implement it freely, with attribution. All
 code, including the conformance suite, is licensed under [Apache-2.0](LICENSE).
 
