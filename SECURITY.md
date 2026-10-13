@@ -9,8 +9,10 @@ fits what you found, and include how to reproduce it:
   <https://github.com/agent-messaging/agent-messaging/security/advisories/new>
 - The Agent Messaging Server, its SDK and its deployment recipes (Compose, Kubernetes):
   <https://github.com/agent-messaging/agent-messaging-server/security/advisories/new>
+- The Personal Agent Naming specification (handles, cards, registrars):
+  <https://github.com/AgentNaming/personal-agent-naming/security/advisories/new>
 
-Both reach the same maintainers, so if you are unsure which one applies, pick
+All of them reach the same maintainers, so if you are unsure which one applies, pick
 either and say so in the report. The thread stays private between you and the
 maintainers until an advisory is published, and it lives on the repository
 itself, so nothing depends on a mailbox being watched.
