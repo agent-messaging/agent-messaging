@@ -10,16 +10,19 @@
 //   2. a self-made nkey with no JWT at all: the broker refuses the connection;
 //   3. a user JWT signed by a self-made account key: the broker refuses it;
 //   4. the node-credential door, POST /v1/node-credential, asked for keys that
-//      no account holds and no verified name is bound to: refused, no JWT.
+//      no account holds: refused, no JWT.
 //
 // Nothing here needs a credential of the suite's own, on purpose: the caller
 // being modelled has none. A broker that is unreachable is an environment
 // problem (error), not evidence either way.
 //
-// Step 4 FAILS at a deployment where MESH_REQUIRE_NAMES is off
-// (docs/no-anonymous-agents-plan.md item 6): with the setting off, the door
-// still grants on proof of key possession alone, which is the gap this test
-// exists to show. expectations.json records pass, so such a run reports a
+// Step 4 holds on every server, with or without a naming service: §4.8 issues
+// node credentials only to accounts with an owner, and proof of key possession
+// alone is not an account. Until 2026-10-12 a mesh whose names were optional
+// (MESH_REQUIRE_NAMES off, and every server running alone) minted here for a
+// stranger's fresh keys; the core's door now refuses a key no account holds,
+// whatever the naming setting (docs/agent-messaging-server-plan.md, the
+// release fixes). expectations.json records pass, so such a mint reports a
 // regression.
 import { connect, jwtAuthenticator, nkeyAuthenticator, nkeys } from "../../peering/lib/mesh.mjs";
 import { createHash } from "node:crypto";
@@ -141,7 +144,7 @@ export default {
     if (!m) {
       notes.push("/v1/node-credential did not answer");
     } else if (m.status === 200 && /"jwt"\s*:/.test(m.text)) {
-      fails.push("/v1/node-credential minted a working credential for keys no account holds (MESH_REQUIRE_NAMES is off at this deployment)");
+      fails.push("/v1/node-credential minted a working credential for keys no account holds");
     } else if (m.status === 501) {
       notes.push("/v1/node-credential: minting not configured here");
     } else {

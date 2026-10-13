@@ -13,9 +13,9 @@ export REGISTRAR_A=http://localhost:18081 REGISTRAR_B=http://localhost:18082 REG
 
 (The launcher prints that line; it is not decoration, see below.)
 
-Two `agentmesh-naming` instances, each with its own embedded Postgres and
+Two `pan-registrar` instances, each with its own embedded Postgres and
 card-signing key (built from `naming/`, binary at
-`D:/cargo-target/debug/agentmesh-naming.exe` or your `CARGO_TARGET_DIR`).
+`D:/cargo-target/debug/pan-registrar.exe`, your `CARGO_TARGET_DIR`, or `PAN_REGISTRAR_BIN`).
 `rehome-flow.mjs` claims + binds a handle on A, key-signs `pan-rehome-v1`,
 and moves it to B — proving the custodian change preserves identity and the
 old registrar refuses to re-issue.

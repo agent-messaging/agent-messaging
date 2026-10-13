@@ -149,8 +149,22 @@ export default {
     // under an email address that does not exist, and the anchor is what the
     // whole trust model hangs on. Observable from the owner's side: after the
     // move, the handle must appear in the real anchor's roster at B.
-    const dotted = await runRehome(`d${nonce}`.slice(-6), { name: `My.Dotted${nonce}` });
-    if (dotted.inn.status !== 200) {
+    //
+    // The rig claims through a partner session, and a registrar may hold
+    // partners to a stricter name rule than §2 (no dots: lowercase letters,
+    // digits and hyphens). Such a registrar refuses the claim, and then no
+    // dotted name can reach it through a partner at all, so the case does not
+    // arise there. A test defect, not a code or spec defect: this case predates
+    // the partner name rule, and it threw instead of recognizing it.
+    let dotted = null;
+    try {
+      dotted = await runRehome(`d${nonce}`.slice(-6), { name: `My.Dotted${nonce}` });
+    } catch (e) {
+      if (!/claimed through a partner/.test(String(e?.message))) throw e;
+    }
+    if (!dotted) {
+      // partner name rule in force: no dotted name to move
+    } else if (dotted.inn.status !== 200) {
       problems.push(`a dotted-name handle could not re-home at all: ${JSON.stringify(dotted.inn.body)}`);
     } else {
       const sess = await jpost(`${B}/api/handles/session-delegated`, { email: "tester@example.com" });

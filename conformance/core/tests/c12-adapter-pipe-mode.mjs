@@ -19,7 +19,7 @@ import { mkdtempSync, writeFileSync, readFileSync, existsSync, chmodSync } from 
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { plantAdapterIdentity } from "../lib/test-agents.mjs";
+import { adapterIdentity, adapterMeshApiEnv } from "../lib/test-agents.mjs";
 
 const te = new TextEncoder();
 const td = new TextDecoder();
@@ -38,9 +38,9 @@ export default {
 
     const state = mkdtempSync(join(tmpdir(), "c12-pipe-"));
     // The adapter starts as the standing test agent c12-pipe.test@agentmesh.ai
-    // (lib/test-agents.mjs) instead of minting a key; without the file it
-    // mints one, as before.
-    plantAdapterIdentity(state, env, "c12-pipe");
+    // (lib/test-agents.mjs) instead of minting a key; on a mesh with no naming
+    // as a fresh key the suite enrolls; otherwise it mints one, as before.
+    const who = await adapterIdentity(state, env, "c12-pipe");
     // The piped "agent": echoes what it read, and appends its own PID so the
     // test can prove a distinct process handled each message.
     // Reads ALL of stdin (pipe mode frames the message with a provenance
@@ -56,7 +56,7 @@ export default {
       `-----BEGIN USER NKEY SEED-----\n${env.creds.seed}\n------END USER NKEY SEED------\n`);
 
     const child = spawn(process.execPath, [ADAPTER, "start", "--cmd", `bash ${script}`, "--name", "c12-pipe"], {
-      env: { ...process.env, MESH_ADAPTER_STATE: state, MESH_CREDS_FILE: credsFile, MESH_URL: env.meshWsUrl, PAN_REGISTRAR: env.registrar },
+      env: { ...process.env, MESH_ADAPTER_STATE: state, MESH_CREDS_FILE: credsFile, MESH_URL: env.meshWsUrl, PAN_REGISTRAR: env.registrar, ...adapterMeshApiEnv(env) },
       stdio: ["ignore", "pipe", "pipe"],
     });
     let log = "";
@@ -89,7 +89,7 @@ export default {
       // verified, so it cannot be hand-written).
       await new Promise((resolve) => {
         const cli = spawn(process.execPath, [ADAPTER, "contacts", "allow", kpS.getPublicKey(), "c12 test sender"], {
-          env: { ...process.env, MESH_ADAPTER_STATE: state, MESH_CREDS_FILE: credsFile, MESH_URL: env.meshWsUrl, PAN_REGISTRAR: env.registrar },
+          env: { ...process.env, MESH_ADAPTER_STATE: state, MESH_CREDS_FILE: credsFile, MESH_URL: env.meshWsUrl, PAN_REGISTRAR: env.registrar, ...adapterMeshApiEnv(env) },
           stdio: ["ignore", "pipe", "pipe"],
         });
         let out = "";
@@ -148,6 +148,7 @@ export default {
     } finally {
       child.kill();
       await nc?.close().catch(() => {});
+      await who.cleanup();
     }
     return fails.length
       ? { status: "fail", detail: fails.join("; ") }

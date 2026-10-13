@@ -78,7 +78,91 @@ export function plantAdapterIdentity(stateDir, env, name) {
   return true;
 }
 
-/** Every standing key the file carries, for run.mjs to declare and name. */
+/** The settings an adapter the suite starts needs to reach the mesh under
+ *  test's own API (its capabilities answer and its doors), not its default. */
+export function adapterMeshApiEnv(env) {
+  return env?.storefrontBase ? { MESH_GUEST_URL: `${env.storefrontBase.replace(/\/$/, "")}/v1/guest` } : {};
+}
+
+/** The mesh's capabilities answer, or null when it gives none. */
+async function capabilitiesOf(env) {
+  if (!env?.storefrontBase) return null;
+  try {
+    const res = await fetch(`${env.storefrontBase.replace(/\/$/, "")}/v1/capabilities`, { signal: AbortSignal.timeout(10_000) });
+    return res.ok ? await res.json() : null;
+  } catch {
+    return null;
+  }
+}
+
+async function adminCall(env, method, path, body) {
+  const res = await fetch(`${env.admin.url}/admin/v1${path}`, {
+    method,
+    headers: { authorization: `Bearer ${env.admin.token}`, "content-type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(15_000),
+  });
+  const text = await res.text().catch(() => "");
+  return { status: res.status, text };
+}
+
+/** The tenant the suite enrolls its fresh adapter keys under, on a mesh it administers. */
+export const SUITE_TENANT = "conformance";
+
+/**
+ * The identity an adapter test starts its adapter as, planted in `stateDir`:
+ *
+ *   - the standing test agent `name`, when MESH_CONFORMANCE_AGENTS_FILE has it
+ *     (AgentMesh's nightly: named `<name>.test@agentmesh.ai`, so the adapter's
+ *     naming rule lets it answer);
+ *   - on a mesh that offers no naming (its capabilities answer says
+ *     `naming: false`, as an Agent Messaging Server running alone does), a
+ *     fresh key that the suite enrolls in the tenant `conformance` through the
+ *     mesh's admin API (MESH_ADMIN_TOKEN_FILE), because there the adapter sends
+ *     only as an agent an account on the mesh holds. `cleanup()` removes it;
+ *   - otherwise nothing: the adapter makes its own key, as before, and on a
+ *     mesh that offers naming an unnamed key cannot answer. That strictness is
+ *     the point on AgentMesh.
+ *
+ * Throws env-skip on a mesh without naming when the suite has no admin API.
+ */
+export async function adapterIdentity(stateDir, env, name) {
+  if (plantAdapterIdentity(stateDir, env, name)) return { kind: "standing", cleanup: async () => {} };
+  const caps = await capabilitiesOf(env);
+  if (caps?.naming !== false) return { kind: "fresh", cleanup: async () => {} };
+  if (!env.admin) {
+    throw new Error("env-skip: this mesh offers no naming, so the adapter answers only as an agent an account on the mesh holds; set MESH_ADMIN_TOKEN_FILE (and MESH_ADMIN_URL) so the suite can enroll the adapter's fresh key");
+  }
+  const kp = nkeys.createUser();
+  const publicKey = kp.getPublicKey();
+  const t = await adminCall(env, "POST", "/tenants", { id: SUITE_TENANT });
+  // cut-ok: an error message
+  if (t.status !== 200 && t.status !== 201 && t.status !== 409) throw new Error(`could not make the suite's tenant through the admin API: ${t.status} ${t.text.slice(0, 200)}`);
+  const e = await adminCall(env, "PUT", `/agents/${publicKey}`, { tenant: SUITE_TENANT, label: name, listed: false });
+  // cut-ok: an error message
+  if (e.status !== 200 && e.status !== 201) throw new Error(`could not enroll the adapter's key through the admin API: ${e.status} ${e.text.slice(0, 200)}`);
+  writeFileSync(
+    join(stateDir, "identity.json"),
+    JSON.stringify({ public_key: publicKey, seed: new TextDecoder().decode(kp.getSeed()), created_at: new Date().toISOString() }, null, 2),
+    { mode: 0o600 },
+  );
+  return {
+    kind: "enrolled",
+    publicKey,
+    cleanup: async () => { await adminCall(env, "DELETE", `/agents/${publicKey}`, { reason: "conformance run ended" }).catch(() => null); },
+  };
+}
+
+/** The name the suite's own identity (MESH_IDENTITY_FILE) is held under, as
+ *  `suite.test@agentmesh.ai`. c20 and c24 mint node credentials for it, and c10
+ *  opens a room as it, so a mesh has to hold it in an account: since
+ *  2026-10-12 the node-credential door refuses a key no account holds, names or
+ *  not. On AgentMesh the deployment names and holds it with the standing
+ *  agents; a server running alone enrolls it with its admin API. */
+export const SUITE_IDENTITY_NAME = "suite";
+
+/** Every standing key the file carries, and the suite's own identity, for
+ *  run.mjs to declare and name. */
 export function standingKeys(env) {
   const out = [];
   for (const name of STANDING_TEST_AGENTS) {
@@ -86,6 +170,12 @@ export function standingKeys(env) {
       const id = standingIdentity(env, name);
       if (id) out.push({ name, key: id.publicKey });
     } catch { /* a broken entry already failed its test as not-validated */ }
+  }
+  if (env?.identity?.seed) {
+    try {
+      const key = nkeys.fromSeed(new TextEncoder().encode(env.identity.seed)).getPublicKey();
+      if (!out.some((a) => a.key === key)) out.push({ name: SUITE_IDENTITY_NAME, key });
+    } catch { /* an unusable identity already env-skips the tests that need it */ }
   }
   return out;
 }

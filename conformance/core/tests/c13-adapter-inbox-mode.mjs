@@ -16,7 +16,7 @@
 import { connect, jwtAuthenticator, nkeys } from "../../peering/lib/mesh.mjs";
 import { createEnvelope, signEnvelope } from "../../peering/lib/sdk.mjs";
 import { deregisterAdapter } from "../lib/deregister.mjs";
-import { plantAdapterIdentity } from "../lib/test-agents.mjs";
+import { adapterIdentity, adapterMeshApiEnv } from "../lib/test-agents.mjs";
 import { spawn } from "node:child_process";
 import { mkdtempSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -39,13 +39,14 @@ export default {
     if (!existsSync(ADAPTER)) throw new Error("env-skip: mesh-adapter.mjs not found (set RESOLVER_MJS)");
 
     const state = mkdtempSync(join(tmpdir(), "c13-inbox-"));
-    // The standing test agent c13-inbox.test@agentmesh.ai (lib/test-agents.mjs).
-    plantAdapterIdentity(state, env, "c13-inbox");
+    // The standing test agent c13-inbox.test@agentmesh.ai, or on a mesh with
+    // no naming a fresh key the suite enrolls (lib/test-agents.mjs).
+    const who = await adapterIdentity(state, env, "c13-inbox");
     const credsFile = join(state, "mesh.creds");
     writeFileSync(credsFile,
       `-----BEGIN NATS USER JWT-----\n${env.creds.jwt}\n------END NATS USER JWT------\n\n` +
       `-----BEGIN USER NKEY SEED-----\n${env.creds.seed}\n------END USER NKEY SEED------\n`);
-    const childEnv = { ...process.env, MESH_ADAPTER_STATE: state, MESH_CREDS_FILE: credsFile, MESH_URL: env.meshWsUrl, PAN_REGISTRAR: env.registrar };
+    const childEnv = { ...process.env, MESH_ADAPTER_STATE: state, MESH_CREDS_FILE: credsFile, MESH_URL: env.meshWsUrl, PAN_REGISTRAR: env.registrar, ...adapterMeshApiEnv(env) };
 
     const child = spawn(process.execPath, [ADAPTER, "start", "--inbox", "--name", "c13-inbox"], {
       env: childEnv, stdio: ["ignore", "pipe", "pipe"],
@@ -159,6 +160,7 @@ export default {
       if (nc) await deregisterAdapter(nc, state);
       child.kill();
       await nc?.close().catch(() => {});
+      await who.cleanup();
     }
     return fails.length
       ? { status: "fail", detail: fails.join("; ") }

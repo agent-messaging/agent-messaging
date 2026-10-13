@@ -91,6 +91,13 @@ export function loadEnv({ profile = "all" } = {}) {
     // to a key minted per run, which the registry refuses once
     // MESH_REQUIRE_NAMES is on.
     testAgents: null,
+    // Optional: the mesh's admin API (MESH_ADMIN_TOKEN_FILE, and MESH_ADMIN_URL,
+    // default http://127.0.0.1:3005, as services/tools/mesh-admin.mjs reads
+    // them), as { url, token }. Only a mesh's own operator has it. On a mesh
+    // that offers no naming, the adapter tests (c12, c13, c15) enroll the
+    // adapter's fresh key with it, since there the adapter sends only for an
+    // agent an account holds. Never printed.
+    admin: null,
     // Variable name → what went wrong reading a credential file that WAS
     // configured (explicit env var, or the default path exists). The runners
     // upgrade env-skips that name these variables to not-validated: the
@@ -134,6 +141,18 @@ export function loadEnv({ profile = "all" } = {}) {
       }
       return agents;
     }, (v) => { env.testAgents = v; });
+  // The admin token file: one token per line, each with an optional name
+  // before it (services/src/admin/admin-auth.ts). No default path: only an
+  // operator who asked for it gets it.
+  if (process.env.MESH_ADMIN_TOKEN_FILE) {
+    loadCredential("MESH_ADMIN_TOKEN_FILE", process.env.MESH_ADMIN_TOKEN_FILE,
+      (p) => {
+        const line = readFileSync(p, "utf8").split(/\r?\n/).map((l) => l.trim()).find((l) => l && !l.startsWith("#"));
+        const token = line?.split(/\s+/).pop();
+        if (!token) throw new Error("no token in the file");
+        return token;
+      }, (token) => { env.admin = { url: (process.env.MESH_ADMIN_URL ?? "http://127.0.0.1:3005").replace(/\/$/, ""), token }; });
+  }
 
   // Name every value that fell back to the reference deployment. Without
   // this, a third-party operator who forgets one export silently tests OUR

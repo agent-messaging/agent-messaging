@@ -18,7 +18,7 @@
 // Verified red against the pre-fix adapter (case (a) resolved ✓, returning the
 // attacker's agent id for the victim's handle) before the check was added.
 import { serve, runResolver } from "../lib/resolver.mjs";
-import { nkeys, canonicalJSON } from "agentmesh";
+import { nkeys, canonicalJSON } from "agent-messaging";
 
 const HANDLE = "Victim.someone@example.com";
 

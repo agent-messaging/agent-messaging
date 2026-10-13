@@ -1,4 +1,4 @@
-// Which AgentMesh SDK is under test.
+// Which TypeScript SDK (agent-messaging) is under test.
 //
 // By default the suite runs against the PUBLISHED tarball pinned in
 // package.json — that is the artifact real consumers install, and it is the
@@ -15,7 +15,7 @@ import { join } from "node:path";
 
 function resolveTarget() {
   const override = process.env.AGENTMESH_SDK?.trim();
-  if (!override) return { specifier: "agentmesh", label: null };
+  if (!override) return { specifier: "agent-messaging", label: null };
   const isFile = /\.(mjs|cjs|js)$/i.test(override);
   const entry = isFile ? override : join(override, "dist", "index.js");
   let version = "unknown";
@@ -34,10 +34,10 @@ export function sdkUnderTest() {
   if (target.label) return `local build: ${target.label}`;
   try {
     const p = JSON.parse(readFileSync(
-      new URL("../node_modules/agentmesh/package.json", import.meta.url), "utf8"));
-    return `published tarball: agentmesh ${p.version}`;
+      new URL("../node_modules/agent-messaging/package.json", import.meta.url), "utf8"));
+    return `published tarball: agent-messaging ${p.version}`;
   } catch {
-    return "published tarball: agentmesh (version unknown)";
+    return "published tarball: agent-messaging (version unknown)";
   }
 }
 

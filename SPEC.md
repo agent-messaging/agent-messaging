@@ -1,8 +1,8 @@
-# Agent Messaging 0.7
+# Agent Messaging 0.8
 
 A protocol for agents that work over reliable messaging: signed messages that wait in an inbox, events published to every subscriber, and presence
 
-**Version:** 0.7.0
+**Version:** 0.8.0
 **Status:** Working Draft
 **Date:** 2026-10-12
 
@@ -106,7 +106,7 @@ Two kinds of party implement this specification. Agents, nodes and SDKs carry th
 
 There are two profiles:
 
-- **The core profile** is what every Agent Messaging server MUST implement. A server that implements it MAY say that it implements "Agent Messaging 0.7, core profile".
+- **The core profile** is what every Agent Messaging server MUST implement. A server that implements it MAY say that it implements "Agent Messaging 0.8, core profile".
 - **The full specification** is the core profile together with every deployment-defined part below, each implemented as this document describes it. The Agent Messaging Server, the reference implementation, implements the core profile. AgentMesh, the sponsor, runs a network that claims the full specification.
 
 A part is **deployment-defined** when the core profile does not require it, either because it depends on things a server need not have (human accounts, organizations, a naming service, a billing provider) or because the way it is met is the deployment's choice. Three rules apply:
@@ -146,6 +146,12 @@ The agents and nodes a server runs for itself (its registry agent, its admission
 | Organizations and the person at the switch | §4.12 | The organization scope and the organization admin's authority. The fresh second-factor proof for each press, and the count and the typed confirmation above one agent, which bind a surface where a person presses the control; a core server whose stops are pressed through an administrative interface authenticates that interface as the deployment defines. Level 1 (asking the agent to stop over the lifecycle interface), level 4 (stopping the process, which applies only where the implementation runs the agent), level 5 (telling the people who answer for the agents), and advisories. |
 | Names | §6.2 (the verified-name rule), §4.10 (moving an agent to a new key), `SPEC-NAMING.md` | Requiring a verified name at registration, and rebinding a name when an agent moves to a new key, need a naming service. A server without one registers agents by their keys and MUST NOT present an agent as named. |
 | The sandbox | §4.1, §9.7, §16.4 | A server MAY offer one. If it does, the sandbox is confined as §4.1 requires. |
+| Native enrollment by an outside proof | §4.14, §4.8 | An OAuth token, a JWT-SVID or an X.509-SVID in place of the one-time enrollment key, checked against an account's trust records, with renewal on a fresh proof. A core server MAY leave it out. One that offers it passes the `identity` profile's tests i01 to i10 for the proofs it accepts. |
+| Identity bridges | §4.15, `BRIDGE-A2A.md` | A node that hosts mesh identities for callers that hold no mesh key, over HTTPS, MCP or A2A. A core server MAY run none. One that runs a bridge follows §4.15 and passes test i11. |
+| Where an identity came from | §9.7 (`identity_source`), §9.3, §10.14 | The attested record of how each agent got its identity. A server that offers §4.14 or §4.15 records it, serves the discovery filter and returns it from `describe`. |
+| Admission by where an identity came from | EXT-6 §4 (the `bridged` tier, `source` entries) | Part of EXT-6 0.5.0. A server that enforces admission and runs a bridge sorts bridged senders and source entries as EXT-6 says, and passes test i12. |
+| Acting for a person | §4.16 | The `on_behalf_of` evidence and the receiver's three results. An SDK or server that offers it passes test i13. |
+| Stop signals | §4.12 | Shared Signals events from an account's trusted issuers that stop the matching agents. A server that receives them passes test i14. |
 | HTTPS doors | §7.5.4 (stored files over HTTPS), §10.14 (the describe document over HTTPS) | An HTTPS door for stored files decides who may read by accounts and organizations, so it belongs to the deployment. A server that offers either door follows the section that defines it. |
 | Metering, economics and commerce | §13.5, §19, EXT-8 | A server MAY meter, price and settle. One that meters produces the observed meters of §13.5; prices, agreements and the billing provider follow §19. |
 | Stored observability | §13 | Trace propagation is in every envelope and is the SDKs' obligation. Storing traces, metrics and logs is optional, as §13 already says. |
@@ -153,6 +159,8 @@ The agents and nodes a server runs for itself (its registry agent, its admission
 | Federation | §21 | The mechanism is not yet specified and belongs to no profile. Its preconditions are core. |
 
 The parked composed operations of §10 belong to no profile.
+
+The identity parts above (§4.12's stop signals, §4.14 to §4.16, `identity_source` and EXT-6's admission by source) are tested by the conformance suite's `identity` profile, whose tests each name the part they test. A server runs the tests of the parts it offers. The seven rules of §4.13 are not deployment-defined: they bind every server and every part.
 
 ---
 
@@ -448,6 +456,8 @@ Credential lifecycle applies to **node** credentials only (agents are keypair-on
 
 **Renewal MUST NOT require a working transport connection, and MUST NOT require the credential being renewed to still be valid.** Both follow from what renewal is for. A node whose credential lapsed cannot connect, so a renewal that runs over the mesh is unreachable exactly when it is needed; and a node that was offline through its whole renewal window comes back holding a dead credential, which is the ordinary case, not the exceptional one. Authority to renew is possession of the node key and of every hosted agent's key — and an expiry takes neither away. A node SHOULD therefore attempt renewal *before* connecting, so that a lapse is self-healing rather than an operator's problem.
 
+**A credential issued on an outside proof renews on a fresh one.** Where a server offers enrollment by an outside proof (§4.14), a credential issued that way is renewed only with a fresh proof that passes §4.14's checks for the same workload identifier, presented over the same HTTPS door. Possession of the keys is not enough on that path, so an agent its company has turned off at its identity provider cannot renew.
+
 **Revocation is live, and ends the connection.** Revoking a node credential MUST end it on the running mesh servers, closing any connection it holds, without restarting them and without disturbing other nodes' connections. In the reference binding (§18.2) this is an account JWT update carrying the revoked key, pushed to the running servers, which close the revoked connection on receipt. A revocation MUST also be recorded where credentials are issued, so the key is refused its next renewal: the push ends the credential in hand, the record stops a new one being issued. An implementation SHOULD confirm that the connection is gone and say so, rather than report a revocation as done because it was requested.
 
 **Refusal to renew is the fallback, and its window MUST be stated.** Where a deployment cannot yet end a credential on the running servers, refusing the next renewal is the mechanism that remains, and it is a genuinely weaker guarantee: **a compromised credential stays usable until it expires.** With renewal at two thirds, the worst case is the credential's full remaining lifetime and the expected case is about a third of it; a short lifetime (the reference deployment issues seven days) keeps that window small. An implementation that revokes this way MUST say so wherever the revocation is requested or an owner retires an agent, with the window, rather than reporting the credential as dead.
@@ -553,7 +563,7 @@ No scope grants a **committing** act, and an issuer MUST NOT put any other scope
 
 ### 4.12. Stopping Agents
 
-> **Partly deployment-defined (§1.6).** The core profile requires pause and terminate for one agent, for everything one account holds and for the entire mesh, the cut of level 2, level 3 where the server brokers outside access, and the record of every press and lift. The organization scope, the second-factor proof and typed confirmation of a press, levels 1, 4 and 5, and advisories are deployment-defined.
+> **Partly deployment-defined (§1.6).** The core profile requires pause and terminate for one agent, for everything one account holds and for the entire mesh, the cut of level 2, level 3 where the server brokers outside access, and the record of every press and lift. The organization scope, the second-factor proof and typed confirmation of a press, levels 1, 4 and 5, advisories, and stop signals from an identity provider are deployment-defined.
 
 A **stop** takes agents off the mesh at once. It is placed by pressing one control (a kill switch) and it has a **scope**, an **action**, and an **authority**.
 
@@ -584,7 +594,172 @@ A stop covers an agent in every place it acts from (§4.11). A key holder sends 
 
 No protocol can stop code on a machine its operator does not control, and this section does not claim to: what a stop guarantees is that the agent can no longer act through the mesh or through anything the mesh lent it.
 
+**Stop signals (deployment-defined, §1.6).** A server MAY receive Shared Signals Framework events (OpenID Shared Signals Framework 1.0; Security Event Tokens, RFC 8417) from the issuers in an account's trust records (§4.14). Such a server:
+
+- accepts an event only when its Security Event Token verifies against the issuer's keys under §4.14's algorithm rule, its `iss` is a trusted issuer of the account, its `aud` is the server's receiver identifier, and its `jti` has not been seen before; it receives them by push (RFC 8935) or poll (RFC 8936);
+- on a CAEP `session-revoked` or `credential-change` event, or a RISC `account-disabled` or `identifier-changed` event, whose subject names a workload identifier (§4.14) of an agent the account holds, places a **pause** on that agent, on the authority of the account that holds it, and cuts it at level 2 within a time the server states, which SHOULD be under a minute;
+- records the stop as any other stop is recorded, naming the issuer and the event as its reason.
+
+An event never lifts a stop: an enable-type event, or the identity provider re-enabling the workload, leaves the pause in place until the account's owner, or a higher authority, lifts it. The stop signal is an addition to the controls above and never the only way to stop an agent (§4.13, rule 3).
+
 **Advisories.** An agent a party uses, rather than owns, may be reported. A party's own report acts for that party alone (the agent is blocked for them, and the report goes to the agent's provider and to the operator with its evidence); a warning to everyone who deals with the agent needs either an advisory signed with the agent's own key by its provider, or an advisory the operator confirms and signs on its signed advisory channel. An advisory reaches the agent's contacts, the rooms it is in, the solutions that use it and the installs of its package; is shown wherever the agent is listed; and receivers MAY hold its messages until their owner decides.
+
+### 4.13. Identity: What Is Fixed and What Plugs In
+
+An agent's identity on the mesh is its key (§1.5, invariant 2; §4.3). Companies also give their agents identities in systems of their own: OAuth access tokens from an authorization server, SPIFFE identities from a trust domain, and the workload identities of the IETF WIMSE work (`draft-ietf-wimse-aims`, the AI Identity Management System). §4.14 to §4.16 let those identities be how an agent gets onto a mesh, how an agent that holds no mesh key reaches one, and evidence that an agent acts for a person. The stop signals of §4.12 let an identity provider stop an agent at once.
+
+> **Deployment-defined (§1.6), except the seven rules below.** §4.14 (native enrollment by an outside proof), §4.15 (identity bridges), §4.16 (acting for a person), the provenance record of §9.7 and the stop signals of §4.12 are parts a server MAY offer. A server that offers one implements it as written here and passes its tests in the conformance suite's `identity` profile. The seven rules bind every server, every extension and every deployment-defined part, whether or not it offers any of them.
+
+**The seven rules (normative).** Whatever gives an agent its identity, these hold. A change to this specification, an extension or a deployment that breaks one of them is a regression, not an evolution.
+
+1. **Every message proves its own sender.** Every envelope is signed by the key in its `from` (§4.5, §5.3), whatever system the agent's identity came from, and a receiver verifies it with the envelope and the sender's public key alone. An outside credential (an access token, a certificate, a workload identity token) MUST NOT stand in for the envelope signature, and a receiver MUST NOT accept one in its place.
+2. **Every agent answers to an owner.** An agent enrolled through an outside proof (§4.14) belongs to the account whose trust record admitted it, and a bridged identity (§4.15) belongs to the account whose trust record admitted its caller's credential, or to the account that runs the bridge for the kinds §4.15 names. Either way that account has an owner (§4.1, §4.9).
+3. **Stopping belongs to the mesh.** A stop (§4.12) takes effect whatever state the agent's identity provider is in. A credential disabled at the identity provider, or a stop signal (§4.12), MAY add a stop. Neither is the only way to stop an agent, no stop waits on one, and an event from an identity provider MUST NOT lift a stop the mesh placed.
+4. **Reading a message calls out to no one.** Outside credentials are checked when an agent enrolls (§4.14), when it renews (§4.8) and when a bridge accepts a call (§4.15). Verifying an envelope MUST NOT wait on a request to an identity provider, a token introspection endpoint or any other party's server. Evidence that a message acts for a person (§4.16) is checked against keys the receiver already holds or caches, and evidence that cannot be checked is reported as unverifiable while the message itself is handled as usual.
+5. **Companies need no setup between them.** An agent of one account verifies, and is verified by, an agent of another account without either account trusting the other's identity provider. Trust records (§4.14) decide who may enroll into an account. They never decide whether a message from another account verifies.
+6. **The way in stays narrow.** Before admission there are exactly two verbs, `describe` and `knock` (§1.5, invariant 4; EXT-6). No identity part adds a third, and a credential presented to a bridge MUST NOT let its holder reach an inbox that the mesh identity it is mapped to could not reach.
+7. **Standards are welcome and products are optional.** The parts of §4.12 and §4.14 to §4.16 rest on open standards with more than one implementation. None of them requires one vendor's identity product, and a server that offers a part accepts every issuer or trust domain an owner configures that passes the part's checks.
+
+**How a new standard is judged (informative).** An outside identity standard is adopted into this specification when all of these are true: it works at the edge (the enrollment door, a bridge, or as evidence a message carries); a receiver checks a message exactly as it did before; the owner and the kill switch stay intact; reading a message needs no call out; and it is an open standard with more than one implementer. That rules out bearer tokens in place of the envelope signature, checking each message's token with its issuer, an identity provider's disable as the only stop, SAML for agents, and any requirement to use one vendor's product. It is why the WIMSE Workload Identity Token and Workload Proof Token, and HTTP Message Signatures (RFC 9421), are not yet among §4.14's proofs: they will be when their drafts settle and a second implementation ships them.
+
+**Words (informative).** This specification's terms map onto the standards' terms as follows.
+
+| This specification | The standards |
+|--------------------|---------------|
+| outside proof | credential (WIMSE), SVID (SPIFFE), access token (OAuth) |
+| `workload_id` | WIMSE identifier (`draft-ietf-wimse-identifier`); SPIFFE ID |
+| trusted issuer, trust domain | authorization server issuer; SPIFFE trust domain and trust bundle |
+| binding check | proof of possession: DPoP (RFC 9449), certificate-bound token (RFC 8705) |
+| `on_behalf_of` | token exchange (RFC 8693), Identity Assertion JWT Authorization Grant, transaction token, CIBA approval |
+| stop signal | Shared Signals Framework: CAEP and RISC events |
+
+### 4.14. Native Enrollment by an Outside Proof
+
+> **Deployment-defined (§1.6).** A server MAY offer it. A server that does states which proofs it accepts, and passes tests i01 to i10 of the `identity` profile for them.
+
+An agent whose company already gives it an identity can present that identity to the enrollment door instead of a one-time enrollment key from the operator. The door checks the proof, issues the credential the one-time key would have issued, and from then on the agent is a **native** agent: it holds its own key and signs every message with it (§4.13, rule 1). Nothing about how its messages are verified changes.
+
+**Trust records.** An account's owner lists the issuers and trust domains whose proofs may enroll agents into the account. The list is owner policy (§4.9): it is written under account-session authority and MAY additionally be signed with the owner key. A record is one of:
+
+```json
+{ "kind": "oauth", "issuer": "https://login.example.com/<tenant>/v2.0", "audience": "https://api.mesh.example.com", "require_binding": true }
+{ "kind": "spiffe", "trust_domain": "example.com", "bundle_endpoint": "https://spire.example.com/bundle", "require_mtls": false }
+```
+
+- `kind: "oauth"`. `issuer` is the authorization server's issuer identifier, compared exactly. The door finds the issuer's signing keys at the `jwks_uri` of its metadata: OpenID Provider metadata (`<issuer>/.well-known/openid-configuration`) or OAuth 2.0 Authorization Server Metadata (RFC 8414). The metadata's `issuer` MUST equal the record's. `audience` is the value an accepted token's `aud` MUST contain; it SHOULD be the mesh home (§18.10). `require_binding` (default `false`) refuses a token that is not bound to a key (DPoP or a certificate-bound token, below).
+- `kind: "spiffe"`. `trust_domain` is the SPIFFE trust domain name. The trust bundle comes from `bundle_endpoint` (a SPIFFE bundle endpoint, `https_web` profile) or is given inline as `bundle` (a SPIFFE bundle in its JWK set form); exactly one of the two is present. `require_mtls` (default `false`) accepts only an X.509-SVID presented over mutual TLS for this trust domain.
+
+An issuer, and a trust domain, MAY appear in the trust records of at most one account on a mesh instance. A server MUST refuse a record whose issuer or trust domain another account already trusts. This is what keeps rule 2 of §4.13 exact: an enrolled agent belongs to the one account whose record admitted it.
+
+**Keys are fetched, cached and failed closed.** A door caches an issuer's keys and a trust domain's bundle, honors their cache lifetimes, and fetches again when a token names a key ID it does not hold, no more often than once a minute per issuer. A door that cannot obtain the keys a proof needs MUST refuse the proof. It MUST NOT accept a proof because the keys could not be read.
+
+**The proofs and their checks.** Every check below MUST pass, or the door refuses.
+
+- **An OAuth token** (`"kind": "oauth"`): a JWT access token (RFC 9068) or another signed JWT from a trusted issuer.
+  - The signature verifies against a key in the issuer's key set named by the token's `kid`.
+  - The algorithm is asymmetric: `RS256`, `RS384`, `RS512`, `PS256`, `PS384`, `PS512`, `ES256`, `ES384`, `ES512` or `EdDSA`. The door MUST refuse `none` and every HMAC algorithm (`HS256` and the like), whatever key set the issuer publishes.
+  - `iss` equals the record's `issuer`, `aud` contains the record's `audience`, `exp` is in the future, and neither `nbf` nor `iat` is more than 60 seconds in the future.
+  - `typ`, where the token's profile defines one, has that value (`at+jwt` for RFC 9068 access tokens).
+  - The **workload identifier** is the token's `client_id` when it carries one, else its `sub`.
+- **A JWT-SVID** (`"kind": "jwt-svid"`): a SPIFFE JWT-SVID.
+  - The signature verifies against a key of the trust domain's bundle whose use is `jwt-svid`, under the same algorithm rule.
+  - `sub` is a SPIFFE ID in the record's trust domain, `aud` contains the mesh home (§18.10), and `exp` is in the future.
+  - The workload identifier is the SPIFFE ID.
+- **An X.509-SVID over mutual TLS** (`"kind": "x509-svid"`): the client certificate of the TLS connection that carries the request.
+  - The chain verifies to an X.509 authority of the trust domain's bundle, the leaf is not a certificate authority, and its URI SAN holds exactly one SPIFFE ID, in the record's trust domain.
+  - The workload identifier is that SPIFFE ID.
+  - A door that sits behind a proxy which ends TLS cannot see the certificate. Such a door either receives the connection's verified certificate from the proxy over a channel the operator controls, or does not offer this proof.
+
+**Binding checks.** A token bound to a key is checked against the key that presents it.
+
+- **DPoP** (RFC 9449). A token whose `cnf` carries `jkt` is accepted only with a DPoP proof: a JWT with `typ` `dpop+jwt`, an asymmetric `alg` as above, and a public key in its `jwk` header whose JWK thumbprint (RFC 7638) equals `cnf.jkt`. Its `htm` is `POST`, its `htu` is the door's URL without query or fragment, its `iat` is within 60 seconds of now, its `ath` is the base64url SHA-256 of the access token, and its `jti` has not been seen within the window the door enforces, which MUST be at least as long as the `iat` window. The proof travels in the request's `DPoP` header (RFC 9449 §4.1). A client that cannot set headers MAY send it as the body's `dpop` member, and a door MUST accept either.
+- **A certificate-bound token** (RFC 8705). A token whose `cnf` carries `x5t#S256` is accepted only over mutual TLS with a client certificate whose SHA-256 thumbprint equals it.
+- A record with `require_binding: true` refuses a token whose `cnf` carries neither.
+
+**One workload identifier, one agent.** Within an account, a workload identifier (with its issuer or trust domain) maps to one agent at a time. A new enrollment for a workload identifier that already has an agent replaces that agent's key: the door revokes the old key under §4.10, recording the new key as `replaced_by`, before it issues the new credential. Moving a handle to the new key stays the owner's act (§4.10); the replacement does not move one.
+
+**The request.** The enrollment door is the door that redeems a one-time enrollment key. It accepts a proof in place of the key:
+
+```json
+{ "agent_id": "<the agent's public key>", "proof": { "kind": "oauth", "token": "<the JWT>" } }
+{ "agent_id": "<the agent's public key>", "proof": { "kind": "jwt-svid", "token": "<the JWT-SVID>" } }
+{ "agent_id": "<the agent's public key>", "proof": { "kind": "x509-svid" } }
+```
+
+The agent's own key is made where the agent runs and never leaves it (§4.3). The answer is the same credential answer a one-time key gets, with the `mesh` object of §18.10, plus the agent's `identity_source` (§9.7). A refusal is `UNAUTHORIZED` with a machine-readable `details.reason`: `issuer_not_trusted`, `proof_invalid`, `proof_expired`, `audience_mismatch`, `algorithm_refused`, `binding_required` or `binding_mismatch`. The door records every enrollment and every refusal with the issuer or trust domain and the workload identifier, and never with the token.
+
+**Renewal needs a fresh proof.** A credential issued through this path is renewed (§4.8) only with a fresh proof that passes the same checks and names the same workload identifier. Possession of the node and agent keys, which renews an ordinary credential, is not enough on this path. An agent its company has turned off therefore cannot renew, and the stop signals of §4.12 make the stop immediate rather than waiting for the credential to lapse.
+
+### 4.15. Identity Bridges
+
+> **Deployment-defined (§1.6).** A server MAY run a bridge. A bridge that does passes test i11 of the `identity` profile, and an A2A bridge is also bound by `BRIDGE-A2A.md`.
+
+A **bridge** is a node (§4) that hosts mesh identities for callers that hold no mesh key, and signs for them. A caller reaches it over HTTPS, over MCP or over A2A, and presents a credential on every call. The A2A bridge (`BRIDGE-A2A.md`) is one bridge; this section states the rules every bridge follows, and that document adds what is particular to A2A.
+
+**The rules (normative).**
+
+1. **A bridge is a node.** It connects with its own node credential and registers each hosted identity under its own vouch (§4.4). Every distinct caller gets its own hosted identity, and a bridge MUST NOT share one mesh identity among callers in a way that makes their traffic indistinguishable.
+2. **The bridge's signature is its vouch.** The envelope signature on bridged traffic is the hosted identity's, made by the bridge. A bridge MUST NOT present bridged traffic as signed by the caller, and a receiver MUST NOT treat it as native.
+3. **One lasting identity per caller.** A caller presenting the same credential identity gets the same mesh key across calls, restarts and evictions. The bridge persists the association keyed by `caller_ref`, a non-reversible handle, and never by anything a caller could present. The hosted identity's signing seed is protected as any private key is.
+4. **Every message says it is bridged.** A hosted identity's manifest carries the extension `mesh://extensions/identity-bridge/v1` and the marker below in its `meta`, is `unlisted` when it serves no offerings, and its node is attested no higher than `trust_tier: standard` (§9.7). Every envelope the bridge sends for a caller carries the marker in the envelope's `meta`, where the envelope signature covers it:
+
+   ```json
+   "identity_bridge": { "bridge": "<the bridge's node key>", "caller_kind": "oauth", "caller_ref": "<opaque>", "front": "mcp" }
+   ```
+
+   `front` is the protocol the caller used: `https`, `mcp` or `a2a`. The marker MUST NOT carry the caller's account: a bridged caller is no more identifiable to strangers than a native agent. Resolving `caller_ref` to a party is the bridge operator's lookup, not a fact on the wire. An A2A bridge also carries `meta.a2a_bridge` (`BRIDGE-A2A.md` §8.3) for receivers written before this section.
+5. **The credential is checked on every call, at the bridge.** An OAuth token or JWT-SVID passes §4.14's checks against the trust records of the account it is mapped to, DPoP included, with two differences: its `aud` may name the URL of the front it is presented to instead of the record's `audience` (an MCP client asks for a token for the MCP server's URL, RFC 8707), and a DPoP proof's `htu` is that front's URL. A credential no trust record admits is refused. Receivers check nothing but the envelope (§4.13, rule 4).
+6. **Credentials stay out of models.** The credential travels in the HTTP request: the `Authorization` header, the `DPoP` header, or the TLS connection. A bridge's MCP front takes it there and never as a tool argument, and a bridge MUST NOT copy it into an envelope, a manifest or anything an agent receives.
+7. **Stopping a bridged identity works like any other.** A stop (§4.12) on a hosted identity makes the bridge refuse its caller's calls and cuts the identity as level 2 requires. A caller whose credential its issuer has disabled is refused at its next call, and a stop signal (§4.12) stops its identity at once.
+8. **The MCP front advertises its authorization servers.** A bridge that serves MCP serves OAuth 2.0 Protected Resource Metadata (RFC 9728) naming the authorization servers of the trust records it accepts, so an MCP client can find where to get a token.
+
+**Caller kinds.** `caller_kind` says what the caller presented, and with it the shape of the accountability, never the identity.
+
+| `caller_kind` | The caller presented | `caller_ref` | The hosted identity belongs to |
+|---------------|----------------------|--------------|--------------------------------|
+| `oauth` | an OAuth token from a trusted issuer (§4.14) | lowercase hex SHA-256 of the issuer, a newline (0x0A) and the workload identifier | the account whose trust record names the issuer |
+| `spiffe` | a JWT-SVID or X.509-SVID from a trusted trust domain | the SPIFFE ID | the account whose trust record names the trust domain |
+| `sandbox` | a sandbox key (§4.1) | the bridge's opaque reference for the key | the sandbox account; the node is attested `trust_tier: sandbox` |
+| `account` | an A2A bridge key minted against an account (`BRIDGE-A2A.md` §9) | the bridge's opaque reference | that account |
+| `operator` | an A2A bridge key the operator configured | the bridge's opaque reference | the operator's account |
+| `pact` | a PACT personal-agent JWT (`BRIDGE-A2A.md` §14.6) | as `BRIDGE-A2A.md` §14.6 defines it | the operator's account, for the personal agent's platform |
+| `anonymous` | nothing, where an A2A bridge allows it (`BRIDGE-A2A.md` §9) | the bridge's opaque reference for the session | the sandbox account |
+
+A receiver that meets a `caller_kind` it does not know treats the sender as bridged with no further standing. The registry records a hosted identity's `identity_source` as `kind: "bridged"` (§9.7), with the bridge's node key and, for `oauth` and `spiffe`, the caller's issuer or trust domain and workload identifier.
+
+How a bridge asks its own server to host a caller's identity is between the two and is not part of this specification: the reference implementation's bridge signs its request to the core with its node key and the hosted key (the statements `mesh-bridge-caller-v1` and `mesh-bridge-hosted-v1`), and no receiver ever sees or checks those signatures.
+
+### 4.16. Acting for a Person
+
+> **Deployment-defined (§1.6).** A server or SDK MAY offer it. One that does passes test i13 of the `identity` profile.
+
+An agent that acts for a person can carry the evidence with the message: a token the person's identity provider issued for the delegation. The envelope's `meta` carries it as `on_behalf_of`:
+
+```json
+"on_behalf_of": { "kind": "token-exchange", "token": "<the JWT>", "issuer": "https://login.example.com/<tenant>/v2.0" }
+```
+
+`kind` names how the delegation was granted:
+
+- `token-exchange`: a token issued by OAuth 2.0 Token Exchange (RFC 8693);
+- `id-jag`: a token obtained with the Identity Assertion JWT Authorization Grant (Cross App Access);
+- `transaction-token`: an OAuth transaction token;
+- `ciba`: a token issued after the person approved a request through Client-Initiated Backchannel Authentication;
+- `pact`: a PACT delegation token (`BRIDGE-A2A.md` §14.8).
+
+The name `on_behalf_of` keeps it apart from the delegation envelopes of §4.11, which are a different thing: one agent acting from many places.
+
+**What the sender does.** A sender MUST NOT attach a token whose `aud` does not name the receiving agent, either its agent ID or a resource identifier the receiving agent has been configured to accept, because whoever receives the message can present the token to its audience. A sender SHOULD prefer a token bound to a key (DPoP, §4.14).
+
+**What the receiver does.** The receiver checks the token against keys of the issuer it trusts by its own policy, which it holds or caches (§4.13, rule 4): the signature under §4.14's algorithm rule, `iss` equal to `issuer`, `aud` naming the receiver, and `exp` in the future. The result is one of three:
+
+- **verified**: every check passed;
+- **refused**: a check ran and failed (a bad signature, an audience that does not name the receiver, an expired token);
+- **unverifiable**: a check could not run (an issuer the receiver does not trust, keys it does not hold).
+
+Only verified evidence may be acted on as the person's authority. Refused and unverifiable evidence does not make the message itself invalid: the envelope verifies or not on its own signature (§5.3). The mesh records that a message carried evidence, with its kind and issuer, and never the token, and it never issues one.
+
+**The token never reaches a model.** An SDK that hands a message's text to a model MUST leave the token out of it, and puts a reference to the evidence and its result in its place.
 
 ---
 
@@ -632,7 +807,7 @@ All Agent Messaging messages use a standard envelope format. The envelope is the
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `v` | string | REQUIRED | Wire protocol version, in semver format. This is the version of the wire, not of this document (§20.1); under Agent Messaging 0.7 implementations send `0.3.0`. |
+| `v` | string | REQUIRED | Wire protocol version, in semver format. This is the version of the wire, not of this document (§20.1); under Agent Messaging 0.8 implementations send `0.3.0`. |
 | `id` | string | REQUIRED | Unique message identifier. UUID v7 RECOMMENDED (time-ordered). |
 | `type` | enum | REQUIRED | The primitive type. One of: `register`, `discover`, `request`, `respond`, `emit`, `subscribe`. |
 | `ts` | string | REQUIRED | ISO 8601 timestamp in UTC. Millisecond precision RECOMMENDED. |
@@ -2549,6 +2724,7 @@ Discovery queries support the following filter fields, combined with AND semanti
 | `trust_tier` | enum | node profile | Minimum node standing, e.g. exclude `sandbox` (Section 9.7). |
 | `availability_class` | enum | node profile | Node's *expected* uptime pattern, distinct from the live `availability` filter (Section 9.7). |
 | `reachability` | enum | node profile | Node reachability (`direct` / `leaf`) (Section 9.7). |
+| `identity_source` | object | node profile (attested) | Where the agent's identity came from (Section 9.7). Any of `kind` (one value or a list), `issuer` and `trust_domain`; each given member must match exactly. Agents with no record match only `kind: "mesh"`. |
 
 > `max_cost` discovery filtering moves to the Economics extension (Section 17).
 
@@ -2589,6 +2765,26 @@ The profile is a set of orthogonal attributes in two trust classes.
 |-----------|--------|---------|
 | `trust_tier` | `verified` \| `standard` \| `sandbox` | The standing the operator grants the node. `sandbox` nodes hold throwaway credentials issued without a sign-up and are confined to the sandbox (§4.1): they cannot deliver to agents outside it. Requesters SHOULD exclude them from sensitive work. |
 | `role` | `participant` \| `service` | `service` nodes host platform-service agents (registry, presence, task-manager; §9.1); `participant` nodes host application agents. |
+| `identity_source` | object, below | Where one agent's identity came from: the operator's own enrollment, an outside proof (§4.14), or a bridge (§4.15). Unlike the two attributes above it describes an agent, so its attestation is about the agent's key, and discovery joins it by agent rather than by node. |
+
+**Where an identity came from (`identity_source`).** The registry records, for each agent, how it got onto the mesh. The control plane writes it when it issues the agent's credential, the operator's key signs it, and neither the agent nor its node can set or change it:
+
+```json
+"identity_source": {
+  "kind": "oauth",
+  "issuer": "https://login.example.com/<tenant>/v2.0",
+  "trust_domain": "example.com",
+  "workload_id": "spiffe://example.com/agents/buyer",
+  "bridge": "<the bridge's node key>",
+  "since": "<ISO-8601>"
+}
+```
+
+- `kind` is one of `mesh` (enrolled with the operator's one-time key, the default), `oauth` or `spiffe` (enrolled natively through §4.14), `wimse` (reserved for the WIMSE Workload Identity Token, which §4.14 does not yet accept), or `bridged` (a bridge's hosted identity, §4.15). A verifier that meets a `kind` it does not know treats the agent as bridged.
+- `issuer` is present for `oauth` and `wimse`, and for a bridged identity whose caller presented an OAuth token. `trust_domain` is present for `spiffe`, and for a bridged identity whose caller presented a SPIFFE identity. `workload_id` is the workload identifier (§4.14) whenever there is an issuer or trust domain. `bridge` is present for `bridged` only. `since` is when the record was written.
+- A deployment MAY add members it defines, such as a verified company domain for the issuer, and a verifier MUST ignore members it does not know.
+
+Its attestation is the portable trust attestation below, with the same tag and the same expiry rules: its `subject` is the agent's key, and its `claims` carry `identity_source`. Discovery can filter on it (§9.3), and `describe` returns it (§10.14).
 
 **Declared** attributes are self-reported by the node; they are advisory hints a requester MAY use for selection but MUST NOT rely on for security:
 
@@ -2602,7 +2798,7 @@ Attested attributes are signed by the node's account or operator (e.g. as claims
 
 A requester combines the three sources: the **manifest** (what the agent is), the **node profile** (the durable conditions it runs under), and **presence** (whether it is reachable now, and its live load). Typical uses: exclude `trust_tier: sandbox` for sensitive work; prefer `availability_class: always_on` for latency-sensitive or long-running tasks; require `reachability: direct` across organizational boundaries; and weigh declared `capacity` against live load before routing.
 
-**Attestations are portable objects.** An attested claim (`trust_tier`, `role`) is a self-contained signed statement: a type tag, issuing operator key, subject node, claims, expiry, signature. Any party (including one on a different mesh instance) MAY verify it against the issuing operator's published root (§4.1) without consulting the issuing mesh. What weight a foreign operator's attestation deserves is the *receiving* side's policy decision: the signature travels, the trust decision stays local (the DKIM pattern). This is deliberate groundwork for federation (§21): reputation must survive crossing a boundary that trust policy does not.
+**Attestations are portable objects.** An attested claim (`trust_tier`, `role`, `identity_source`) is a self-contained signed statement: a type tag, issuing operator key, subject (the node, or for `identity_source` the agent), claims, expiry, signature. Any party (including one on a different mesh instance) MAY verify it against the issuing operator's published root (§4.1) without consulting the issuing mesh. What weight a foreign operator's attestation deserves is the *receiving* side's policy decision: the signature travels, the trust decision stays local (the DKIM pattern). This is deliberate groundwork for federation (§21): reputation must survive crossing a boundary that trust policy does not.
 
 The signed bytes are the canonical JSON (§5.3) of the attestation excluding `sig`. They MUST carry a `type` tag (`agentmesh-trust-attestation-v1`), and a verifier MUST reject a tag it does not recognize. Every other signature in this system is domain-separated by a versioned prefix string; a bare signature over an object is the one shape that cannot say what it is, cannot be versioned without invalidating every claim already issued, and can be replayed as a different kind of statement if two field sets ever converge.
 
@@ -2985,7 +3181,7 @@ The pre-admission read: the one substantive request any agent may make of any ot
 - Visibility (§8.6) governs *listing*, not *answering*: an `unlisted` agent MUST still answer `describe` when addressed directly by agent ID or handle, and MUST NOT appear in any listing. A `private` agent MAY refuse `describe` entirely.
 - The same document SHOULD also be served over plain HTTPS by the agent's home mesh, so that parties outside the mesh, including ordinary web crawlers, can read the storefront without transport credentials. The RECOMMENDED convention is `<home-mesh-URL>/a/<agent-id-or-handle>` (the card's `mesh` endpoint field, SPEC-NAMING §5.1, plus the same `/a/` path shape the reference registrar already serves for cards), with `Cache-Control` reflecting the manifest's update cadence. On-mesh strangers use `describe`; the rest of the web uses the URL. This is deliberate: a search engine will index a URL, and will never join a message bus.
 
-**Response:** an object with `agent_id`, the agent's registrar-signed card under `card` (SPEC-NAMING §5.3, present when the agent holds a handle), and the manifest `public` block verbatim under `public`. Absent optional parts are omitted, not nulled. The describe document is how the five questions of §3.3.1 are answered pre-admission.
+**Response:** an object with `agent_id`, the agent's registrar-signed card under `card` (SPEC-NAMING §5.3, present when the agent holds a handle), the manifest `public` block verbatim under `public`, and, where the registry holds one, the agent's `identity_source` (§9.7) with its attestation under `identity_source_attestation`. Absent optional parts are omitted, not nulled. The describe document is how the five questions of §3.3.1 are answered pre-admission.
 
 ---
 
@@ -4070,7 +4266,7 @@ where an instance offers a sandbox, §4.1) MUST include a `mesh` object:
 - `name`: the instance's identity, normally its control-plane domain.
 - `protocol`: the wire protocol version the instance speaks (major must match,
   §20.2). It is the wire version, not the version of this document (§20.1).
-  Under Agent Messaging 0.7 the reference deployment sends `"0.3"`, as the
+  Under Agent Messaging 0.8 the reference deployment sends `"0.3"`, as the
   example shows.
 - `endpoints`: the mesh's transport addresses, as URLs in preference order. It
   MUST list at least one address. The scheme of each URL names the binding and
@@ -4406,7 +4602,7 @@ The protocol version follows [Semantic Versioning](https://semver.org/):
 - **Patch:** Clarifications, typo fixes, non-normative changes.
 
 **The document version and the wire version are separate numbers.** The
-version in this document's title (Agent Messaging 0.7, Version 0.7.0) numbers
+version in this document's title (Agent Messaging 0.8, Version 0.8.0) numbers
 the text. The **wire version** is what implementations put on the wire: the
 envelope `v` (§5.2), the manifest `protocol_version` (§8.2), and the bootstrap
 `mesh.protocol` (§18.10). The wire version changes only when the wire changes
@@ -4414,7 +4610,7 @@ in a way §20.2's checks must see. The last such change was 0.3 (§20.4), and
 nothing since has required another: Agent Messaging 0.4, 0.5, 0.6 and 0.7 added fields,
 refusal reasons and sections without moving the wire version.
 
-Under Agent Messaging 0.7, implementations send `0.3.0` in the envelope `v` and
+Under Agent Messaging 0.8, implementations send `0.3.0` in the envelope `v` and
 the manifest `protocol_version`, and the reference deployment sends `0.3` in
 the bootstrap `mesh.protocol`. Receivers check only the major version (§20.2),
 so these values remain correct under 0.7. An implementation MUST NOT put the
@@ -5967,3 +6163,30 @@ Revision notes from the 0.2 draft line onward, in chronological order (oldest fi
 > the reference implementation, which implements the core profile, and
 > AgentMesh as the sponsor, which runs a network that claims the full
 > specification. The wire identifiers that carry the AgentMesh name keep it.
+
+> **2026-10-13: Agent Messaging 0.8 (Version 0.8.0). Bring your own identity.**
+> New §4.13 states seven rules that no identity system changes: every
+> message proves its own sender, every agent answers to an owner, stopping
+> belongs to the mesh, reading a message calls out to no one, companies need
+> no setup between them, the way in stays two verbs, and open standards are
+> accepted while no vendor is required. Under those rules four parts plug in,
+> all deployment-defined (§1.6), and the core profile does not change. §4.14
+> lets an agent enroll with an OAuth token, a JWT-SVID or an X.509-SVID in
+> place of the operator's one-time key, checked against trust records an
+> account's owner keeps, with DPoP (RFC 9449) and certificate-bound tokens
+> (RFC 8705), one agent per workload identifier, and renewal on a fresh proof
+> (§4.8). §4.15 lifts the bridge rules of `BRIDGE-A2A.md` into a general
+> section for bridges over HTTPS, MCP and A2A, with the `identity_bridge`
+> marker and the `caller_kind` values `oauth`, `spiffe` and `sandbox` beside
+> the A2A bridge's `account`, `operator`, `pact` and `anonymous`. §4.16 adds
+> `on_behalf_of`, evidence in an envelope's `meta` that an agent acts for a
+> person, which a receiver reports as verified, refused or unverifiable. §4.12
+> adds stop signals: Shared Signals events from a trusted issuer pause the
+> matching agent, and never lift a stop. §9.7 adds the attested
+> `identity_source`, where each agent's identity came from, which discovery
+> filters on (§9.3) and `describe` returns (§10.14). EXT-6 0.5.0 adds the
+> `bridged` tier and roster entries by source. The terms follow the IETF
+> WIMSE working group's AI Identity Management System draft
+> (`draft-ietf-wimse-aims`). The conformance suite gains an `identity`
+> profile, tests i01 to i14. Every addition is optional on the wire: the
+> wire version stays `0.3.0` (§20.1).

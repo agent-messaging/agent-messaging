@@ -81,7 +81,7 @@ evidence about the reference deployment only.
 | `AGENTMESH_SDK` | unset → the published tarball | test a release candidate instead (see below) |
 
 **Which SDK is under test.** By default the suite runs against the published
-`agentmesh` tarball pinned in `package.json` — the artifact real consumers
+`agent-messaging` tarball pinned in `package.json` — the artifact real consumers
 install, and the right thing to hold to the spec. Point `AGENTMESH_SDK` at a
 build directory (e.g. `AGENTMESH_SDK=../../sdk-typescript`) to test a release
 candidate before publishing it. Every run prints which one answered; a green

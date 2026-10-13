@@ -2,10 +2,9 @@
 // rewritable across an instance boundary. Reads the §14.1 table straight out
 // of SPEC.md — the spec is the fixture, so the test cannot drift from it.
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { specPath } from "../../lib/harness.mjs";
 
-const SPEC = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "SPEC.md");
+const SPEC = specPath();
 
 const rewrite = (subject, instance) => `mesh.peer.${instance}.${subject}`;
 const unrewrite = (subject, instance) => {

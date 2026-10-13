@@ -31,7 +31,7 @@ const agent = await AgentMesh.connect(need("MESH_URL"), {
 });
 
 let version = "unknown";
-try { version = (await import("agentmesh/package.json", { with: { type: "json" } })).default.version; } catch { /* label only */ }
+try { version = (await import("agent-messaging/package.json", { with: { type: "json" } })).default.version; } catch { /* label only */ }
 say({ ev: "ready", agent_id: agent.agentId, sdk: `agentmesh-typescript ${version}` });
 
 const commands = {

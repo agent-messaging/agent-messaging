@@ -4,7 +4,7 @@
 # un-env-skips t07/t08. Idempotent-ish: kills any prior instances first.
 set -uo pipefail
 RIG="${RIG:-$HOME/AppData/Local/Temp/claude/rig}"
-BIN="D:/cargo-target/debug/agentmesh-naming.exe"
+BIN="${PAN_REGISTRAR_BIN:-${CARGO_TARGET_DIR:-D:/cargo-target}/debug/pan-registrar.exe}"
 mkdir -p "$RIG"
 
 # Loopback only (BIND_ADDR): this is a test rig on somebody's laptop, not a
@@ -45,7 +45,7 @@ TEST_PEER="${TEST_PEER:-http://127.0.0.1:18089}"
 # column 4), not the Cygwin one in column 1 — passing column 1 silently kills
 # nothing, the old binary keeps the port and the exe file locked, and the next
 # `cargo build` fails with "Access is denied" while the rig serves stale code.
-for pid in $(ps -W 2>/dev/null | grep -i agentmesh-naming | awk '{print $4}'); do taskkill //F //PID "$pid" >/dev/null 2>&1; done
+for pid in $(ps -W 2>/dev/null | grep -i pan-registrar | awk '{print $4}'); do taskkill //F //PID "$pid" >/dev/null 2>&1; done
 sleep 1
 
 BIND_ADDR=127.0.0.1 PORT=18081 CATALOG_DATA_DIR="$RIG/rA" PAN_CARD_SEED="$SEEDA" \

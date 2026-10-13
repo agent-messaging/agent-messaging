@@ -7,6 +7,8 @@
 //                                    the core (the Agent Messaging Server)
 //   node run.mjs --profile platform  AgentMesh's deployment-defined parts
 //   node run.mjs --profile naming    the Agent Naming registrar tests
+//   node run.mjs --profile identity  bring your own identity (§4.13 to §4.16),
+//                                    the parts the mesh says it offers
 //   node run.mjs --profile all       everything
 //   node run.mjs --only c05          one test, whatever its profile
 //   node run.mjs --ci                exit 1 on a REGRESSION against either

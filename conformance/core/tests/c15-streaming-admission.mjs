@@ -18,7 +18,7 @@
 import { connect, jwtAuthenticator, nkeys } from "../../peering/lib/mesh.mjs";
 import { createEnvelope, signEnvelope } from "../../peering/lib/sdk.mjs";
 import { deregisterAdapter } from "../lib/deregister.mjs";
-import { plantAdapterIdentity } from "../lib/test-agents.mjs";
+import { adapterIdentity, adapterMeshApiEnv } from "../lib/test-agents.mjs";
 import { spawn } from "node:child_process";
 import { mkdtempSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -41,8 +41,9 @@ export default {
     if (!existsSync(ADAPTER)) throw new Error("env-skip: mesh-adapter.mjs not found (set RESOLVER_MJS)");
 
     const state = mkdtempSync(join(tmpdir(), "c15-stream-"));
-    // The standing test agent c15-stream.test@agentmesh.ai (lib/test-agents.mjs).
-    plantAdapterIdentity(state, env, "c15-stream");
+    // The standing test agent c15-stream.test@agentmesh.ai, or on a mesh with
+    // no naming a fresh key the suite enrolls (lib/test-agents.mjs).
+    const who = await adapterIdentity(state, env, "c15-stream");
     // NO streaming brain is configured, deliberately. Without STREAM_BRAIN the
     // adapter answers a streamed turn with its built-in word-by-word echo of
     // the sender's own prompt — which is a better probe than a scripted brain:
@@ -60,6 +61,7 @@ export default {
       MESH_CREDS_FILE: credsFile,
       MESH_URL: env.meshWsUrl,
       PAN_REGISTRAR: env.registrar,
+      ...adapterMeshApiEnv(env),
     };
 
     const child = spawn(process.execPath, [ADAPTER, "start", "--inbox", "--name", "c15-stream"], {
@@ -179,6 +181,7 @@ export default {
       if (nc) await deregisterAdapter(nc, state);
       child.kill();
       await nc?.close().catch(() => {});
+      await who.cleanup();
     }
     return fails.length
       ? { status: "fail", detail: fails.join("; ") }
