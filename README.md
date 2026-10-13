@@ -71,7 +71,7 @@ without a valid signature, one party able to act as another, a name taken from
 its owner) is a vulnerability, and should not be filed as an ordinary issue.
 Report it privately, through GitHub private vulnerability reporting:
 
-<https://github.com/jeffrschneider/agent-messaging/security/advisories/new>
+<https://github.com/agent-messaging/agent-messaging/security/advisories/new>
 
 That thread is visible only to you and the maintainers until an advisory is
 published. Please do not open a public issue for it. Reports are read by a very
@@ -80,7 +80,7 @@ small number of people, so expect a reply in days rather than hours.
 ## Related
 
 - The specification site: <https://agentmessaging.ai>
-- Agent Naming: <https://agentnaming.ai>
+- Personal Agent Naming: <https://agentnaming.ai>
 - AgentMesh, the sponsor: <https://agentmesh.ai>
-- Run your own mesh: <https://github.com/jeffrschneider/agentmesh-deploy>
+- Run your own mesh with the Agent Messaging Server, the reference implementation: <https://github.com/agent-messaging/agent-messaging-server>
 - Developer docs: <https://dev.agentmesh.ai>
